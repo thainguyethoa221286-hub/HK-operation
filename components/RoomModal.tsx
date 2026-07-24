@@ -130,7 +130,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
           <button
             onClick={() => onToggleInspecting(room.MaPhong, true)}
             disabled={room.isInspecting}
-            className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-amber-100 text-amber-800 disabled:opacity-40"
+            className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-yellow-100 text-yellow-800 disabled:opacity-40"
           >
             🔍 KIỂM PHÒNG
           </button>
