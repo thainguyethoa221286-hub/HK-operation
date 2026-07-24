@@ -4,9 +4,10 @@ import type { Room, Group } from './types';
 export function calculateWeightedCount(roomIds: string[]): number {
   let count = roomIds.length;
   roomIds.forEach((id) => {
-    if (id.includes('777')) count += 2;
-    if (id.includes('888')) count += 4;
-    if (id.includes('999')) count += 1;
+    const s = String(id);
+    if (s.includes('777')) count += 2;
+    if (s.includes('888')) count += 4;
+    if (s.includes('999')) count += 1;
   });
   return count;
 }
