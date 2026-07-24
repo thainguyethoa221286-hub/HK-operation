@@ -128,7 +128,7 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
       {floors.map((floor) => (
         <div key={floor}>
           <div className="text-xs font-bold tracking-wide text-slate-500 my-4">TẦNG {floor}</div>
-          <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:[grid-template-columns:repeat(auto-fill,minmax(120px,1fr))] gap-2 md:gap-2.5">
             {byFloor[floor].map((room) => (
               <RoomCard key={room.MaPhong} room={room} onClick={() => openModal(room)} />
             ))}
