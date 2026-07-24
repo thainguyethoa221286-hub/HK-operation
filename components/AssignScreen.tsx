@@ -6,6 +6,7 @@ import { Plus, X, Printer, ChevronDown, Users } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { MASTER_STAFF_LIST } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup } from '@/lib/assignHelpers';
+import { NoteIcons } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -16,6 +17,14 @@ const HK_DOT: Record<string, string> = {
   'Phòng sửa chữa (OOO)': 'bg-slate-400',
 };
 
+/* Mục 4 — tông màu pastel riêng cho từng cột nhân viên, xoay vòng theo index */
+const COLUMN_THEMES = [
+  { bg: 'bg-blue-50/70', border: 'border-blue-200', header: 'bg-blue-100/80' },
+  { bg: 'bg-emerald-50/70', border: 'border-emerald-200', header: 'bg-emerald-100/80' },
+  { bg: 'bg-amber-50/70', border: 'border-amber-200', header: 'bg-amber-100/80' },
+  { bg: 'bg-purple-50/70', border: 'border-purple-200', header: 'bg-purple-100/80' },
+];
+
 const DEFAULT_GROUPS: Group[] = [
   { id: 'N1', staffs: ['Hải'], extraTasks: [] },
   { id: 'N2', staffs: ['Tâm', 'Nghị'], extraTasks: [] },
@@ -23,6 +32,19 @@ const DEFAULT_GROUPS: Group[] = [
   { id: 'N4', staffs: ['Đầu'], extraTasks: [] },
   { id: 'N5', staffs: ['Nhân'], extraTasks: [] },
 ];
+
+/* Mục 2.B — quét từ khóa DND / Refuse trong ghi chú (không phân biệt hoa/thường) */
+function getLeftBadge(note: string) {
+  if (!note) return null;
+  const upper = note.toUpperCase();
+  if (upper.includes('DND')) {
+    return <span className="bg-red-100 text-red-700 font-bold px-1 rounded text-[9px]">DND</span>;
+  }
+  if (upper.includes('REFUSE') || upper.includes('TỪ CHỐI')) {
+    return <span className="bg-slate-200 text-slate-700 font-bold px-1 rounded text-[9px]">RF</span>;
+  }
+  return null;
+}
 
 interface AssignScreenProps {
   rooms: Room[];
@@ -34,6 +56,8 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   const [addStaffOpenFor, setAddStaffOpenFor] = useState<string | null>(null);
   const [taskModalGroupId, setTaskModalGroupId] = useState<string | null>(null);
   const [taskDraft, setTaskDraft] = useState('');
+  // Mục 1 — danh sách phòng đang được chọn (multi-select) trong kho chờ
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const saved = localStorage.getItem('hkpro_groups');
@@ -48,10 +72,19 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ');
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ');
 
-  const assignRoom = async (maPhong: string, group: Group) => {
+  const toggleSelect = (maPhong: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(maPhong)) next.delete(maPhong);
+      else next.add(maPhong);
+      return next;
+    });
+  };
+
+  const assignRooms = async (maPhongList: string[], group: Group) => {
     const label = group.staffs.join('+');
-    setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, NhanVienPhuTrach: label } : r)));
-    await updateRoomField(maPhong, 'NhanVienPhuTrach', label);
+    setRooms((prev) => prev.map((r) => (maPhongList.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: label } : r)));
+    await Promise.all(maPhongList.map((id) => updateRoomField(id, 'NhanVienPhuTrach', label)));
   };
 
   const unassignRoom = async (maPhong: string) => {
@@ -60,14 +93,22 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   };
 
   const onDragEnd = (result: DropResult) => {
-    const { destination, draggableId } = result;
+    const { destination, draggableId, source } = result;
     if (!destination) return;
     if (!destination.droppableId.startsWith('group-')) return;
     const groupId = destination.droppableId.replace('group-', '');
     const group = groups.find((g) => g.id === groupId);
     if (!group) return;
-    const maPhong = draggableId.replace(/^pool-/, '').replace(/^assigned-[^-]+-/, '');
-    assignRoom(maPhong, group);
+    const draggedId = draggableId.replace(/^pool-/, '').replace(/^assigned-[^-]+-/, '');
+
+    // Mục 1 — nếu phòng đang kéo nằm trong danh sách đã chọn (>1 phòng) thì kéo cả nhóm chọn
+    const fromPool = source.droppableId.startsWith('pool-');
+    if (fromPool && selectedIds.has(draggedId) && selectedIds.size > 1) {
+      assignRooms(Array.from(selectedIds), group);
+      setSelectedIds(new Set());
+    } else {
+      assignRooms([draggedId], group);
+    }
   };
 
   const addGroup = () => {
@@ -97,15 +138,32 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
     setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, extraTasks: g.extraTasks.filter((_, i) => i !== idx) } : g)));
   };
 
-  const RoomChip = ({ room, removable, onRemove }: { room: Room; removable?: boolean; onRemove?: () => void }) => (
-    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-[12px]">
-      <span className="flex items-center gap-1.5 font-semibold">
+  const RoomChip = ({
+    room, removable, onRemove, selectable, selected, onToggleSelect,
+  }: {
+    room: Room; removable?: boolean; onRemove?: () => void;
+    selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
+  }) => (
+    <div
+      onClick={selectable ? onToggleSelect : undefined}
+      className={`flex items-center justify-between bg-white border rounded-lg px-2.5 py-2 text-[12px] shadow-sm transition-all ${
+        selectable ? 'cursor-pointer' : ''
+      } ${selected ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-300' : 'border-slate-200 hover:border-slate-300'}`}
+    >
+      {/* Mục 2 — trái: chấm status + badge DND/RF + số phòng */}
+      <span className="flex items-center gap-1.5 font-semibold min-w-0">
         <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
-        {room.MaPhong} - {room.LoaiPhong}
+        {getLeftBadge(room.GhiChu)}
+        <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
       </span>
-      {removable && (
-        <button onClick={onRemove} className="text-slate-400 hover:text-red-500 font-bold px-1">✕</button>
-      )}
+
+      {/* Mục 3 — phải: icon EB/BBC/HON + nút xoá */}
+      <span className="flex items-center gap-1 flex-shrink-0">
+        <NoteIcons note={room.GhiChu} />
+        {removable && (
+          <button onClick={(e) => { e.stopPropagation(); onRemove?.(); }} className="text-slate-400 hover:text-red-500 font-bold px-1">✕</button>
+        )}
+      </span>
     </div>
   );
 
@@ -122,8 +180,8 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
             {dirtyRooms.map((room, i) => (
               <Draggable key={room.MaPhong} draggableId={`pool-${room.MaPhong}`} index={i}>
                 {(p) => (
-                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[140px]">
-                    <RoomChip room={room} />
+                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[150px]">
+                    <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
                   </div>
                 )}
               </Draggable>
@@ -142,8 +200,8 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
             {cleanRooms.map((room, i) => (
               <Draggable key={room.MaPhong} draggableId={`pool-${room.MaPhong}`} index={i}>
                 {(p) => (
-                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[140px]">
-                    <RoomChip room={room} />
+                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[150px]">
+                    <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
                   </div>
                 )}
               </Draggable>
@@ -152,6 +210,13 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
           </div>
         )}
       </Droppable>
+
+      {selectedIds.size > 0 && (
+        <div className="mb-4 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
+          Đã chọn {selectedIds.size} phòng — kéo 1 phòng bất kỳ trong số đó vào cột nhân viên để gán cả loạt
+          <button onClick={() => setSelectedIds(new Set())} className="text-blue-500 underline">Bỏ chọn</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 flex-wrap mb-4 pb-3 border-b border-slate-200">
         <span className="text-xs font-bold text-slate-500">NHÓM:</span>
@@ -190,19 +255,21 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
       </div>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(groups.length, 1)}, minmax(220px, 1fr))` }}>
-        {groups.map((g) => {
+        {groups.map((g, idx) => {
           const myRooms = roomsForGroup(rooms, g);
           const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong));
+          const theme = COLUMN_THEMES[idx % COLUMN_THEMES.length];
           return (
-            <div key={g.id} className="bg-white border border-slate-200 rounded-xl flex flex-col">
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100">
+            <div key={g.id} className={`border rounded-xl flex flex-col overflow-hidden ${theme.bg} ${theme.border}`}>
+              <div className={`flex items-center justify-between px-3 py-2.5 border-b ${theme.border} ${theme.header}`}>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <Users className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                  <Users className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                   <span className="font-bold text-sm truncate">{groupLabel(g) || '—'}</span>
-                  <span className="text-[11px] text-slate-400 whitespace-nowrap">({weighted} phòng)</span>
+                  {/* Mục 4 — số phòng đỏ nổi bật, đậm */}
+                  <span className="text-red-600 font-extrabold text-sm whitespace-nowrap">({weighted} phòng)</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Printer className="w-3.5 h-3.5 text-slate-400 cursor-pointer" onClick={() => window.print()} />
+                  <Printer className="w-3.5 h-3.5 text-slate-500 cursor-pointer" onClick={() => window.print()} />
                   <button
                     onClick={() => openTaskModal(g.id)}
                     className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"
@@ -218,7 +285,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 p-2 space-y-1.5 min-h-[80px] transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50' : ''}`}
+                    className={`flex-1 p-2 space-y-1.5 min-h-[80px] transition-colors ${snapshot.isDraggingOver ? 'bg-white/70' : ''}`}
                   >
                     {myRooms.map((room, i) => (
                       <Draggable key={room.MaPhong} draggableId={`assigned-${g.id}-${room.MaPhong}`} index={i}>
@@ -231,10 +298,10 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
                     ))}
                     {provided.placeholder}
 
-                    {g.extraTasks.map((task, idx) => (
-                      <div key={idx} className="flex items-start justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11px] text-yellow-800">
+                    {g.extraTasks.map((task, idx2) => (
+                      <div key={idx2} className="flex items-start justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11px] text-yellow-800">
                         <span>📋 {task}</span>
-                        <X className="w-3 h-3 cursor-pointer flex-shrink-0 mt-0.5" onClick={() => removeTask(g.id, idx)} />
+                        <X className="w-3 h-3 cursor-pointer flex-shrink-0 mt-0.5" onClick={() => removeTask(g.id, idx2)} />
                       </div>
                     ))}
                   </div>
