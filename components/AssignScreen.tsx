@@ -78,8 +78,9 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
     localStorage.setItem('hkpro_groups', JSON.stringify(groups));
   }, [groups]);
 
-  const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ');
-  const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ');
+  // Kho phòng chờ CHỈ hiển thị phòng chưa được gán cho nhân viên nào
+  const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && !r.NhanVienPhuTrach);
+  const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && !r.NhanVienPhuTrach);
 
   const toggleSelect = (maPhong: string) => {
     setSelectedIds((prev) => {
