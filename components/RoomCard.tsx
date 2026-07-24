@@ -30,8 +30,8 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
         {room.MaPhong}
       </div>
 
-      <div className="flex items-center justify-between mt-1.5 text-[9px] text-slate-500 gap-1">
-        <span className="flex items-center gap-1">
+      <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-600 gap-1">
+        <span className="flex items-center gap-1 font-medium">
           <FoStatusIcon status={room.FoStatus} />
           {room.NgayO}
         </span>
