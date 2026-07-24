@@ -17,6 +17,15 @@ const HK_DOT: Record<string, string> = {
   'Phòng sửa chữa (OOO)': 'bg-slate-400',
 };
 
+/* Mục 2 — badge viết tắt theo FO Status */
+const FO_BADGE: Record<string, { text: string; cls: string }> = {
+  Occupied: { text: 'OD', cls: 'bg-red-50 text-red-600 border border-red-300' },
+  'Due out': { text: 'DO', cls: 'bg-orange-50 text-orange-600 border border-orange-300' },
+  Vacant: { text: 'VD', cls: 'bg-slate-100 text-slate-500 border border-slate-300' },
+  'Due out/ARR': { text: 'DO/Arr', cls: 'bg-purple-50 text-purple-600 border border-purple-300' },
+  Arrival: { text: 'ARR', cls: 'bg-sky-50 text-sky-600 border border-sky-300' },
+};
+
 /* Mục 4 — tông màu pastel riêng cho từng cột nhân viên, xoay vòng theo index */
 const COLUMN_THEMES = [
   { bg: 'bg-blue-50/70', border: 'border-blue-200', header: 'bg-blue-100/80' },
@@ -155,6 +164,11 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
         <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
         {getLeftBadge(room.GhiChu)}
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
+        {FO_BADGE[room.FoStatus] && (
+          <span className={`text-[8px] font-bold px-1 rounded flex-shrink-0 ${FO_BADGE[room.FoStatus].cls}`}>
+            {FO_BADGE[room.FoStatus].text}
+          </span>
+        )}
       </span>
 
       {/* Mục 3 — phải: icon EB/BBC/HON + nút xoá */}
@@ -254,7 +268,10 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
         ))}
       </div>
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(groups.length, 1)}, minmax(220px, 1fr))` }}>
+      <div
+        className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:[grid-template-columns:repeat(var(--ncols),minmax(220px,1fr))]"
+        style={{ ['--ncols' as any]: Math.max(groups.length, 1) }}
+      >
         {groups.map((g, idx) => {
           const myRooms = roomsForGroup(rooms, g);
           const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong));
