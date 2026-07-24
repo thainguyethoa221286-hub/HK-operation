@@ -34,6 +34,16 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
     setFlags((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
   };
 
+  // Fix 2 — nút "Đã out": Due out -> Vacant | Due out/ARR -> Arrival
+  const handleDaOut = () => {
+    setFo((prev) => {
+      if (prev === 'Due out') return 'Vacant';
+      if (prev === 'Due out/ARR') return 'Arrival';
+      return prev;
+    });
+    toggleFlag('DaOut');
+  };
+
   const tagNote = () => setNote((prev) => (prev ? prev + ' ' : '') + '[Sửa chữa] ');
 
   const handleClose = () => {
@@ -113,7 +123,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
             return (
               <div
                 key={f.key}
-                onClick={() => toggleFlag(f.key)}
+                onClick={() => (f.key === 'DaOut' ? handleDaOut() : toggleFlag(f.key))}
                 className={`border rounded-xl px-1 py-2.5 text-center text-[10px] font-semibold cursor-pointer ${
                   active ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-slate-200 text-slate-500 bg-white'
                 }`}
