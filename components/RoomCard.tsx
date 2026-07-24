@@ -1,7 +1,7 @@
 'use client';
 
 import type { Room } from '@/lib/types';
-import { getRoomCardStyle, FoStatusIcon } from '@/lib/roomStyles';
+import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons } from '@/lib/roomStyles';
 
 interface RoomCardProps {
   room: Room;
@@ -10,18 +10,16 @@ interface RoomCardProps {
 
 export default function RoomCard({ room, onClick }: RoomCardProps) {
   const { border, bg } = getRoomCardStyle(room.HkStatus, room.isInspecting);
-  const hasFlag = Boolean(room.GhiChu);
 
   return (
     <div
       onClick={onClick}
       className={`relative rounded-lg p-2.5 cursor-pointer shadow-sm border-l-[6px] transition-all duration-200 ${border} ${bg}`}
     >
-      {hasFlag && (
-        <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center">
-          !
-        </span>
-      )}
+      <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+        <FlagBadgeIcons flags={room.Flags} />
+        <NoteIcons note={room.GhiChu} />
+      </div>
 
       <div className="text-[9px] font-bold tracking-wide text-slate-500">
         {room.LoaiPhong}
