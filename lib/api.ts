@@ -1,0 +1,109 @@
+import type { Room } from './types';
+import { SAMPLE_ROOMS } from './sampleData';
+
+// Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
+export const API_URL = '';
+
+function jsonp<T = any>(action: string, params: Record<string, string>): Promise<T | null> {
+  return new Promise((resolve, reject) => {
+    if (!API_URL) { resolve(null); return; }
+    const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    (window as any)[cbName] = (data: T) => {
+      resolve(data);
+      delete (window as any)[cbName];
+      script.remove();
+    };
+    const qs = new URLSearchParams({ action, callback: cbName, ...params }).toString();
+    const script = document.createElement('script');
+    script.src = API_URL + '?' + qs;
+    script.onerror = () => reject(new Error('Network error'));
+    document.body.appendChild(script);
+  });
+}
+
+export async function fetchRooms(): Promise<Room[]> {
+  if (!API_URL) return SAMPLE_ROOMS;
+  const r = await jsonp<{ success: boolean; rooms: any[] }>('getRooms', {});
+  if (!r || !r.rooms) return SAMPLE_ROOMS;
+  return r.rooms.map((row) => ({ ...row, isInspecting: false })) as Room[];
+}
+
+export async function updateRoomField(maPhong: string, field: string, value: string) {
+  if (!API_URL) return;
+  await jsonp('updateRoom', { maPhong, field, value });
+}
+
+export async function bulkUpdateFromAI(chunk: any[]) {
+  if (!API_URL) return;
+  await jsonp('bulkUpdateFromAI', { data: JSON.stringify(chunk) });
+}
+
+export const AI_SYSTEM_PROMPT = `Bạn là một trợ lý AI chuyên phân tích dữ liệu khách sạn cho hệ thống HK PRO.
+Nhiệm vụ của bạn là đọc nội dung file PDF báo cáo trạng thái phòng được tải lên, trích xuất dữ liệu của tất cả các phòng và trả về dạng JSON duy nhất.
+
+---
+
+### QUY TẮC MÁP DỮ LIỆU (MAPPING RULES)
+
+1. Trạng thái Housekeeping (hkStatus) - BẮT BUỘC chọn 1 trong 5 giá trị sau:
+   - "Phòng dơ" (Tương ứng: Dirty, DI, Uncleaned, Bẩn)
+   - "Phòng đang dọn" (Tương ứng: Cleaning, In Progress, Đang dọn)
+   - "Phòng sạch" (Tương ứng: Inspecting, Touch up, Cần kiểm tra)
+   - "Đã kiểm tra" (Tương ứng: Clean, Inspected, CI, Sạch)
+   - "Phòng sửa chữa (OOO)" (Tương ứng: Out of Order, OOO, Repair, Maintenance, Hỏng)
+
+2. Trạng thái Front Office / Lễ tân (foStatus) - BẮT BUỘC chọn 1 trong 5 giá trị sau:
+   - "Occupied" (Tương ứng: OCC, Có khách, In-house, Chiếm lĩnh)
+   - "Due out" (Tương ứng: Expected Departure, ED, Check-out, Dep, Sắp out)
+   - "Arrival" (Tương ứng: Expected Arrival, EA, Check-in, Arr, Sắp đến)
+   - "Due out/ARR" (Tương ứng: Day Use, DU, Use-in-day)
+   - "Vacant" (Tương ứng: VAC, Ready, Phòng trống)
+
+3. Định dạng Số phòng (id):
+   - Giữ nguyên số phòng dạng chuỗi text (Ví dụ: "102", "204", "777", "888", "999").
+   - Xác định Tầng (floor) dựa trên số đầu tiên của phòng (Ví dụ: Phòng "102" -> floor: 1, Phòng "902" -> floor: 9).
+
+---
+
+### YÊU CẦU ĐẦU RA (OUTPUT FORMAT)
+
+RẤT QUAN TRỌNG: Chỉ trả về một mảng JSON thuần túy (JSON Array). KHÔNG kèm theo lời mở đầu, lời giải thích, KHÔNG bọc trong khối code markdown (như \`\`\`json ... \`\`\`).
+
+Cấu trúc JSON mẫu:
+[
+  { "id": "102", "floor": 1, "hkStatus": "Phòng dơ", "foStatus": "Occupied", "note": "Check-out 12:00" },
+  { "id": "202", "floor": 2, "hkStatus": "Đã kiểm tra", "foStatus": "Vacant", "note": "" }
+]`;
+
+export async function readPdfWithAI(file: File): Promise<any[]> {
+  const base64Data: string = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res((r.result as string).split(',')[1]);
+    r.onerror = () => rej(new Error('Read failed'));
+    r.readAsDataURL(file);
+  });
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system: AI_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
+            { type: 'text', text: 'Đọc file báo cáo phòng này và trả về JSON theo đúng quy tắc.' },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data.content.map((b: any) => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
