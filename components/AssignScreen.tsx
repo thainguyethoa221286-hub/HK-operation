@@ -79,8 +79,13 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   }, [groups]);
 
   // Kho phòng chờ CHỈ hiển thị phòng chưa được gán cho nhân viên nào
-  const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && !r.NhanVienPhuTrach);
-  const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && !r.NhanVienPhuTrach);
+  // Fix: phòng chỉ tính là "đã gán" khi nhãn của nó khớp với 1 nhóm ĐANG TỒN TẠI.
+  // Nếu nhóm bị xoá hoặc đổi thành phần (khiến nhãn cũ không còn khớp nhóm nào),
+  // phòng đó tự động coi là chưa gán và quay lại kho chờ — không bị "biến mất".
+  const activeGroupLabels = new Set(groups.map((g) => g.staffs.join('+')).filter(Boolean));
+  const isUnassigned = (r: Room) => !r.NhanVienPhuTrach || !activeGroupLabels.has(r.NhanVienPhuTrach);
+  const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && isUnassigned(r));
+  const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
 
   const toggleSelect = (maPhong: string) => {
     setSelectedIds((prev) => {
