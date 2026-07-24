@@ -53,7 +53,21 @@ export async function fetchRooms(): Promise<Room[]> {
   if (!r.success || !r.rooms) {
     throw new Error('Apps Script báo lỗi: ' + (r.error || 'không có trường "rooms" trong phản hồi'));
   }
-  return r.rooms.map((row) => ({ ...row, isInspecting: false })) as Room[];
+  // Ép toàn bộ trường về dạng chữ — Google Sheets có thể tự lưu ô toàn số (vd MaPhong)
+  // thành kiểu Number, phá vỡ mọi hàm xử lý chuỗi (.includes, .toUpperCase...) ở phía sau.
+  return r.rooms.map((row) => ({
+    ...row,
+    MaPhong: String(row.MaPhong ?? ''),
+    Tang: String(row.Tang ?? ''),
+    LoaiPhong: String(row.LoaiPhong ?? ''),
+    HkStatus: String(row.HkStatus ?? ''),
+    FoStatus: String(row.FoStatus ?? ''),
+    NgayO: String(row.NgayO ?? ''),
+    NhanVienPhuTrach: String(row.NhanVienPhuTrach ?? ''),
+    GhiChu: String(row.GhiChu ?? ''),
+    Flags: String(row.Flags ?? ''),
+    isInspecting: false,
+  })) as Room[];
 }
 
 export async function updateRoomField(maPhong: string, field: string, value: string) {
