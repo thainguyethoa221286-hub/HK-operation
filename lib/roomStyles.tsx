@@ -29,7 +29,7 @@ export function getRoomCardStyle(hkStatus: HkStatus, isInspecting: boolean) {
    MỤC 1 — QUY TẮC ICON THEO FO STATUS (Lucide React)
    ========================================================= */
 export function FoStatusIcon({ status }: { status: FoStatus }) {
-  const cls = 'w-3.5 h-3.5';
+  const cls = 'w-[18px] h-[18px] text-slate-700 stroke-[2.25]';
   switch (status) {
     case 'Arrival':
       return <PlaneLanding className={cls} />;
