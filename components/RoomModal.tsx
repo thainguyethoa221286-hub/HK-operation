@@ -30,11 +30,6 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
 
   if (!room) return null;
 
-  const cycleStaff = () => {
-    const idx = STAFF_LIST.indexOf(staff);
-    setStaff(STAFF_LIST[(idx + 1) % STAFF_LIST.length]);
-  };
-
   const toggleFlag = (key: string) => {
     setFlags((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
   };
@@ -96,14 +91,19 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
           </div>
         </div>
 
-        <div
-          onClick={cycleStaff}
-          className="flex items-center gap-2.5 bg-blue-50 rounded-xl px-3 py-2.5 mb-3.5 cursor-pointer"
-        >
-          <div className="w-[26px] h-[26px] rounded-full bg-blue-200 flex items-center justify-center">
+        <div className="flex items-center gap-2.5 bg-blue-50 rounded-xl px-3 py-2.5 mb-3.5">
+          <div className="w-[26px] h-[26px] rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
             <Users className="w-3.5 h-3.5 text-blue-700" />
           </div>
-          <div className="font-semibold text-sm">{staff}</div>
+          <select
+            value={staff}
+            onChange={(e) => setStaff(e.target.value)}
+            className="flex-1 bg-transparent font-semibold text-sm outline-none cursor-pointer"
+          >
+            {STAFF_LIST.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
 
         <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Điều phối</div>
