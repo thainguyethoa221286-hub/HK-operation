@@ -15,6 +15,7 @@ export default function HomePage() {
   const [screen, setScreen] = useState<ScreenKey>('sodo');
   const [loading, setLoading] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Fix 4 — khởi tạo an toàn cho SSR: chỉ đọc localStorage trong useEffect (client-only),
   // tránh lỗi hydration mismatch trên Safari/Chrome Mobile.
@@ -35,11 +36,20 @@ export default function HomePage() {
     fetchRooms().then((data) => {
       if (API_URL) {
         setRooms(data);
+        setSyncError(null);
       } else if (!cachedRooms || cachedRooms.length === 0) {
         setRooms(data);
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      setLoading(false);
+      if (API_URL) {
+        setSyncError(
+          'Không kết nối được Google Sheet: ' + (err?.message || 'lỗi không xác định') +
+          '. Đang hiển thị dữ liệu cũ trên trình duyệt này (có thể không khớp Sheet thật).'
+        );
+      }
+    });
   }, []);
 
   // Fix 4 — lưu mọi thay đổi vào LocalStorage để không mất khi refresh
@@ -119,6 +129,12 @@ export default function HomePage() {
           </button>
           <span className="font-bold text-[15px]">HK PRO</span>
         </div>
+
+        {syncError && (
+          <div className="mb-4 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+            ⚠ {syncError}
+          </div>
+        )}
 
         {loading && rooms.length === 0 ? (
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
