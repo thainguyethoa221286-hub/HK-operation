@@ -75,9 +75,27 @@ export function FlagBadgeIcons({ flags }: { flags: string }) {
 }
 
 /* =========================================================
-   MỤC 4 — TỰ ĐỘNG NHẬN DIỆN TỪ KHÓA TRONG GHI CHÚ
-   Không phân biệt hoa/thường
+   MỤC 3 — NHẬN DIỆN DND / REFUSE TRONG GHI CHÚ
    ========================================================= */
+export function hasDndOrRf(note: string): { dnd: boolean; rf: boolean } {
+  if (!note) return { dnd: false, rf: false };
+  const upper = note.toUpperCase();
+  return {
+    dnd: upper.includes('DND'),
+    rf: upper.includes('REFUSE') || upper.includes('TỪ CHỐI'),
+  };
+}
+
+export function DndRfBadge({ note }: { note: string }) {
+  const { dnd, rf } = hasDndOrRf(note);
+  if (!dnd && !rf) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {dnd && <span className="bg-red-100 text-red-700 font-bold px-1 rounded text-[9px]">DND</span>}
+      {rf && <span className="bg-slate-200 text-slate-700 font-bold px-1 rounded text-[9px]">RF</span>}
+    </div>
+  );
+}
 export function NoteIcons({ note }: { note: string }) {
   if (!note) return null;
   const upperNote = note.toUpperCase();
