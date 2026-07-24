@@ -45,8 +45,14 @@ function jsonp<T = any>(action: string, params: Record<string, string>, timeoutM
 
 export async function fetchRooms(): Promise<Room[]> {
   if (!API_URL) return SAMPLE_ROOMS;
-  const r = await jsonp<{ success: boolean; rooms: any[] }>('getRooms', {});
-  if (!r || !r.rooms) return SAMPLE_ROOMS;
+  const r = await jsonp<{ success: boolean; rooms?: any[]; error?: string }>('getRooms', {});
+  console.log('[HK PRO] Phản hồi getRooms từ Apps Script:', r);
+  if (!r) {
+    throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
+  }
+  if (!r.success || !r.rooms) {
+    throw new Error('Apps Script báo lỗi: ' + (r.error || 'không có trường "rooms" trong phản hồi'));
+  }
   return r.rooms.map((row) => ({ ...row, isInspecting: false })) as Room[];
 }
 
