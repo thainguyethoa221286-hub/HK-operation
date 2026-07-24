@@ -23,7 +23,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
     if (!room) return;
     setHk(room.HkStatus);
     setFo(room.FoStatus);
-    setStaff(room.NhanVienPhuTrach || 'Chưa gán');
+    setStaff(room.NhanVienPhuTrach || '');
     setNote(room.GhiChu || '');
     setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
   }, [room]);
@@ -34,13 +34,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
     setFlags((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
   };
 
-  // Fix 2 — nút "Đã out": Due out -> Vacant | Due out/ARR -> Arrival
+  // Fix 1 — nút "Đã out": HK Status luôn về "Phòng dơ"; FO Status: Occupied/Due out -> Vacant, Due out/ARR -> Arrival
   const handleDaOut = () => {
     setFo((prev) => {
-      if (prev === 'Due out') return 'Vacant';
+      if (prev === 'Occupied' || prev === 'Due out') return 'Vacant';
       if (prev === 'Due out/ARR') return 'Arrival';
       return prev;
     });
+    setHk('Phòng dơ');
     toggleFlag('DaOut');
   };
 
@@ -110,6 +111,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
             onChange={(e) => setStaff(e.target.value)}
             className="flex-1 bg-transparent font-semibold text-sm outline-none cursor-pointer"
           >
+            <option value="">— Chưa gán —</option>
             {STAFF_LIST.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
