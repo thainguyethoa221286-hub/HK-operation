@@ -1,9 +1,9 @@
-import { PlaneLanding, PlaneTakeoff, BedDouble } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
    MỤC 2 — QUY TẮC MÀU SẮC THẺ PHÒNG (dựa trên HK Status)
-   Nền LUÔN là trắng — chỉ dải viền trái đổi màu theo trạng thái.
+   Viền trái đổi màu theo trạng thái; nền mặc định trắng.
    ========================================================= */
 export const HK_STYLE: Record<HkStatus, { border: string }> = {
   'Phòng dơ': { border: 'border-l-red-500' },
@@ -13,16 +13,22 @@ export const HK_STYLE: Record<HkStatus, { border: string }> = {
   'Phòng sửa chữa (OOO)': { border: 'border-l-slate-400' },
 };
 
-/** Nền tạm thời khi phòng đang trong quá trình kiểm phòng (mục 3) — NGOẠI LỆ DUY NHẤT đổi nền */
+/** Nền tạm thời khi phòng đang trong quá trình kiểm phòng — ưu tiên cao nhất, đè lên mọi nền khác */
 export const INSPECTING_BG = 'bg-yellow-100';
 
-/** Trả về class border + background cho 1 phòng, có tính đến trạng thái isInspecting tạm thời */
+/** Nền riêng cho trạng thái "Phòng đang dọn" */
+export const CLEANING_BG = 'bg-blue-50';
+
+/**
+ * Trả về class border + background cho 1 phòng.
+ * Thứ tự ưu tiên nền: isInspecting (vàng) > Phòng đang dọn (xanh nhạt) > mặc định (trắng)
+ */
 export function getRoomCardStyle(hkStatus: HkStatus, isInspecting: boolean) {
   const base = HK_STYLE[hkStatus] ?? HK_STYLE['Phòng dơ'];
-  return {
-    border: base.border,
-    bg: isInspecting ? INSPECTING_BG : 'bg-white',
-  };
+  let bg = 'bg-white';
+  if (hkStatus === 'Phòng đang dọn') bg = CLEANING_BG;
+  if (isInspecting) bg = INSPECTING_BG;
+  return { border: base.border, bg };
 }
 
 /* =========================================================
@@ -50,4 +56,41 @@ export function FoStatusIcon({ status }: { status: FoStatus }) {
       // Vacant: không hiển thị icon
       return null;
   }
+}
+
+/* =========================================================
+   MỤC 3 — ICON HUY HIỆU THEO NÚT ĐIỀU PHỐI (Flags)
+   ========================================================= */
+export function FlagBadgeIcons({ flags }: { flags: string }) {
+  const list = (flags || '').split(',').map((f) => f.trim()).filter(Boolean);
+  if (list.length === 0) return null;
+  const cls = 'w-3.5 h-3.5';
+  return (
+    <div className="flex items-center gap-1">
+      {list.includes('CayBac') && <Bell className={`${cls} text-red-500`} aria-label="Rush" />}
+      {list.includes('TrangDiem') && <PenTool className={`${cls} text-purple-500`} aria-label="MKR" />}
+      {list.includes('SuaChua') && <Wrench className={`${cls} text-slate-600`} aria-label="Sửa chữa" />}
+    </div>
+  );
+}
+
+/* =========================================================
+   MỤC 4 — TỰ ĐỘNG NHẬN DIỆN TỪ KHÓA TRONG GHI CHÚ
+   Không phân biệt hoa/thường
+   ========================================================= */
+export function NoteIcons({ note }: { note: string }) {
+  if (!note) return null;
+  const upperNote = note.toUpperCase();
+  const cls = 'w-3.5 h-3.5';
+  const hasEB = upperNote.includes('EB');
+  const hasBBC = upperNote.includes('BBC');
+  const hasHON = upperNote.includes('HON');
+  if (!hasEB && !hasBBC && !hasHON) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {hasEB && <BedSingle className={`${cls} text-indigo-600`} aria-label="Extra Bed" />}
+      {hasBBC && <Baby className={`${cls} text-pink-500`} aria-label="Baby Cot" />}
+      {hasHON && <Wine className={`${cls} text-rose-600`} aria-label="Honeymoon" />}
+    </div>
+  );
 }
