@@ -49,4 +49,12 @@ export const FLAGS = [
   { key: 'SuaChua', label: 'Sửa chữa', icon: '🔧' },
 ] as const;
 
+export interface Group {
+  id: string;
+  staffs: string[];
+  extraTasks: string[];
+}
+
+export const MASTER_STAFF_LIST = ['Nhân', 'Tiến', 'Tâm', 'Hải', 'Hồng', 'Nghị', 'Trúc', 'HK', 'Tôi', 'Đầu'];
+
 export const STAFF_LIST = ['Nhân', 'Tiến', 'Nghị', 'Tâm', 'Hài', 'Hồng', 'Trúc', 'HK'];
