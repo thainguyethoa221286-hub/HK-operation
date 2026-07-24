@@ -2,7 +2,7 @@ import type { Room } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
-export const API_URL = '';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbxTPmiYJ881RoCG9dzyEUVFexFrnkB32z89VBHtfds-lQ--fEHCyFuWiHYiHVzdI82-YQ/exec';
 
 function jsonp<T = any>(action: string, params: Record<string, string>): Promise<T | null> {
   return new Promise((resolve, reject) => {
