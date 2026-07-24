@@ -15,7 +15,7 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-xl p-2.5 cursor-pointer shadow-sm transition-colors duration-200 ${border} ${bg}`}
+      className={`relative rounded-lg p-2.5 cursor-pointer shadow-sm border-l-[6px] transition-all duration-200 ${border} ${bg}`}
     >
       {hasFlag && (
         <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center">
@@ -41,7 +41,7 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
       </div>
 
       {room.isInspecting && (
-        <div className="mt-1 text-[9px] font-bold text-amber-700">● Đang kiểm phòng</div>
+        <div className="mt-1 text-[9px] font-bold text-yellow-700">● Đang kiểm phòng</div>
       )}
     </div>
   );
