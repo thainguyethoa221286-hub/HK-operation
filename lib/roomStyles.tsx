@@ -3,24 +3,25 @@ import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
    MỤC 2 — QUY TẮC MÀU SẮC THẺ PHÒNG (dựa trên HK Status)
+   Nền LUÔN là trắng — chỉ dải viền trái đổi màu theo trạng thái.
    ========================================================= */
-export const HK_STYLE: Record<HkStatus, { border: string; bg: string }> = {
-  'Phòng dơ': { border: 'border-l-4 border-l-red-500', bg: 'bg-white' },
-  'Phòng đang dọn': { border: 'border-l-4 border-l-red-500', bg: 'bg-blue-50' },
-  'Phòng sạch': { border: 'border-l-4 border-l-yellow-400', bg: 'bg-white' },
-  'Đã kiểm tra': { border: 'border-l-4 border-l-green-500', bg: 'bg-white' },
-  'Phòng sửa chữa (OOO)': { border: 'border-l-4 border-l-slate-400', bg: 'bg-slate-100' },
+export const HK_STYLE: Record<HkStatus, { border: string }> = {
+  'Phòng dơ': { border: 'border-l-red-500' },
+  'Phòng đang dọn': { border: 'border-l-blue-500' },
+  'Phòng sạch': { border: 'border-l-yellow-400' },
+  'Đã kiểm tra': { border: 'border-l-green-500' },
+  'Phòng sửa chữa (OOO)': { border: 'border-l-slate-400' },
 };
 
-/** Nền tạm thời khi phòng đang trong quá trình kiểm phòng (mục 3) */
-export const INSPECTING_BG = 'bg-amber-100';
+/** Nền tạm thời khi phòng đang trong quá trình kiểm phòng (mục 3) — NGOẠI LỆ DUY NHẤT đổi nền */
+export const INSPECTING_BG = 'bg-yellow-100';
 
 /** Trả về class border + background cho 1 phòng, có tính đến trạng thái isInspecting tạm thời */
 export function getRoomCardStyle(hkStatus: HkStatus, isInspecting: boolean) {
   const base = HK_STYLE[hkStatus] ?? HK_STYLE['Phòng dơ'];
   return {
     border: base.border,
-    bg: isInspecting ? INSPECTING_BG : base.bg,
+    bg: isInspecting ? INSPECTING_BG : 'bg-white',
   };
 }
 
