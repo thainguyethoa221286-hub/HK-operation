@@ -4,19 +4,41 @@ import { SAMPLE_ROOMS } from './sampleData';
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
 export const API_URL = 'https://script.google.com/macros/s/AKfycbxTPmiYJ881RoCG9dzyEUVFexFrnkB32z89VBHtfds-lQ--fEHCyFuWiHYiHVzdI82-YQ/exec';
 
-function jsonp<T = any>(action: string, params: Record<string, string>): Promise<T | null> {
+function jsonp<T = any>(action: string, params: Record<string, string>, timeoutMs = 8000): Promise<T | null> {
   return new Promise((resolve, reject) => {
     if (!API_URL) { resolve(null); return; }
     const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-    (window as any)[cbName] = (data: T) => {
-      resolve(data);
+    let settled = false;
+
+    const cleanup = () => {
       delete (window as any)[cbName];
       script.remove();
+      clearTimeout(timer);
     };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('Hết thời gian chờ phản hồi từ Google Sheet (kiểm tra lại quyền truy cập Apps Script hoặc URL)'));
+    }, timeoutMs);
+
+    (window as any)[cbName] = (data: T) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(data);
+    };
+
     const qs = new URLSearchParams({ action, callback: cbName, ...params }).toString();
     const script = document.createElement('script');
     script.src = API_URL + '?' + qs;
-    script.onerror = () => reject(new Error('Network error'));
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('Không tải được script từ Apps Script (network error)'));
+    };
     document.body.appendChild(script);
   });
 }
