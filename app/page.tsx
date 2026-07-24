@@ -50,9 +50,23 @@ export default function HomePage() {
   };
 
   // Mục 3 — toggle trạng thái tạm thời isInspecting, KHÔNG lưu vào Sheet
+  // Mục 1.B — nút "NHẢ PHÒNG": nếu đang "Phòng sạch" thì tự đổi thành "Đã kiểm tra"
   const handleToggleInspecting = (maPhong: string, value: boolean) => {
-    setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, isInspecting: value } : r)));
-    setActiveRoom((prev) => (prev && prev.MaPhong === maPhong ? { ...prev, isInspecting: value } : prev));
+    let newHkStatus: string | null = null;
+    setRooms((prev) =>
+      prev.map((r) => {
+        if (r.MaPhong !== maPhong) return r;
+        const hk = !value && r.HkStatus === 'Phòng sạch' ? 'Đã kiểm tra' : r.HkStatus;
+        if (hk !== r.HkStatus) newHkStatus = hk;
+        return { ...r, HkStatus: hk, isInspecting: value };
+      })
+    );
+    setActiveRoom((prev) => {
+      if (!prev || prev.MaPhong !== maPhong) return prev;
+      const hk = !value && prev.HkStatus === 'Phòng sạch' ? 'Đã kiểm tra' : prev.HkStatus;
+      return { ...prev, HkStatus: hk, isInspecting: value };
+    });
+    if (newHkStatus) updateRoomField(maPhong, 'HkStatus', newHkStatus);
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
