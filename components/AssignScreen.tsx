@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Plus, X, Printer, ChevronDown, Users } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { MASTER_STAFF_LIST } from '@/lib/types';
-import { calculateWeightedCount, groupLabel, roomsForGroup } from '@/lib/assignHelpers';
+import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
 
@@ -81,7 +81,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   // Fix: phòng chỉ tính là "đã gán" khi nhãn của nó khớp với 1 nhóm ĐANG TỒN TẠI.
   // Nếu nhóm bị xoá hoặc đổi thành phần (khiến nhãn cũ không còn khớp nhóm nào),
   // phòng đó tự động coi là chưa gán và quay lại kho chờ — không bị "biến mất".
-  const activeGroupLabels = new Set(groups.map((g) => g.staffs.join('+')).filter(Boolean));
+  const activeGroupLabels = new Set(groups.map((g) => groupCurrentLabel(g)));
   const isUnassigned = (r: Room) => !r.NhanVienPhuTrach || !activeGroupLabels.has(r.NhanVienPhuTrach);
   const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && isUnassigned(r));
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
@@ -96,7 +96,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   };
 
   const assignRooms = async (maPhongList: string[], group: Group) => {
-    const label = group.staffs.join('+');
+    const label = groupCurrentLabel(group);
     setRooms((prev) => prev.map((r) => (maPhongList.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: label } : r)));
     await Promise.all(maPhongList.map((id) => updateRoomField(id, 'NhanVienPhuTrach', label)));
   };
@@ -125,6 +125,17 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
     }
   };
 
+  // Khi nhãn của 1 nhóm đổi (thêm/bớt nhân viên), toàn bộ phòng đang mang nhãn cũ
+  // (kể cả nhãn tạm N1/N2... khi nhóm chưa có ai) được tự động chuyển sang nhãn mới —
+  // để không mất phòng đã kéo trước khi gán tên nhân viên.
+  const migrateAssignedRooms = async (oldLabel: string, newLabel: string) => {
+    if (oldLabel === newLabel) return;
+    const affected = rooms.filter((r) => r.NhanVienPhuTrach === oldLabel).map((r) => r.MaPhong);
+    if (affected.length === 0) return;
+    setRooms((prev) => prev.map((r) => (affected.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: newLabel } : r)));
+    await Promise.all(affected.map((id) => updateRoomField(id, 'NhanVienPhuTrach', newLabel)));
+  };
+
   const addGroup = () => {
     const nums = groups.map((g) => Number(g.id.replace('N', '')) || 0);
     const nextId = 'N' + (Math.max(0, ...nums) + 1);
@@ -134,12 +145,24 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   const removeGroup = (id: string) => setGroups((prev) => prev.filter((g) => g.id !== id));
 
   const addStaffToGroup = (groupId: string, staff: string) => {
-    setGroups((prev) => prev.map((g) => (g.id === groupId && !g.staffs.includes(staff) ? { ...g, staffs: [...g.staffs, staff] } : g)));
+    const group = groups.find((g) => g.id === groupId);
+    if (!group || group.staffs.includes(staff)) { setAddStaffOpenFor(null); return; }
+    const oldLabel = groupCurrentLabel(group);
+    const updatedGroup = { ...group, staffs: [...group.staffs, staff] };
+    const newLabel = groupCurrentLabel(updatedGroup);
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
     setAddStaffOpenFor(null);
+    migrateAssignedRooms(oldLabel, newLabel);
   };
 
   const removeStaffFromGroup = (groupId: string, staff: string) => {
-    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, staffs: g.staffs.filter((s) => s !== staff) } : g)));
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
+    const oldLabel = groupCurrentLabel(group);
+    const updatedGroup = { ...group, staffs: group.staffs.filter((s) => s !== staff) };
+    const newLabel = groupCurrentLabel(updatedGroup);
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
+    migrateAssignedRooms(oldLabel, newLabel);
   };
 
   const openTaskModal = (groupId: string) => { setTaskModalGroupId(groupId); setTaskDraft(''); };
@@ -289,7 +312,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
               <div className={`flex items-center justify-between px-3 py-2.5 border-b ${theme.border} ${theme.header}`}>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Users className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-                  <span className="font-bold text-sm truncate">{groupLabel(g) || '—'}</span>
+                  <span className="font-bold text-sm truncate">{groupLabel(g) || g.id}</span>
                   {/* Mục 4 — số phòng đỏ nổi bật, đậm */}
                   <span className="text-red-600 font-extrabold text-sm whitespace-nowrap">({weighted} phòng)</span>
                 </div>
