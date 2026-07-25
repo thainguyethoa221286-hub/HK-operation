@@ -16,9 +16,17 @@ export function groupLabel(group: Group): string {
   return group.staffs.join('+').toUpperCase();
 }
 
-/** Phòng đang được giao cho nhóm này (dựa trên NhanVienPhuTrach khớp đúng nhãn nhóm) */
+/** Nhãn THỰC SỰ dùng để lưu vào cột NhanVienPhuTrach trên Sheet:
+ *  - Có nhân viên -> tên nhân viên nối bằng "+" (VD "Tâm+Nghị")
+ *  - CHƯA có nhân viên -> dùng chính mã nhóm (VD "N6") làm nhãn tạm,
+ *    để giám sát có thể kéo phòng vào cột trước, thêm tên nhân viên sau
+ *    mà không mất phòng đã kéo. */
+export function groupCurrentLabel(group: Group): string {
+  return group.staffs.length > 0 ? group.staffs.join('+') : group.id;
+}
+
+/** Phòng đang được giao cho nhóm này (dựa trên NhanVienPhuTrach khớp đúng nhãn hiện tại của nhóm) */
 export function roomsForGroup(rooms: Room[], group: Group): Room[] {
-  const label = group.staffs.join('+');
-  if (!label) return [];
+  const label = groupCurrentLabel(group);
   return rooms.filter((r) => r.NhanVienPhuTrach === label);
 }
