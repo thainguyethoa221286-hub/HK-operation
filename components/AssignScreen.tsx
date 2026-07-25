@@ -6,7 +6,7 @@ import { Plus, X, Printer, ChevronDown, Users } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { MASTER_STAFF_LIST } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup } from '@/lib/assignHelpers';
-import { NoteIcons, hasDndOrRf } from '@/lib/roomStyles';
+import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -157,7 +157,9 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
   }: {
     room: Room; removable?: boolean; onRemove?: () => void;
     selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
-  }) => (
+  }) => {
+    const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
+    return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
       className={`flex items-center justify-between bg-white border rounded-lg px-2.5 py-2 text-[12px] shadow-sm transition-all ${
@@ -167,7 +169,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
       {/* Mục 2 — trái: chấm status + badge DND/RF + số phòng */}
       <span className="flex items-center gap-1.5 font-semibold min-w-0">
         <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
-        {getLeftBadge(room.GhiChu)}
+        {getLeftBadge(combinedNote)}
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
         {FO_BADGE[room.FoStatus] && (
           <span className={`text-[8px] font-bold px-1 rounded flex-shrink-0 ${FO_BADGE[room.FoStatus].cls}`}>
@@ -178,13 +180,14 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
 
       {/* Mục 3 — phải: icon EB/BBC/HON + nút xoá */}
       <span className="flex items-center gap-1 flex-shrink-0">
-        <NoteIcons note={room.GhiChu} />
+        <NoteIcons note={combinedNote} />
         {removable && (
           <button onClick={(e) => { e.stopPropagation(); onRemove?.(); }} className="text-slate-400 hover:text-red-500 font-bold px-1">✕</button>
         )}
       </span>
     </div>
-  );
+    );
+  };
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
