@@ -65,6 +65,7 @@ export async function fetchRooms(): Promise<Room[]> {
     NgayO: String(row.NgayO ?? ''),
     NhanVienPhuTrach: String(row.NhanVienPhuTrach ?? ''),
     GhiChu: String(row.GhiChu ?? ''),
+    GhiChuNV: String(row.GhiChuNV ?? ''),
     Flags: String(row.Flags ?? ''),
     isInspecting: false,
   })) as Room[];
