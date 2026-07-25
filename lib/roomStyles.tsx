@@ -97,6 +97,21 @@ export function cleanNote(rawNote?: string | null): string {
   return foundCodes.join(', ');
 }
 
+/** Gắn thêm 1 mã (VD "DND") vào chuỗi ghi chú nếu chưa có, giữ nguyên phần chữ khác trong ghi chú */
+export function addNoteCode(note: string, code: string): string {
+  if (new RegExp(`\\b${code}\\b`, 'i').test(note || '')) return note || '';
+  return note ? `${note}, ${code}` : code;
+}
+
+/** Gỡ 1 mã (VD "DND") khỏi chuỗi ghi chú, giữ nguyên phần chữ khác trong ghi chú */
+export function removeNoteCode(note: string, code: string): string {
+  return (note || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s.toUpperCase() !== code.toUpperCase())
+    .join(', ');
+}
+
 /* =========================================================
    MỤC 3 — NHẬN DIỆN DND / RF (Refuse) TRONG GHI CHÚ
    Dựa trên cleanNote() để tránh bắt nhầm chuỗi con (VD "SUPERB" chứa "EB")
@@ -172,4 +187,49 @@ function formatSingleDate(str: string): string {
   } catch {
     return str;
   }
+}
+
+/* =========================================================
+   MODULE NHIỆM VỤ — style badge TaskStatus + tiện ích tính giờ
+   ========================================================= */
+export const TASK_STATUS_STYLE: Record<string, { label: string; cls: string }> = {
+  'Chưa dọn': { label: 'Chưa dọn', cls: 'bg-slate-100 text-slate-600' },
+  'Đang dọn': { label: 'Đang dọn', cls: 'bg-blue-100 text-blue-700' },
+  'Hoàn thành': { label: 'Hoàn thành', cls: 'bg-green-100 text-green-700' },
+  'Refused': { label: 'PHÒNG KHÔNG LÀM', cls: 'bg-red-100 text-red-700' },
+  'DND': { label: 'DND', cls: 'bg-red-100 text-red-700' },
+};
+
+/** Giờ hiện tại dạng HH:mm:ss — dùng để ghi StartTime/EndTime khi bấm nút trong module Nhiệm vụ */
+export function nowTimeStr(): string {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+/** Số phút chênh lệch giữa 2 mốc giờ dạng "HH:mm:ss" (cùng ngày) — làm tròn xuống, tối thiểu 0 */
+export function diffMinutes(startTimeStr: string, endTimeStr: string): number {
+  const toSeconds = (s: string) => {
+    const [h, m, sec] = s.split(':').map(Number);
+    return (h || 0) * 3600 + (m || 0) * 60 + (sec || 0);
+  };
+  const diff = toSeconds(endTimeStr) - toSeconds(startTimeStr);
+  return Math.max(0, Math.floor(diff / 60));
+}
+
+/** Số giây đã trôi qua kể từ startTimeStr ("HH:mm:ss") tới hiện tại — dùng cho đồng hồ đếm giờ sống trên card */
+export function elapsedSecondsSince(startTimeStr: string): number {
+  if (!startTimeStr) return 0;
+  const [h, m, s] = startTimeStr.split(':').map(Number);
+  const start = new Date();
+  start.setHours(h || 0, m || 0, s || 0, 0);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
+  return Math.max(0, diff);
+}
+
+/** Định dạng số giây thành "mm:ss" cho đồng hồ đếm giờ trên card */
+export function formatElapsed(totalSeconds: number): string {
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 }
