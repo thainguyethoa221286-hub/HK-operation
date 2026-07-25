@@ -15,6 +15,9 @@ const LEGEND = [
   { label: 'Phòng sửa chữa (OOO)', dot: 'bg-slate-400' },
 ];
 
+// 3 phòng Penthouse đặc biệt — chiếm 2 cột trong lưới sơ đồ, nội dung to hơn
+const SPECIAL_ROOMS = ['777', '888', '999'];
+
 interface RoomMapScreenProps {
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
@@ -139,9 +142,14 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
         <div key={floor}>
           <div className="text-xs font-bold tracking-wide text-slate-500 my-4">TẦNG {floor}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:[grid-template-columns:repeat(auto-fill,minmax(120px,1fr))] gap-2 md:gap-2.5">
-            {byFloor[floor].map((room) => (
-              <RoomCard key={room.MaPhong} room={room} onClick={() => openModal(room)} />
-            ))}
+            {byFloor[floor].map((room) => {
+              const isSpecial = SPECIAL_ROOMS.includes(room.MaPhong);
+              return (
+                <div key={room.MaPhong} className={isSpecial ? 'col-span-2' : ''}>
+                  <RoomCard room={room} onClick={() => openModal(room)} special={isSpecial} />
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
