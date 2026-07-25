@@ -14,23 +14,29 @@ RẤT QUAN TRỌNG: Bạn BẮT BUỘC chỉ trả về một mảng JSON thuầ
 
 Dựa vào các cột trong báo cáo: cột "I/O" (Change Status), "Room Status", "Est Time Arrival", "Est Time Departure".
 
+QUAN TRỌNG: foStatus và hkStatus là 2 trục ĐỘC LẬP với nhau:
+- foStatus xác định theo cột I/O + Est Time Arrival/Departure (xem quy tắc bên dưới).
+- hkStatus xác định RIÊNG theo giá trị thực tế của cột "Room Status" (Dirty/Clean/Inspected/...) qua bảng quy đổi bên dưới — dù foStatus là gì thì hkStatus vẫn đọc đúng theo Room Status thật ghi trong báo cáo, KHÔNG mặc định là "Dirty".
+
+Lưu ý khi đọc cột I/O: do PDF trích xuất văn bản đôi khi bị chèn khoảng trắng thừa, chữ "AD" có thể hiện thành "A D" (có dấu cách ở giữa) — hãy coi "A D" và "AD" là MỘT (cùng nghĩa "AD").
+
 Xác định foStatus theo đúng thứ tự các trường hợp sau (chỉ chọn 1 trong 5 giá trị: "Occupied", "Due out", "Arrival", "Due out/ARR", "Vacant"):
 
-1. Nếu cột I/O có chữ "A" (không phải "AD"), Room Status = Dirty, Est Time Arrival = "***ARR***"
-   -> foStatus = "Arrival" (phòng trống chờ khách mới đến hôm nay)
-2. Nếu cột I/O có chữ "AD", Room Status = Dirty, Est Time Arrival = "***ARR***"
+1. Nếu cột I/O có chữ "A" (và KHÔNG phải "AD"/"A D"), Est Time Arrival = "***ARR***"
+   -> foStatus = "Arrival" (phòng chờ khách mới đến hôm nay)
+2. Nếu cột I/O có chữ "AD" (hoặc "A D"), Est Time Arrival = "***ARR***"
    -> foStatus = "Due out/ARR" (khách cũ trả phòng và khách mới nhận phòng trong cùng ngày)
-3. Nếu cột I/O trống, Room Status = Dirty, có đầy đủ ngày Arrival & Departure cụ thể (VD: 24/7/26 đến 26/7/26, đang ở giữa khoảng đó)
+3. Nếu cột I/O trống, có đầy đủ ngày Arrival & Departure cụ thể (VD: 24/7/26 đến 26/7/26, đang ở giữa khoảng đó, KHÔNG phải "***ARR***")
    -> foStatus = "Occupied"
 4. Nếu cột I/O trống, cả Est Time Arrival và Est Time Departure đều trống/rỗng
    -> foStatus = "Vacant"
 5. Nếu ngày ở cột "Est Time Departure" TRÙNG với ngày hôm nay (xem ngày hôm nay ở tin nhắn kèm theo), và cột I/O KHÔNG có chữ "A" hoặc "AD"
    -> foStatus = "Due out"
 
-Quy đổi hkStatus linh hoạt theo Room Status / trạng thái ghi trong báo cáo (chỉ chọn 1 trong 5 giá trị sau):
+Quy đổi hkStatus theo giá trị thực tế của cột "Room Status" (chỉ chọn 1 trong 5 giá trị sau):
    - "Dirty" -> "Phòng dơ"
    - "Cleaning" / "In Progress" -> "Phòng đang dọn"
-   - "Clean" / "Inspecting" / "Touch up" -> "Phòng sạch"
+   - "Clean" / "Touch up" -> "Phòng sạch"
    - "Inspected" -> "Đã kiểm tra"
    - "OOO" / "Out of Order" / "Repair" -> "Phòng sửa chữa (OOO)"
 
@@ -38,10 +44,14 @@ Quy đổi hkStatus linh hoạt theo Room Status / trạng thái ghi trong báo 
 
 ---
 
-### B. QUY TẮC ĐỊNH DẠNG NGÀY (date trong trường "note" nếu cần, KHÔNG có trường date riêng)
+### B. TRƯỜNG "date" — NGÀY CHECK-IN / CHECK-OUT (BẮT BUỘC PHẢI CÓ, TRỪ PHÒNG VACANT)
 
-- Với phòng "Occupied": nếu đọc được cả ngày Check-in và Check-out, có thể ghi khoảng ngày dạng "24/07-26/07" vào đầu trường note (không bắt buộc, chỉ nếu có ích).
-- CHỈ dùng định dạng ngày ngắn DD/MM hoặc DD/MM-DD/MM. TUYỆT ĐỐI KHÔNG dùng định dạng ISO dài (VD: 2026-07-24T17:00:00.000Z).
+Với MỌI phòng có thông tin Est Time Arrival và/hoặc Est Time Departure, BẮT BUỘC điền trường "date" riêng (không gộp vào note):
+   - Nếu có cả ngày Arrival cụ thể VÀ ngày Departure cụ thể -> "date": "DD/MM-DD/MM" (VD: "24/07-26/07").
+   - Nếu Est Time Arrival = "***ARR***" (khách đến hôm nay) và có ngày Departure cụ thể -> "date": "{ngày hôm nay}-DD/MM" (dùng ngày hôm nay cho vế đầu, VD hôm nay 25/07 và Departure 28/07 -> "date": "25/07-28/07").
+   - Nếu chỉ có 1 trong 2 ngày -> "date" chỉ ghi ngày đó, dạng "DD/MM".
+   - Nếu phòng Vacant (không có cả Arrival lẫn Departure) -> "date": "".
+CHỈ dùng định dạng ngày ngắn DD/MM hoặc DD/MM-DD/MM. TUYỆT ĐỐI KHÔNG dùng định dạng ISO dài (VD: 2026-07-24T17:00:00.000Z) và KHÔNG kèm năm.
 
 ---
 
@@ -52,7 +62,7 @@ Chỉ trích các mã dịch vụ đặc biệt nếu có xuất hiện trong b�
    - "BBC" (Baby Cot / nôi trẻ em)
    - "HON" (Honeymoon / trăng mật)
 Ghi các mã tìm được vào trường "note", cách nhau bởi dấu phẩy (VD: "EB, HON"). Nếu không có mã nào, để note = "".
-TUYỆT ĐỐI KHÔNG trích tên khách vào trường note hay bất kỳ trường nào khác.
+TUYỆT ĐỐI KHÔNG trích tên khách vào trường note hay bất kỳ trường nào khác. KHÔNG ghi ngày tháng vào trường note — ngày tháng chỉ nằm ở trường "date" riêng.
 
 ---
 
@@ -60,9 +70,10 @@ TUYỆT ĐỐI KHÔNG trích tên khách vào trường note hay bất kỳ trư
 
 Cấu trúc JSON mẫu:
 [
-  { "id": "102", "floor": 1, "hkStatus": "Phòng dơ", "foStatus": "Occupied", "note": "24/07-26/07" },
-  { "id": "202", "floor": 2, "hkStatus": "Đã kiểm tra", "foStatus": "Vacant", "note": "" },
-  { "id": "306", "floor": 3, "hkStatus": "Phòng dơ", "foStatus": "Arrival", "note": "EB" }
+  { "id": "102", "floor": 1, "hkStatus": "Phòng dơ", "foStatus": "Arrival", "date": "25/07-28/07", "note": "" },
+  { "id": "104", "floor": 1, "hkStatus": "Phòng dơ", "foStatus": "Occupied", "date": "24/07-26/07", "note": "" },
+  { "id": "202", "floor": 2, "hkStatus": "Đã kiểm tra", "foStatus": "Vacant", "date": "", "note": "" },
+  { "id": "306", "floor": 3, "hkStatus": "Phòng dơ", "foStatus": "Arrival", "date": "25/07-28/07", "note": "EB" }
 ]
 
 TUYỆT ĐỐI KHÔNG được hỏi lại, không xin làm rõ, không giải thích lý do — kể cả khi file khó đọc hoặc thiếu thông tin, hãy trích xuất tối đa những gì đọc được và trả về JSON ngay theo đúng định dạng trên. Nếu 1 phòng nào đó không rõ trạng thái, vẫn đưa phòng đó vào mảng với dữ liệu suy đoán hợp lý nhất, tuyệt đối không bỏ sót và không chèn bất kỳ câu chữ nào ngoài mảng JSON.`;
