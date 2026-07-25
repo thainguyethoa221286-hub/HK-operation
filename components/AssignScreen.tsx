@@ -6,7 +6,7 @@ import { Plus, X, Printer, ChevronDown, Users } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { MASTER_STAFF_LIST } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup } from '@/lib/assignHelpers';
-import { NoteIcons } from '@/lib/roomStyles';
+import { NoteIcons, hasDndOrRf } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -42,17 +42,16 @@ const DEFAULT_GROUPS: Group[] = [
   { id: 'N5', staffs: ['Nhân'], extraTasks: [] },
 ];
 
-/* Mục 2.B — quét từ khóa DND / Refuse trong ghi chú (không phân biệt hoa/thường) */
+/* Mục 2.B — badge DND (đỏ) / RF (tím đậm) trong ghi chú, hiện đồng thời nếu có cả 2 */
 function getLeftBadge(note: string) {
-  if (!note) return null;
-  const upper = note.toUpperCase();
-  if (upper.includes('DND')) {
-    return <span className="bg-red-100 text-red-700 font-bold px-1 rounded text-[9px]">DND</span>;
-  }
-  if (upper.includes('REFUSE') || upper.includes('TỪ CHỐI')) {
-    return <span className="bg-slate-200 text-slate-700 font-bold px-1 rounded text-[9px]">RF</span>;
-  }
-  return null;
+  const { dnd, rf } = hasDndOrRf(note);
+  if (!dnd && !rf) return null;
+  return (
+    <span className="flex items-center gap-1">
+      {dnd && <span className="bg-red-600 text-white font-extrabold px-1 rounded-sm text-[9px]">DND</span>}
+      {rf && <span className="bg-purple-800 text-white font-extrabold px-1 rounded-sm text-[9px]">RF</span>}
+    </span>
+  );
 }
 
 interface AssignScreenProps {
