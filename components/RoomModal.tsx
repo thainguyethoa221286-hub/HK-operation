@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS, STAFF_LIST } from '@/lib/types';
+import { formatDateShort } from '@/lib/roomStyles';
 
 interface RoomModalProps {
   room: Room | null;
@@ -65,7 +66,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
           <div>
             <h4 className="text-[17px] font-bold">Phòng {room.MaPhong}</h4>
             <div className="text-xs text-slate-500 mt-0.5">
-              {room.LoaiPhong} • {room.NgayO || '—'}
+              {room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}
             </div>
           </div>
           <X className="w-[18px] h-[18px] text-slate-500 cursor-pointer" onClick={onClose} />
