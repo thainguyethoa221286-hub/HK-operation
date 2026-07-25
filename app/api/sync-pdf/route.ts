@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cleanNote } from '@/lib/roomStyles';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -55,14 +56,16 @@ CHỈ dùng định dạng ngày ngắn DD/MM hoặc DD/MM-DD/MM. TUYỆT ĐỐI
 
 ---
 
-### C. TRƯỜNG "note" — DỊCH VỤ ĐẶC BIỆT
+### C. TRƯỜNG "note" — CHỈ 5 MÃ ĐƯỢC PHÉP (DỊCH VỤ ĐẶC BIỆT + THẺ TREO CỬA)
 
-Chỉ trích các mã dịch vụ đặc biệt nếu có xuất hiện trong báo cáo (cột Special Service / Notices):
+Trường "note" CHỈ ĐƯỢC PHÉP chứa duy nhất các mã sau, không được chứa bất kỳ nội dung nào khác:
    - "EB" (Extra Bed / giường phụ)
    - "BBC" (Baby Cot / nôi trẻ em)
    - "HON" (Honeymoon / trăng mật)
-Ghi các mã tìm được vào trường "note", cách nhau bởi dấu phẩy (VD: "EB, HON"). Nếu không có mã nào, để note = "".
-TUYỆT ĐỐI KHÔNG trích tên khách vào trường note hay bất kỳ trường nào khác. KHÔNG ghi ngày tháng vào trường note — ngày tháng chỉ nằm ở trường "date" riêng.
+   - "DND" (Do Not Disturb / thẻ treo cửa không làm phiền)
+   - "RF" (Refuse Service / thẻ treo cửa từ chối dọn phòng)
+Ghi các mã tìm được vào trường "note", cách nhau bởi dấu phẩy (VD: "EB, HON" hoặc "DND"). Nếu không có mã nào trong 5 mã trên xuất hiện, để note = "".
+TUYỆT ĐỐI KHÔNG trích tên khách (Guest), số phòng, mã I/O, hay bất kỳ chữ/số nào khác ngoài 5 mã trên vào trường note. KHÔNG ghi ngày tháng vào trường note — ngày tháng chỉ nằm ở trường "date" riêng.
 
 ---
 
@@ -149,6 +152,10 @@ export async function POST(req: NextRequest) {
     } catch (parseErr: any) {
       return NextResponse.json({ error: parseErr.message }, { status: 500 });
     }
+
+    // Lớp lọc dự phòng: đảm bảo note chỉ còn đúng 5 mã hợp lệ (EB/BBC/HON/DND/RF),
+    // loại bỏ mọi rác (tên khách, ngày tháng...) dù AI có lỡ chèn vào.
+    rooms = rooms.map((r: any) => ({ ...r, note: cleanNote(r.note) }));
 
     return NextResponse.json({ rooms });
   } catch (err: any) {
