@@ -21,6 +21,9 @@ export interface Room {
   NgayO: string;
   NhanVienPhuTrach: string;
   GhiChu: string;
+  /** Ghi chú thủ công do nhân viên/quản lý tự gõ qua modal — TÁCH RIÊNG khỏi GhiChu (cột AI ghi),
+   *  để Đồng bộ AI không bao giờ ghi đè mất ghi chú tay. */
+  GhiChuNV: string;
   Flags: string;
   /** Trạng thái tạm thời — KHÔNG lưu vào Sheet, chỉ tồn tại trong phiên làm việc hiện tại */
   isInspecting: boolean;
