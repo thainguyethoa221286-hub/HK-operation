@@ -6,6 +6,8 @@ export const maxDuration = 60;
 const AI_SYSTEM_PROMPT = `Bạn là một trợ lý AI chuyên phân tích dữ liệu khách sạn cho hệ thống HK PRO.
 Nhiệm vụ của bạn là đọc nội dung file PDF báo cáo trạng thái phòng được tải lên, trích xuất dữ liệu của tất cả các phòng và trả về dạng JSON duy nhất.
 
+RẤT QUAN TRỌNG: Bạn BẮT BUỘC chỉ trả về một mảng JSON thuần túy (JSON Array). KHÔNG kèm theo bất kỳ văn bản giải thích, lời chào hay câu nói nào như "I need to...", KHÔNG bọc trong khối markdown \`\`\`json.
+
 ---
 
 ### QUY TẮC MÁP DỮ LIỆU (MAPPING RULES)
@@ -38,7 +40,25 @@ Cấu trúc JSON mẫu:
 [
   { "id": "102", "floor": 1, "hkStatus": "Phòng dơ", "foStatus": "Occupied", "note": "Check-out 12:00" },
   { "id": "202", "floor": 2, "hkStatus": "Đã kiểm tra", "foStatus": "Vacant", "note": "" }
-]`;
+]
+
+TUYỆT ĐỐI KHÔNG được hỏi lại, không xin làm rõ, không giải thích lý do — kể cả khi file khó đọc hoặc thiếu thông tin, hãy trích xuất tối đa những gì đọc được và trả về JSON ngay theo đúng định dạng trên. Nếu 1 phòng nào đó không rõ trạng thái, vẫn đưa phòng đó vào mảng với dữ liệu suy đoán hợp lý nhất, tuyệt đối không bỏ sót và không chèn bất kỳ câu chữ nào ngoài mảng JSON.`;
+
+// Hàm hỗ trợ trích xuất mảng JSON an toàn từ phản hồi của AI
+function parseSafeJsonArray(text: string): any[] {
+  // 1. Thử parse trực tiếp sau khi bóc khối markdown ```json nếu có
+  const cleaned = text.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // 2. Nếu lỗi (AI lỡ thêm câu chữ trước/sau), dùng Regex tìm đoạn JSON Array [...] nằm trong văn bản
+    const match = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+    throw new Error('AI không trả về cấu trúc JSON hợp lệ. Nội dung AI trả lời: ' + cleaned.slice(0, 500));
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,8 +105,13 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     const text = data.content.map((b: any) => b.text || '').join('');
-    const clean = text.replace(/```json|```/g, '').trim();
-    const rooms = JSON.parse(clean);
+
+    let rooms;
+    try {
+      rooms = parseSafeJsonArray(text);
+    } catch (parseErr: any) {
+      return NextResponse.json({ error: parseErr.message }, { status: 500 });
+    }
 
     return NextResponse.json({ rooms });
   } catch (err: any) {
