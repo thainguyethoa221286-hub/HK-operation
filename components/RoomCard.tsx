@@ -6,9 +6,11 @@ import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, 
 interface RoomCardProps {
   room: Room;
   onClick: () => void;
+  /** Phòng đặc biệt (777/888/999) — chiếm 2 cột trong lưới, nội dung to hơn tương ứng */
+  special?: boolean;
 }
 
-export default function RoomCard({ room, onClick }: RoomCardProps) {
+export default function RoomCard({ room, onClick, special }: RoomCardProps) {
   const { border, bg } = getRoomCardStyle(room.HkStatus, room.isInspecting);
   const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
   const { dnd, rf } = hasDndOrRf(combinedNote);
@@ -16,7 +18,9 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-lg p-2.5 cursor-pointer shadow-sm border-l-[6px] transition-all duration-200 overflow-hidden ${border} ${bg}`}
+      className={`relative rounded-lg cursor-pointer shadow-sm border-l-[6px] transition-all duration-200 overflow-hidden ${border} ${bg} ${
+        special ? 'p-3.5' : 'p-2.5'
+      }`}
     >
       {/* Thẻ treo cửa DND/RF, móc phía trên góc số phòng — hiện đồng thời nếu có cả 2 */}
       {(dnd || rf) && (
@@ -45,14 +49,14 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
         <NoteIcons note={combinedNote} />
       </div>
 
-      <div className="text-[9px] font-bold tracking-wide text-slate-500">
+      <div className={`font-bold tracking-wide text-slate-500 ${special ? 'text-[11px]' : 'text-[9px]'}`}>
         {room.LoaiPhong}
       </div>
-      <div className="text-[23px] font-extrabold leading-tight text-slate-800">
+      <div className={`font-extrabold leading-tight text-slate-800 ${special ? 'text-[32px]' : 'text-[23px]'}`}>
         {room.MaPhong}
       </div>
 
-      <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-600 gap-1">
+      <div className={`flex items-center justify-between mt-1.5 text-slate-600 gap-1 ${special ? 'text-[12px]' : 'text-[10px]'}`}>
         <span className="flex items-center gap-1 font-medium">
           <FoStatusIcon status={room.FoStatus} />
           {formatDateShort(room.NgayO)}
