@@ -75,9 +75,13 @@ export async function updateRoomField(maPhong: string, field: string, value: str
   await jsonp('updateRoom', { maPhong, field, value });
 }
 
-export async function bulkUpdateFromAI(chunk: any[]) {
-  if (!API_URL) return;
-  await jsonp('bulkUpdateFromAI', { data: JSON.stringify(chunk) });
+export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
+  if (!API_URL) return { success: true, updated: chunk.length };
+  const result = await jsonp<{ success: boolean; updated?: number; notFound?: string[]; error?: string }>(
+    'bulkUpdateFromAI',
+    { data: JSON.stringify(chunk) }
+  );
+  return result;
 }
 
 export const AI_SYSTEM_PROMPT = `Bạn là một trợ lý AI chuyên phân tích dữ liệu khách sạn cho hệ thống HK PRO.
