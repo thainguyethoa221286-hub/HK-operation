@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS, STAFF_LIST } from '@/lib/types';
-import { formatDateShort, DndRfBadge, NoteIcons } from '@/lib/roomStyles';
+import { formatDateShort, DndRfBadge, NoteIcons, combineNotes } from '@/lib/roomStyles';
 
 interface RoomModalProps {
   room: Room | null;
@@ -156,11 +156,11 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
           </button>
         </div>
 
-        {room.GhiChu && (
+        {combineNotes(room.GhiChu, note) && (
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 mb-3">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Mã AI:</span>
-            <DndRfBadge note={room.GhiChu} />
-            <NoteIcons note={room.GhiChu} />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Mã ghi nhận:</span>
+            <DndRfBadge note={combineNotes(room.GhiChu, note)} />
+            <NoteIcons note={combineNotes(room.GhiChu, note)} />
           </div>
         )}
 
