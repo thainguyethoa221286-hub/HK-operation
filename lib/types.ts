@@ -56,6 +56,8 @@ export interface Room {
   TaskStatus: TaskStatus;
   /** Trạng thái kiểm tra két sắt */
   SafeStatus: SafeStatus;
+  /** Có thay giường trong lượt dọn này không — 'Có' hoặc rỗng */
+  LinenChange: string;
   /** Trạng thái tạm thời — KHÔNG lưu vào Sheet, chỉ tồn tại trong phiên làm việc hiện tại */
   isInspecting: boolean;
 }
