@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Play, Square, Ban, HandMetal, RotateCcw, Lock, Unlock } from 'lucide-react';
+import { Play, Square, Ban, Hand, RotateCcw, Lock, Unlock, BedDouble } from 'lucide-react';
 import type { Room } from '@/lib/types';
 import {
   formatDateShort, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
@@ -24,6 +24,8 @@ interface RoomTaskCardProps {
 export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
   const [noteDraft, setNoteDraft] = useState(room.GhiChuNV || '');
   const [tick, setTick] = useState(0);
+  // Mục 2 — nhắc nhở nhẹ khi bấm Hoàn thành mà chưa kiểm két sắt (phòng OCC)
+  const [safeWarning, setSafeWarning] = useState(false);
 
   useEffect(() => setNoteDraft(room.GhiChuNV || ''), [room.GhiChuNV]);
 
@@ -63,7 +65,12 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
   };
 
   const setSafeStatus = (value: 'Mở' | 'Đóng') => {
+    setSafeWarning(false);
     onUpdate(room.MaPhong, { SafeStatus: room.SafeStatus === value ? 'Chưa kiểm' : value });
+  };
+
+  const toggleLinenChange = () => {
+    onUpdate(room.MaPhong, { LinenChange: room.LinenChange === 'Có' ? '' : 'Có' });
   };
 
   const startCleaning = () => {
@@ -74,7 +81,13 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
     });
   };
 
+  // Mục 2 — Ràng buộc: phòng OCC (Occupied) bắt buộc đã kiểm két sắt (Mở/Đóng) mới cho Hoàn thành.
+  // Phòng Vacant/Due out/Arrival/Due out-ARR không bắt buộc.
   const finishCleaning = () => {
+    if (room.FoStatus === 'Occupied' && room.SafeStatus === 'Chưa kiểm') {
+      setSafeWarning(true);
+      return;
+    }
     const end = nowTimeStr();
     onUpdate(room.MaPhong, {
       TaskStatus: 'Hoàn thành',
@@ -92,8 +105,8 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3.5 pt-3 pb-2.5 border-b border-slate-100">
+      {/* Header — nền pastel dịu mắt thay vì trắng trơn */}
+      <div className="flex items-center justify-between px-3.5 pt-3 pb-2.5 border-b border-slate-100 bg-slate-50">
         <div className="flex items-baseline gap-2">
           <span className="text-[26px] font-extrabold text-slate-800 leading-none">{room.MaPhong}</span>
           {FO_BADGE[room.FoStatus] && (
@@ -120,7 +133,7 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
       )}
 
       <div className="p-3.5 space-y-2.5">
-        {/* Ghi chú */}
+        {/* Ghi chú — 2 chiều với Sơ đồ phòng (cùng field GhiChuNV) */}
         <input
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
@@ -144,7 +157,7 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
               onClick={markRefused}
               className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold border bg-white text-slate-600 border-slate-200"
             >
-              <HandMetal className="w-3.5 h-3.5" /> REFUSED
+              <Hand className="w-3.5 h-3.5" /> REFUSED
             </button>
           </div>
         )}
@@ -174,6 +187,22 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
             </button>
           </div>
         </div>
+
+        {safeWarning && (
+          <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+            ⚠ Phòng đang có khách (OCC) — vui lòng kiểm két sắt (Mở/Đóng) trước khi Hoàn thành.
+          </div>
+        )}
+
+        {/* Thay giường — Mục 2, đặt ngay dưới khu vực Két sắt */}
+        <button
+          onClick={toggleLinenChange}
+          className={`w-full flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold border ${
+            room.LinenChange === 'Có' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200'
+          }`}
+        >
+          <BedDouble className="w-3.5 h-3.5" /> {room.LinenChange === 'Có' ? 'ĐÃ THAY GIƯỜNG' : 'THAY GIƯỜNG'}
+        </button>
 
         {/* Bấm giờ dọn phòng */}
         {!isRefused && (
