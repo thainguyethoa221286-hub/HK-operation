@@ -1,7 +1,7 @@
 'use client';
 
 import type { Room } from '@/lib/types';
-import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, formatDateShort } from '@/lib/roomStyles';
+import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort } from '@/lib/roomStyles';
 
 interface RoomCardProps {
   room: Room;
@@ -10,7 +10,8 @@ interface RoomCardProps {
 
 export default function RoomCard({ room, onClick }: RoomCardProps) {
   const { border, bg } = getRoomCardStyle(room.HkStatus, room.isInspecting);
-  const { dnd, rf } = hasDndOrRf(room.GhiChu);
+  const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
+  const { dnd, rf } = hasDndOrRf(combinedNote);
 
   return (
     <div
@@ -41,7 +42,7 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
 
       <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
         <FlagBadgeIcons flags={room.Flags} />
-        <NoteIcons note={room.GhiChu} />
+        <NoteIcons note={combinedNote} />
       </div>
 
       <div className="text-[9px] font-bold tracking-wide text-slate-500">
