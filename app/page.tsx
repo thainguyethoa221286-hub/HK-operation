@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X } from 'lucide-react';
-import type { Room } from '@/lib/types';
+import type { Room, Account } from '@/lib/types';
+import { ROLE_LABELS } from '@/lib/types';
 import { fetchRooms, API_URL } from '@/lib/api';
 import RoomMapScreen from '@/components/RoomMapScreen';
 import AssignScreen from '@/components/AssignScreen';
+import TaskScreen from '@/components/TaskScreen';
+import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu';
 const STORAGE_KEY = 'hk_pro_rooms';
+const ACCOUNT_KEY = 'hk_pro_account';
 
 export default function HomePage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -16,6 +20,34 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // RBAC — tài khoản đăng nhập, đọc từ localStorage (đăng nhập 1 lần trên thiết bị)
+  const [account, setAccount] = useState<Account | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ACCOUNT_KEY);
+      if (saved) {
+        const acc: Account = JSON.parse(saved);
+        setAccount(acc);
+        // HK Staff chỉ có quyền vào màn Nhiệm vụ — khoá thẳng ngay từ đầu
+        if (acc.vaiTro === 'HKStaff') setScreen('nhiemvu');
+      }
+    } catch {}
+    setCheckingAuth(false);
+  }, []);
+
+  const handleLoginSuccess = (acc: Account) => {
+    setAccount(acc);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify(acc));
+    if (acc.vaiTro === 'HKStaff') setScreen('nhiemvu');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(ACCOUNT_KEY);
+    setAccount(null);
+  };
 
   // Fix 4 — khởi tạo an toàn cho SSR: chỉ đọc localStorage trong useEffect (client-only),
   // tránh lỗi hydration mismatch trên Safari/Chrome Mobile.
@@ -59,10 +91,16 @@ export default function HomePage() {
     }
   }, [rooms]);
 
+  if (checkingAuth) return null;
+  if (!account) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+
+  const isStaff = account.vaiTro === 'HKStaff';
+
+  // HK Staff chỉ được vào "Nhiệm vụ" — Sơ đồ phòng/Phân công là công cụ quản lý
   const navItems: { key: ScreenKey | null; label: string; icon: any }[] = [
-    { key: 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
-    { key: 'phancong', label: 'Phân công', icon: ClipboardList },
-    { key: null, label: 'Nhiệm vụ', icon: ListChecks },
+    { key: isStaff ? null : 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
+    { key: isStaff ? null : 'phancong', label: 'Phân công', icon: ClipboardList },
+    { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
     { key: null, label: 'Báo cáo', icon: FileText },
     { key: null, label: 'Bảng thiếc', icon: MessageSquare },
     { key: null, label: 'Cài đặt', icon: Settings },
@@ -78,10 +116,11 @@ export default function HomePage() {
         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
           <User className="w-4 h-4" />
         </div>
-        <div className="flex-1 text-xs">
-          <b className="block text-[13px] text-white">Hoa</b>Admin
+        <div className="flex-1 text-xs min-w-0">
+          <b className="block text-[13px] text-white truncate">{account.hoTen}</b>
+          {ROLE_LABELS[account.vaiTro] || account.vaiTro}
         </div>
-        <LogOut className="w-4 h-4 opacity-60" />
+        <LogOut className="w-4 h-4 opacity-60 cursor-pointer" onClick={handleLogout} />
       </div>
       <nav className="flex flex-col gap-0.5 px-2.5">
         {navItems.map((item) => (
@@ -140,8 +179,9 @@ export default function HomePage() {
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
         ) : (
           <>
-            {screen === 'sodo' && <RoomMapScreen rooms={rooms} setRooms={setRooms} />}
-            {screen === 'phancong' && <AssignScreen rooms={rooms} setRooms={setRooms} />}
+            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRooms} />}
+            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRooms} />}
+            {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRooms} account={account} />}
           </>
         )}
       </main>
