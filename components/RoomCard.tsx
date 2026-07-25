@@ -17,24 +17,25 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
       onClick={onClick}
       className={`relative rounded-lg p-2.5 cursor-pointer shadow-sm border-l-[6px] transition-all duration-200 overflow-hidden ${border} ${bg}`}
     >
-      {/* Mục 6 — vệt gạch chéo mờ khi DND/RF */}
+      {/* Thẻ treo cửa DND/RF, móc phía trên góc số phòng — hiện đồng thời nếu có cả 2 */}
       {(dnd || rf) && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
-          <div className={`w-[150%] h-[3px] -rotate-[24deg] ${dnd ? 'bg-red-500/30' : 'bg-slate-500/30'}`} />
-        </div>
-      )}
-
-      {/* Mục 6 — thẻ treo cửa DND/RF, móc phía trên góc số phòng */}
-      {(dnd || rf) && (
-        <div className="absolute -top-1 left-2 flex flex-col items-center z-10">
-          <div className="w-[2px] h-1.5 bg-slate-400" />
-          <div
-            className={`px-1.5 py-[1px] rounded-sm text-[8px] font-extrabold text-white shadow ${
-              dnd ? 'bg-red-500' : 'bg-slate-700'
-            }`}
-          >
-            {dnd ? 'DND' : 'RF'}
-          </div>
+        <div className="absolute -top-1 left-2 flex items-start gap-1 z-10">
+          {dnd && (
+            <div className="flex flex-col items-center">
+              <div className="w-[2px] h-1.5 bg-slate-400" />
+              <div className="px-1.5 py-[1px] rounded-sm text-[8px] font-extrabold text-white shadow bg-red-600">
+                DND
+              </div>
+            </div>
+          )}
+          {rf && (
+            <div className="flex flex-col items-center">
+              <div className="w-[2px] h-1.5 bg-slate-400" />
+              <div className="px-1.5 py-[1px] rounded-sm text-[8px] font-extrabold text-white shadow bg-purple-800">
+                RF
+              </div>
+            </div>
+          )}
         </div>
       )}
 
