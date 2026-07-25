@@ -75,34 +75,55 @@ export function FlagBadgeIcons({ flags }: { flags: string }) {
 }
 
 /* =========================================================
-   MỤC 3 — NHẬN DIỆN DND / REFUSE TRONG GHI CHÚ
+   NOTE CLEANER — lớp lọc dự phòng, chỉ giữ lại đúng 5 mã hợp lệ
+   (EB, BBC, HON, DND, RF) trong ghi chú, loại bỏ mọi rác khác
+   (tên khách, ngày tháng, số phòng...) dù AI có lỡ chèn vào.
+   Dùng chung cho cả Frontend (RoomCard/AssignScreen) và Backend
+   (route.ts sync-pdf) làm lớp phòng vệ cuối cùng.
+   ========================================================= */
+export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF'] as const;
+
+export function cleanNote(rawNote?: string | null): string {
+  if (!rawNote) return '';
+  const foundCodes = ALLOWED_NOTE_CODES.filter((code) =>
+    new RegExp(`\\b${code}\\b`, 'i').test(rawNote)
+  );
+  return foundCodes.join(', ');
+}
+
+/* =========================================================
+   MỤC 3 — NHẬN DIỆN DND / RF (Refuse) TRONG GHI CHÚ
+   Dựa trên cleanNote() để tránh bắt nhầm chuỗi con (VD "SUPERB" chứa "EB")
    ========================================================= */
 export function hasDndOrRf(note: string): { dnd: boolean; rf: boolean } {
   if (!note) return { dnd: false, rf: false };
-  const upper = note.toUpperCase();
+  const codes = cleanNote(note);
   return {
-    dnd: upper.includes('DND'),
-    rf: upper.includes('REFUSE') || upper.includes('TỪ CHỐI'),
+    dnd: /\bDND\b/i.test(codes),
+    rf: /\bRF\b/i.test(codes),
   };
 }
 
+/** Badge thẻ treo DND (đỏ) / RF (tím đậm) — dùng inline trực tiếp trong RoomCard/AssignScreen,
+ *  hàm này giữ lại để tái sử dụng nếu cần render rời (không có móc treo). */
 export function DndRfBadge({ note }: { note: string }) {
   const { dnd, rf } = hasDndOrRf(note);
   if (!dnd && !rf) return null;
   return (
     <div className="flex items-center gap-1">
-      {dnd && <span className="bg-red-100 text-red-700 font-bold px-1 rounded text-[9px]">DND</span>}
-      {rf && <span className="bg-slate-200 text-slate-700 font-bold px-1 rounded text-[9px]">RF</span>}
+      {dnd && <span className="bg-red-600 text-white font-extrabold px-1.5 py-[1px] rounded-sm text-[9px]">DND</span>}
+      {rf && <span className="bg-purple-800 text-white font-extrabold px-1.5 py-[1px] rounded-sm text-[9px]">RF</span>}
     </div>
   );
 }
+
 export function NoteIcons({ note }: { note: string }) {
-  if (!note) return null;
-  const upperNote = note.toUpperCase();
+  const codes = cleanNote(note);
+  if (!codes) return null;
   const cls = 'w-3.5 h-3.5';
-  const hasEB = upperNote.includes('EB');
-  const hasBBC = upperNote.includes('BBC');
-  const hasHON = upperNote.includes('HON');
+  const hasEB = /\bEB\b/i.test(codes);
+  const hasBBC = /\bBBC\b/i.test(codes);
+  const hasHON = /\bHON\b/i.test(codes);
   if (!hasEB && !hasBBC && !hasHON) return null;
   return (
     <div className="flex items-center gap-1">
