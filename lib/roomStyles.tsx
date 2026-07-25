@@ -112,3 +112,37 @@ export function NoteIcons({ note }: { note: string }) {
     </div>
   );
 }
+
+/* =========================================================
+   FIX HIỂN THỊ NGÀY — chuẩn hoá mọi định dạng ngày về DD/MM
+   hoặc DD/MM-DD/MM, bất kể backend trả về ISO dài hay đã ngắn sẵn.
+   ========================================================= */
+export function formatDateShort(dateInput?: string | null): string {
+  if (!dateInput) return '';
+  const str = String(dateInput).trim();
+  if (!str) return '';
+
+  // Khoảng ngày dạng "23/07-27/07" hoặc "23/07-DPT" — xử lý từng vế
+  if (str.includes('-') && !str.match(/^\d{4}-\d{2}-\d{2}/)) {
+    const parts = str.split('-');
+    return parts.map((p) => formatSingleDate(p.trim())).join('-');
+  }
+
+  return formatSingleDate(str);
+}
+
+function formatSingleDate(str: string): string {
+  if (!str) return str;
+  // Đã là dạng ngắn "24/07" hoặc mã trạng thái như "DPT", "ARR" -> giữ nguyên
+  if (/^\d{2}\/\d{2}$/.test(str) || /^[A-ZÀ-Ỹ]+$/.test(str)) return str;
+
+  try {
+    const date = new Date(str);
+    if (isNaN(date.getTime())) return str;
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}`;
+  } catch {
+    return str;
+  }
+}
