@@ -125,27 +125,16 @@ export async function readPdfWithAI(file: File): Promise<any[]> {
     r.readAsDataURL(file);
   });
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Gọi qua API route của chính app (server-side) — tránh lỗi CORS và giữ kín API key
+  const response = await fetch('/api/sync-pdf', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: AI_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
-            { type: 'text', text: 'Đọc file báo cáo phòng này và trả về JSON theo đúng quy tắc.' },
-          ],
-        },
-      ],
-    }),
+    body: JSON.stringify({ base64Data }),
   });
 
   const data = await response.json();
-  const text = data.content.map((b: any) => b.text || '').join('');
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  if (!response.ok) {
+    throw new Error(data.error || 'Đồng bộ AI thất bại');
+  }
+  return data.rooms;
 }
