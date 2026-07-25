@@ -1,7 +1,7 @@
 'use client';
 
 import type { Room } from '@/lib/types';
-import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf } from '@/lib/roomStyles';
+import { getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, formatDateShort } from '@/lib/roomStyles';
 
 interface RoomCardProps {
   room: Room;
@@ -53,7 +53,7 @@ export default function RoomCard({ room, onClick }: RoomCardProps) {
       <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-600 gap-1">
         <span className="flex items-center gap-1 font-medium">
           <FoStatusIcon status={room.FoStatus} />
-          {room.NgayO}
+          {formatDateShort(room.NgayO)}
         </span>
         {room.NhanVienPhuTrach && (
           <span className="bg-slate-100 rounded px-1.5 py-0.5 font-bold text-slate-500 whitespace-nowrap">
