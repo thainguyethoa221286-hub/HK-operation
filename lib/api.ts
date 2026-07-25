@@ -1,4 +1,4 @@
-import type { Room } from './types';
+import type { Room, Account } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -67,6 +67,11 @@ export async function fetchRooms(): Promise<Room[]> {
     GhiChu: String(row.GhiChu ?? ''),
     GhiChuNV: String(row.GhiChuNV ?? ''),
     Flags: String(row.Flags ?? ''),
+    StartTime: String(row.StartTime ?? ''),
+    EndTime: String(row.EndTime ?? ''),
+    Duration: String(row.Duration ?? ''),
+    TaskStatus: String(row.TaskStatus ?? '') || 'Chưa dọn',
+    SafeStatus: String(row.SafeStatus ?? '') || 'Chưa kiểm',
     isInspecting: false,
   })) as Room[];
 }
@@ -74,6 +79,21 @@ export async function fetchRooms(): Promise<Room[]> {
 export async function updateRoomField(maPhong: string, field: string, value: string) {
   if (!API_URL) return;
   await jsonp('updateRoom', { maPhong, field, value });
+}
+
+/** Ghi nhiều field cùng lúc cho 1 phòng (VD: bấm "Hoàn thành" cần ghi EndTime+Duration+TaskStatus+HkStatus).
+ *  Gọi song song nhiều request updateRoom thay vì thêm action mới bên Code.gs — giữ backend đơn giản. */
+export async function updateRoomFields(maPhong: string, fields: Record<string, string>) {
+  if (!API_URL) return;
+  await Promise.all(Object.entries(fields).map(([field, value]) => jsonp('updateRoom', { maPhong, field, value })));
+}
+
+/** Đăng nhập bằng ID + mật khẩu, đối chiếu tab "TaiKhoan" trên Google Sheet qua Code.gs */
+export async function login(id: string, password: string): Promise<{ success: boolean; account?: Account; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; account?: Account; error?: string }>('login', { id, password });
+  if (!r) return { success: false, error: 'Không nhận được phản hồi từ Apps Script' };
+  return r;
 }
 
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
