@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import type { Room } from '@/lib/types';
 import RoomCard from '@/components/RoomCard';
 import RoomModal from '@/components/RoomModal';
-import { updateRoomField, bulkUpdateFromAI, readPdfWithAI } from '@/lib/api';
+import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms } from '@/lib/api';
 
 const LEGEND = [
   { label: 'Phòng dơ', dot: 'bg-red-500' },
@@ -71,32 +71,42 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
     setAiSyncing(true);
     setAiMessage('Đang đọc file PDF...');
     try {
+      // BƯỚC 1 — AI đọc PDF, trả về danh sách trạng thái phòng mới nhất
       setAiMessage('AI đang phân tích trạng thái phòng...');
       const aiRooms = await readPdfWithAI(file);
 
-      setAiMessage('Đang cập nhật ' + aiRooms.length + ' phòng...');
-      setRooms((prev) =>
-        prev.map((r) => {
-          const item = aiRooms.find((a) => String(a.id) === String(r.MaPhong));
-          if (!item) return r;
-          return {
-            ...r,
-            HkStatus: item.hkStatus || r.HkStatus,
-            FoStatus: item.foStatus || r.FoStatus,
-            GhiChu: item.note || r.GhiChu,
-          };
-        })
-      );
-
+      // BƯỚC 2 — Ghi đè lên Google Sheet theo từng lô, BẮT BUỘC xác nhận success:true
+      // trước khi coi là hoàn tất. Nếu bất kỳ lô nào lỗi, dừng lại và báo rõ cho người dùng
+      // thay vì âm thầm coi như thành công.
+      setAiMessage('Đang ghi ' + aiRooms.length + ' phòng lên Google Sheet...');
       const chunkSize = 15;
+      let totalUpdated = 0;
+      const allNotFound: string[] = [];
       for (let i = 0; i < aiRooms.length; i += chunkSize) {
-        await bulkUpdateFromAI(aiRooms.slice(i, i + chunkSize));
+        const chunk = aiRooms.slice(i, i + chunkSize);
+        const result = await bulkUpdateFromAI(chunk);
+        if (!result || !result.success) {
+          throw new Error(
+            'Ghi lên Google Sheet thất bại ở lô phòng ' + (i + 1) + '-' + Math.min(i + chunkSize, aiRooms.length) +
+            (result?.error ? ': ' + result.error : '')
+          );
+        }
+        totalUpdated += result.updated || 0;
+        if (result.notFound?.length) allNotFound.push(...result.notFound);
       }
-      setAiMessage('✓ Hoàn tất!');
-      setTimeout(() => setAiSyncing(false), 900);
+
+      // BƯỚC 3 — Sheet đã xác nhận ghi xong -> tải lại dữ liệu CHUẨN từ Sheet để hiển thị,
+      // không dùng dữ liệu AI cục bộ nữa (tránh lệch giữa UI và Sheet thật).
+      setAiMessage('Đang tải lại dữ liệu chuẩn từ Google Sheet...');
+      const freshRooms = await fetchRooms();
+      setRooms(freshRooms);
+
+      const notFoundNote = allNotFound.length ? ` (không tìm thấy phòng: ${allNotFound.join(', ')})` : '';
+      setAiMessage(`✓ Hoàn tất! Đã cập nhật ${totalUpdated} phòng${notFoundNote}`);
+      setTimeout(() => setAiSyncing(false), 1500);
     } catch (err: any) {
       setAiMessage('Lỗi: ' + err.message);
-      setTimeout(() => setAiSyncing(false), 2500);
+      setTimeout(() => setAiSyncing(false), 3500);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
