@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, X, Printer, ChevronDown, Users } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { MASTER_STAFF_LIST } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
@@ -136,6 +136,22 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
     await Promise.all(affected.map((id) => updateRoomField(id, 'NhanVienPhuTrach', newLabel)));
   };
 
+  // RESET — xoá TOÀN BỘ phân công phòng (mọi phòng quay về kho chờ) LẪN các nhóm/tên
+  // nhân viên đã tạo (quay về danh sách nhóm mặc định). Có xác nhận vì không thể hoàn tác.
+  const resetAll = async () => {
+    const confirmed = window.confirm(
+      'Xoá TOÀN BỘ phân công phòng và các nhóm/tên nhân viên đã tạo, quay về mặc định ban đầu?\n\nHành động này KHÔNG THỂ hoàn tác.'
+    );
+    if (!confirmed) return;
+    const assignedIds = rooms.filter((r) => r.NhanVienPhuTrach).map((r) => r.MaPhong);
+    setRooms((prev) => prev.map((r) => (assignedIds.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: '' } : r)));
+    setGroups(DEFAULT_GROUPS);
+    setSelectedIds(new Set());
+    await Promise.all(assignedIds.map((id) => updateRoomField(id, 'NhanVienPhuTrach', '')));
+  };
+
+  const handlePrintAll = () => window.print();
+
   const addGroup = () => {
     const nums = groups.map((g) => Number(g.id.replace('N', '')) || 0);
     const nextId = 'N' + (Math.max(0, ...nums) + 1);
@@ -214,7 +230,23 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <h1 className="text-[19px] font-bold mb-4">Phân công dọn phòng</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <h1 className="text-[19px] font-bold">Phân công dọn phòng</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrintAll}
+            className="flex items-center gap-1.5 text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2"
+          >
+            <Printer className="w-3.5 h-3.5" /> IN TỔNG HỢP
+          </button>
+          <button
+            onClick={resetAll}
+            className="flex items-center gap-1.5 text-xs font-bold text-red-600 border border-red-200 bg-red-50 rounded-lg px-3 py-2"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> RESET
+          </button>
+        </div>
+      </div>
 
       <div className="mb-2 text-[13px] font-bold text-red-600 flex items-center justify-between">
         Phòng cần dọn (Dirty) <span className="text-slate-400 font-normal text-xs">{dirtyRooms.length} phòng</span>
