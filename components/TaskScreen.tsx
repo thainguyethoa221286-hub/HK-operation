@@ -28,13 +28,19 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
       (r.NhanVienPhuTrach || '').split('+').map((s) => s.trim()).includes(account.hoTen)
     );
     const doneCount = myRooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
+    const percent = myRooms.length > 0 ? Math.round((doneCount / myRooms.length) * 100) : 0;
 
     return (
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <h1 className="text-[19px] font-bold">Nhiệm vụ của tôi</h1>
-          <span className="text-xs font-bold text-slate-500">{doneCount}/{myRooms.length} phòng xong</span>
+          <span className="text-xs font-bold text-slate-500">Đã xong: {doneCount}/{myRooms.length} phòng — {percent}%</span>
         </div>
+        {myRooms.length > 0 && (
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+            <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${percent}%` }} />
+          </div>
+        )}
         {myRooms.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Chưa có phòng nào được giao cho bạn hôm nay.</div>
         ) : (
