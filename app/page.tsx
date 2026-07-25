@@ -84,6 +84,23 @@ export default function HomePage() {
     });
   }, []);
 
+  // Đồng bộ real-time giữa các thiết bị (VD: nhân viên bấm Hoàn thành trên điện thoại,
+  // màn Sơ đồ phòng của chị trên máy tính cần tự cập nhật mà không phải bấm F5) —
+  // tự động lấy lại dữ liệu mới nhất từ Google Sheet mỗi 15 giây.
+  const POLL_INTERVAL_MS = 15000;
+  useEffect(() => {
+    if (!API_URL) return;
+    const timer = setInterval(() => {
+      fetchRooms().then((data) => {
+        setRooms(data);
+        setSyncError(null);
+      }).catch(() => {
+        // Lỗi polling nền thì bỏ qua âm thầm, không làm phiền — vẫn còn dữ liệu cũ để dùng tạm
+      });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
   // Fix 4 — lưu mọi thay đổi vào LocalStorage để không mất khi refresh
   useEffect(() => {
     if (rooms.length > 0) {
