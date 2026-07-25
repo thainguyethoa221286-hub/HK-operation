@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS, STAFF_LIST } from '@/lib/types';
-import { formatDateShort } from '@/lib/roomStyles';
+import { formatDateShort, DndRfBadge, NoteIcons } from '@/lib/roomStyles';
 
 interface RoomModalProps {
   room: Room | null;
@@ -25,7 +25,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
     setHk(room.HkStatus);
     setFo(room.FoStatus);
     setStaff(room.NhanVienPhuTrach || '');
-    setNote(room.GhiChu || '');
+    setNote(room.GhiChuNV || '');
     setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
   }, [room]);
 
@@ -53,7 +53,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
       HkStatus: hk,
       FoStatus: fo,
       NhanVienPhuTrach: staff,
-      GhiChu: note,
+      GhiChuNV: note,
       Flags: flags.join(','),
     });
     onClose();
@@ -155,6 +155,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
             ✓ NHẢ PHÒNG
           </button>
         </div>
+
+        {room.GhiChu && (
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 mb-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Mã AI:</span>
+            <DndRfBadge note={room.GhiChu} />
+            <NoteIcons note={room.GhiChu} />
+          </div>
+        )}
 
         <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Ghi chú cho nhân viên</div>
         <div className="relative mb-4">
