@@ -89,6 +89,9 @@ export interface Room {
   /** Ghi chú thủ công do nhân viên/quản lý tự gõ qua modal — TÁCH RIÊNG khỏi GhiChu (cột AI ghi),
    *  để Đồng bộ AI không bao giờ ghi đè mất ghi chú tay. Cũng là ô "Thêm ghi chú" trong màn Nhiệm vụ. */
   GhiChuNV: string;
+  /** Ghi chú RIÊNG của Admin/Giám sát nhập từ Sơ đồ phòng — TÁCH KHỎI GhiChuNV để phân biệt được
+   *  nguồn, hiện nổi bật (nền vàng) bên màn Nhiệm vụ của nhân viên khi có nội dung. */
+  GhiChuAdmin: string;
   Flags: string;
   /** Thời điểm bấm "Bắt đầu dọn phòng" (HH:mm:ss). Khi TaskStatus="Refused", trường này
    *  được TÁI SỬ DỤNG để lưu thời điểm bấm Refused (vì phòng bị từ chối thì chưa có giờ bắt đầu dọn thật). */
