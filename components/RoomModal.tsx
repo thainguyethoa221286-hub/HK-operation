@@ -25,7 +25,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
     setHk(room.HkStatus);
     setFo(room.FoStatus);
     setStaff(room.NhanVienPhuTrach || '');
-    setNote(room.GhiChuNV || '');
+    setNote(room.GhiChuAdmin || '');
     setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
   }, [room]);
 
@@ -53,7 +53,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
       HkStatus: hk,
       FoStatus: fo,
       NhanVienPhuTrach: staff,
-      GhiChuNV: note,
+      GhiChuAdmin: note,
       Flags: flags.join(','),
     });
     onClose();
@@ -161,6 +161,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
             <span className="text-[10px] font-bold text-slate-400 uppercase">Mã ghi nhận:</span>
             <DndRfBadge note={combineNotes(room.GhiChu, note)} />
             <NoteIcons note={combineNotes(room.GhiChu, note)} />
+          </div>
+        )}
+
+        {/* Ghi chú nhân viên tự gõ (VD khách yêu cầu riêng) — chỉ đọc, giám sát cần thấy được */}
+        {room.GhiChuNV && (
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-2 mb-3">
+            <span className="text-[10px] font-bold text-blue-500 uppercase flex-shrink-0 mt-0.5">Nhân viên ghi:</span>
+            <span className="text-[13px] font-semibold text-blue-900">{room.GhiChuNV}</span>
           </div>
         )}
 
