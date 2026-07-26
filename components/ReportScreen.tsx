@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound } from 'lucide-react';
+import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText } from 'lucide-react';
 import type { Room, KeyLog } from '@/lib/types';
 import { getKeyLogs } from '@/lib/api';
+import { stripCodesFromNote } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
 
 interface ReportScreenProps {
@@ -24,7 +25,10 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const heldKeys = keyLogs.filter((l) => l.trangThai === 'Đang giữ');
+  // Mục "Ghi chú nhân viên" — liệt kê toàn bộ phòng có ghi chú tự do (VD khách yêu cầu riêng),
+  // để giám sát xem 1 chỗ, không cần mở từng phòng trên Sơ đồ.
+  const staffNotedRooms = rooms.filter((r) => stripCodesFromNote(r.GhiChuNV));
+
   const total = rooms.length;
   const doneCount = rooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
   const cleaningCount = rooms.filter((r) => r.TaskStatus === 'Đang dọn').length;
@@ -95,6 +99,8 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
             const done = staffRooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
             const pct = staffRooms.length > 0 ? Math.round((done / staffRooms.length) * 100) : 0;
             const minutes = sumDuration(staffRooms.filter((r) => r.TaskStatus === 'Hoàn thành'));
+            const trolleyCode = staffRooms.find((r) => r.TrolleyCode)?.TrolleyCode || '';
+            const vacuumFloor = staffRooms.find((r) => r.VacuumFloor)?.VacuumFloor || '';
             return (
               <div key={staff} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -103,12 +109,48 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                     {pct}% — {done}/{staffRooms.length} nhiệm vụ — {minutes} phút
                   </span>
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
                   <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${pct}%` }} />
                 </div>
+                {(trolleyCode || vacuumFloor) && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {trolleyCode && (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+                        🛒 Xe: {trolleyCode}
+                      </span>
+                    )}
+                    {vacuumFloor && (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+                        Hút bụi: {vacuumFloor}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Ghi chú nhân viên hôm nay — VD khách yêu cầu riêng, giám sát cần nắm được */}
+      {staffNotedRooms.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
+            <MessageSquareText className="w-4 h-4 text-blue-500" /> Ghi chú nhân viên hôm nay
+          </h2>
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 space-y-2">
+            {staffNotedRooms.map((r) => (
+              <div key={r.MaPhong} className="flex items-start gap-3 border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                <span className="bg-slate-100 text-slate-600 font-extrabold rounded-lg px-2 py-1 text-[12px] flex-shrink-0">
+                  {r.MaPhong}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-slate-700">{stripCodesFromNote(r.GhiChuNV)}</div>
+                  {r.NhanVienPhuTrach && <div className="text-[10px] text-slate-400">Nhân viên: {r.NhanVienPhuTrach}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -120,14 +162,16 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-3">
           <KeyBoard keyLogs={keyLogs} />
         </div>
-        {heldKeys.length > 0 && (
+        {keyLogs.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
-            <div className="text-[12px] font-bold text-slate-500 mb-2">Đang được giữ:</div>
+            <div className="text-[12px] font-bold text-slate-500 mb-2">Lịch sử nhận/trả chìa hôm nay:</div>
             <div className="space-y-1.5">
-              {heldKeys.map((l, i) => (
-                <div key={i} className="flex items-center justify-between text-[12px]">
+              {[...keyLogs].reverse().map((l, i) => (
+                <div key={i} className="flex items-center justify-between text-[12px] border-b border-slate-50 pb-1.5 last:border-0">
                   <span className="font-semibold text-slate-700">{l.nhanVien} ➔ {l.keyLabel}</span>
-                  <span className="text-slate-400">từ {l.gioMuon?.slice(0, 5)}</span>
+                  <span className={`font-semibold ${l.trangThai === 'Đang giữ' ? 'text-amber-600' : 'text-slate-400'}`}>
+                    Nhận {l.gioMuon?.slice(0, 5)}{l.gioTra ? ` — Trả ${l.gioTra.slice(0, 5)}` : ' — Đang giữ'}
+                  </span>
                 </div>
               ))}
             </div>
