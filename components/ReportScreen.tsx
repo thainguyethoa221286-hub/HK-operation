@@ -154,29 +154,14 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         </div>
       )}
 
-      {/* Module 2 — Giao nhận chìa khóa (chỉ xem, đồng bộ mỗi 15s) */}
+      {/* Module 2 — Giao nhận chìa khóa (chỉ xem, đồng bộ mỗi 15s) — mỗi thẻ đã tự hiện Nhận/Trả */}
       <div className="mt-6">
         <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
           <KeyRound className="w-4 h-4 text-slate-500" /> Giao nhận chìa khóa
         </h2>
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-3">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
           <KeyBoard keyLogs={keyLogs} />
         </div>
-        {keyLogs.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
-            <div className="text-[12px] font-bold text-slate-500 mb-2">Lịch sử nhận/trả chìa hôm nay:</div>
-            <div className="space-y-1.5">
-              {[...keyLogs].reverse().map((l, i) => (
-                <div key={i} className="flex items-center justify-between text-[12px] border-b border-slate-50 pb-1.5 last:border-0">
-                  <span className="font-semibold text-slate-700">{l.nhanVien} ➔ {l.keyLabel}</span>
-                  <span className={`font-semibold ${l.trangThai === 'Đang giữ' ? 'text-amber-600' : 'text-slate-400'}`}>
-                    Nhận {l.gioMuon?.slice(0, 5)}{l.gioTra ? ` — Trả ${l.gioTra.slice(0, 5)}` : ' — Đang giữ'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
