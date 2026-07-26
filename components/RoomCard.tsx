@@ -2,7 +2,7 @@
 
 import type { Room } from '@/lib/types';
 import {
-  getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
+  getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, PriorityFlagBadges, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
   FO_STATUS_LABEL, DoorHangerTag,
 } from '@/lib/roomStyles';
 
@@ -25,26 +25,28 @@ export default function RoomCard({ room, onClick, special }: RoomCardProps) {
         special ? 'p-4' : 'p-3'
       }`}
     >
-      {/* Hàng trên: góc trái = loại phòng (chip xám), góc phải = thẻ treo DND/RF + icon EB/BBC/HON + ngày check-in/out */}
+      {/* Hàng trên: góc trái = loại phòng (chip xám), góc phải = thẻ treo DND/RF + icon EB/BBC/HON */}
       <div className="flex items-start justify-between gap-1.5 mb-1">
         <span className={`bg-slate-100 text-slate-500 font-bold rounded-md px-1.5 py-0.5 whitespace-nowrap ${special ? 'text-[11px]' : 'text-[9px]'}`}>
           {room.LoaiPhong}
         </span>
         <div className="flex flex-wrap items-start justify-end gap-1 min-w-0">
+          <PriorityFlagBadges flags={room.Flags} />
           <FlagBadgeIcons flags={room.Flags} />
           {dnd && <DoorHangerTag label="DND" colorCls="bg-red-600" />}
           {rf && <DoorHangerTag label="RF" colorCls="bg-purple-800" />}
           <NoteIcons note={combinedNote} />
-          {/* Bỏ tên khách — chỉ hiện ngày check-in/check-out (VD "24/07 - 26/07") */}
-          <span className={`text-slate-400 font-semibold whitespace-nowrap ${special ? 'text-[11px]' : 'text-[9px]'}`}>
-            {formatDateShort(room.NgayO)}
-          </span>
         </div>
       </div>
 
-      {/* Trung tâm: số phòng in đậm lớn */}
-      <div className={`font-extrabold leading-none text-slate-800 text-center py-1.5 ${special ? 'text-[38px]' : 'text-[27px]'}`}>
-        {room.MaPhong}
+      {/* Trung tâm: số phòng in đậm lớn + ngày check-in/check-out ngay bên dưới (thay cho tên khách) */}
+      <div className="text-center py-1.5">
+        <div className={`font-extrabold leading-none text-slate-800 ${special ? 'text-[38px]' : 'text-[27px]'}`}>
+          {room.MaPhong}
+        </div>
+        <div className={`text-slate-400 font-semibold mt-0.5 ${special ? 'text-[12px]' : 'text-[10px]'}`}>
+          {formatDateShort(room.NgayO)}
+        </div>
       </div>
 
       {/* Chân thẻ: trái = icon + trạng thái khách, phải = CHỈ tên nhân viên dọn (để trống nếu chưa gán) */}
