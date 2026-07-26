@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
@@ -23,6 +23,14 @@ export default function HomePage() {
   const [syncError, setSyncError] = useState<string | null>(null);
   // Mục 3 — danh sách nhân viên cho màn Phân công lấy ĐỘNG từ tab TaiKhoan, không hardcode
   const [staffList, setStaffList] = useState<string[]>([]);
+
+  // Mục 6 — chống badge/trạng thái chớp tắt: đánh dấu mốc giờ vừa sửa local gần nhất,
+  // polling sẽ tạm bỏ qua 1 vài vòng làm mới ngay sau đó để không lấy về dữ liệu cũ (chưa kịp ghi xong) đè lên.
+  const lastLocalEditRef = useRef<number>(0);
+  const setRoomsTracked: React.Dispatch<React.SetStateAction<Room[]>> = (value) => {
+    lastLocalEditRef.current = Date.now();
+    setRooms(value);
+  };
 
   // RBAC — tài khoản đăng nhập, đọc từ localStorage (đăng nhập 1 lần trên thiết bị)
   const [account, setAccount] = useState<Account | null>(null);
@@ -91,9 +99,11 @@ export default function HomePage() {
   // màn Sơ đồ phòng của chị trên máy tính cần tự cập nhật mà không phải bấm F5) —
   // tự động lấy lại dữ liệu mới nhất từ Google Sheet mỗi 15 giây.
   const POLL_INTERVAL_MS = 8000;
+  const EDIT_PROTECT_MS = 4000; // tạm bỏ qua làm mới trong 4s sau khi vừa sửa, tránh chớp tắt do lấy về dữ liệu chưa kịp ghi xong
   useEffect(() => {
     if (!API_URL) return;
     const timer = setInterval(() => {
+      if (Date.now() - lastLocalEditRef.current < EDIT_PROTECT_MS) return;
       fetchRooms().then((data) => {
         setRooms(data);
         setSyncError(null);
@@ -208,9 +218,9 @@ export default function HomePage() {
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
         ) : (
           <>
-            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRooms} />}
-            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRooms} staffList={staffList} />}
-            {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRooms} account={account} />}
+            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
+            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
+            {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
             {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
           </>
         )}
