@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  X, Moon, AlertTriangle, BedSingle, Baby, Play, Square, RotateCcw,
+  X, Moon, AlertTriangle, Play, Square, RotateCcw,
   Lock, Unlock, User, CheckCircle2, Undo2, History,
 } from 'lucide-react';
 import type { Room, HistoryEntry } from '@/lib/types';
@@ -45,9 +45,6 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     return () => clearInterval(timer);
   }, [room.TaskStatus]);
 
-  const codes = extractNoteCodes(room.GhiChuNV || '');
-  const hasEB = codes.includes('EB');
-  const hasBBC = codes.includes('BBC');
   const staffName = room.NhanVienPhuTrach || '';
 
   // Ghi log + refresh lại danh sách để hiện ngay lập tức (không cần đợi polling 15s)
@@ -59,12 +56,6 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     const existingCodes = extractNoteCodes(room.GhiChuNV || '');
     const merged = [...existingCodes, noteDraft.trim()].filter(Boolean).join(', ');
     if (merged !== room.GhiChuNV) onUpdate(room.MaPhong, { GhiChuNV: merged });
-  };
-
-  const toggleCode = (code: 'EB' | 'BBC') => {
-    const has = extractNoteCodes(room.GhiChuNV || '').includes(code);
-    onUpdate(room.MaPhong, { GhiChuNV: has ? removeNoteCode(room.GhiChuNV, code) : addNoteCode(room.GhiChuNV, code) });
-    log(has ? `Bỏ ${code}` : `Gắn ${code}`);
   };
 
   const toggleDnd = () => {
@@ -164,8 +155,12 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           </div>
 
           {(isRefused || isDnd) && (
-            <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
-              <span className="text-red-700 text-[12px] font-extrabold">
+            <div
+              className={`flex items-center justify-between rounded-xl px-3 py-2.5 border ${
+                isRefused ? 'bg-purple-50 border-purple-200' : 'bg-amber-50 border-amber-200'
+              }`}
+            >
+              <span className={`text-[12px] font-extrabold ${isRefused ? 'text-purple-700' : 'text-amber-700'}`}>
                 {isRefused ? `PHÒNG KHÔNG LÀM — ${formatTimeOnly(room.StartTime)}: Refused` : 'DND — KHÔNG LÀM PHIỀN'}
               </span>
               <button onClick={isRefused ? redoRoom : toggleDnd} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 flex-shrink-0 ml-2">
@@ -180,41 +175,23 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               Section 1: Các thao tác nhanh
             </div>
             {!isRefused && (
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <button
                   onClick={toggleDnd}
                   className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-bold ${
-                    isDnd ? 'bg-orange-600 text-white' : 'bg-orange-500 text-white'
+                    isDnd ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   <Moon className="w-4 h-4" /> DND {isDnd ? '(Bật)' : ''}
                 </button>
                 <button
                   onClick={markRefused}
-                  className="flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-bold bg-purple-600 text-white"
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-bold bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
                   <AlertTriangle className="w-4 h-4" /> Từ chối (RF)
                 </button>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <button
-                onClick={() => toggleCode('EB')}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-bold ${
-                  hasEB ? 'bg-blue-700 text-white' : 'bg-blue-600 text-white'
-                }`}
-              >
-                <BedSingle className="w-4 h-4" /> Thêm giường (EB)
-              </button>
-              <button
-                onClick={() => toggleCode('BBC')}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-bold ${
-                  hasBBC ? 'bg-pink-700 text-white' : 'bg-pink-600 text-white'
-                }`}
-              >
-                <Baby className="w-4 h-4" /> Nôi em bé (BBC)
-              </button>
-            </div>
 
             {/* Khối checklist — Thay ga giường (LinenChange) + Kiểm tra Két sắt (Mở/Đóng, giữ 3 trạng thái) */}
             <div className="bg-slate-100 rounded-xl p-3 space-y-2.5">
