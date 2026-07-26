@@ -1,30 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import { LogIn, Lock, User as UserIcon } from 'lucide-react';
+import { LogIn, Lock } from 'lucide-react';
 import type { Account } from '@/lib/types';
-import { login } from '@/lib/api';
+import { loginByPassword } from '@/lib/api';
 
 interface LoginScreenProps {
   onLoginSuccess: (account: Account) => void;
 }
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
-  const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id.trim() || !password.trim()) {
-      setError('Vui lòng nhập đủ ID và mật khẩu');
+    if (!password.trim()) {
+      setError('Vui lòng nhập mật khẩu');
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const res = await login(id.trim(), password);
+      const res = await loginByPassword(password);
       if (res.success && res.account) {
         onLoginSuccess(res.account);
       } else {
@@ -43,21 +42,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         <div className="flex flex-col items-center mb-6">
           <span className="bg-blue-600 w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-2.5">🧹</span>
           <h1 className="text-lg font-bold text-slate-800">HK PRO</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Đăng nhập để tiếp tục</p>
+          <p className="text-xs text-slate-400 mt-0.5">Nhập mật khẩu để đăng nhập</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
-            <UserIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <input
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              placeholder="ID đăng nhập"
-              className="flex-1 bg-transparent text-sm outline-none"
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-          </div>
           <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
             <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <input
@@ -65,6 +53,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mật khẩu"
+              autoFocus
               className="flex-1 bg-transparent text-sm outline-none"
             />
           </div>
