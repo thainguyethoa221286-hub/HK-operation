@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   X, Moon, AlertTriangle, Play, Square, RotateCcw,
-  Lock, Unlock, User, CheckCircle2, Undo2, BellRing, Send,
+  Lock, Unlock, User, CheckCircle2, Undo2, BellRing, Send, MessageSquareWarning,
 } from 'lucide-react';
 import type { Room } from '@/lib/types';
 import {
@@ -118,12 +118,12 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     log('Hoàn thành', `${formatTimeOnly(room.StartTime)} → ${formatTimeOnly(end)} (${dur} phút)`);
   };
 
-  // "Báo dơ lại" — cho phép hoàn tác 1 phòng lỡ bấm Hoàn thành nhầm, quay lại Chưa dọn/Phòng dơ
+  // "Làm lại phòng" — cho phép hoàn tác 1 phòng lỡ bấm Hoàn thành nhầm, quay lại Chưa dọn/Phòng dơ
   const reportDirtyAgain = () => {
     onUpdate(room.MaPhong, {
       TaskStatus: 'Chưa dọn', StartTime: '', EndTime: '', Duration: '', HkStatus: 'Phòng dơ',
     });
-    log('Báo dơ lại');
+    log('Làm lại phòng');
   };
 
   const isRefused = room.TaskStatus === 'Refused';
@@ -255,6 +255,18 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
             <div className="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide mb-2">
               Section 2: Ghi chú buồng phòng &amp; nhân viên
             </div>
+
+            {/* Ghi chú từ Admin/Giám sát — nổi bật NỀN VÀNG để gây chú ý, chỉ đọc (không sửa từ đây) */}
+            {room.GhiChuAdmin && (
+              <div className="flex items-start gap-2 bg-amber-100 border border-amber-400 text-amber-900 rounded-lg px-3 py-2.5 mb-3">
+                <MessageSquareWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide">Ghi chú từ Giám sát</div>
+                  <div className="text-[13px] font-semibold">{room.GhiChuAdmin}</div>
+                </div>
+              </div>
+            )}
+
             <div className="text-[12px] font-semibold text-slate-500 mb-1">Nhân viên dọn:</div>
             <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 mb-3">
               <User className="w-4 h-4 text-slate-400" />
@@ -295,13 +307,13 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               {isDone && (
                 <div className="space-y-2">
                   <div className="w-full flex items-center justify-center gap-2 bg-green-600 text-white rounded-xl py-3.5 text-sm font-bold">
-                    <CheckCircle2 className="w-4 h-4" /> PHÒNG NÀY ĐÃ SẠCH SẼ &amp; SẴN SÀNG
+                    <CheckCircle2 className="w-4 h-4" /> PHÒNG ĐÃ DỌN
                   </div>
                   <button
                     onClick={reportDirtyAgain}
                     className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-xl py-2.5 text-[13px] font-bold"
                   >
-                    <Undo2 className="w-3.5 h-3.5" /> Báo dơ lại
+                    <Undo2 className="w-3.5 h-3.5" /> LÀM LẠI PHÒNG
                   </button>
                 </div>
               )}
