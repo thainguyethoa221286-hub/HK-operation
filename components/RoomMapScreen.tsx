@@ -21,9 +21,10 @@ const SPECIAL_ROOMS = ['777', '888', '999'];
 interface RoomMapScreenProps {
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
+  staffList: string[];
 }
 
-export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
+export default function RoomMapScreen({ rooms, setRooms, staffList }: RoomMapScreenProps) {
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
   const [aiSyncing, setAiSyncing] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
@@ -159,6 +160,7 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
         onClose={closeModal}
         onSave={handleSave}
         onToggleInspecting={handleToggleInspecting}
+        staffList={staffList}
       />
 
       {aiSyncing && (
