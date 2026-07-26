@@ -43,6 +43,40 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** 9 bộ chìa khóa cố định của khách sạn — mỗi mã (123/456/789) là 1 chìa MASTER mở được 3 tầng
+ *  tương ứng (123 = tầng 1-2-3, 456 = tầng 4-5-6, 789 = tầng 7-8-9), mỗi mã có 3 BỘ giống hệt nhau
+ *  (Bộ 01/02/03) để nhiều nhân viên dùng cùng lúc trên cùng cụm tầng đó. */
+export const KEY_SETS = [
+  '123 FL (Bộ 01)', '456 FL (Bộ 01)', '789 FL (Bộ 01)',
+  '123 FL (Bộ 02)', '456 FL (Bộ 02)', '789 FL (Bộ 02)',
+  '123 FL (Bộ 03)', '456 FL (Bộ 03)', '789 FL (Bộ 03)',
+] as const;
+
+/** 1 lượt giao/nhận 1 bộ chìa — lưu ở tab riêng "GiaoNhanChia".
+ *  rowIndex dùng để gọi returnKey() cập nhật đúng dòng khi trả chìa. */
+export interface KeyLog {
+  rowIndex: number;
+  ngay: string;
+  nhanVien: string;
+  keyLabel: string;
+  gioMuon: string;
+  gioTra: string;
+  trangThai: 'Đang giữ' | 'Đã trả';
+}
+
+/** 1 lượt giao/nhận chìa khóa — lưu ở tab riêng "GiaoNhanChia".
+ *  rowIndex dùng để gọi returnKey() cập nhật đúng dòng khi trả chìa. */
+export interface KeyLog {
+  rowIndex: number;
+  ngay: string;
+  nhanVien: string;
+  soPhong: string;
+  soLuong: string;
+  gioMuon: string;
+  gioTra: string;
+  trangThai: 'Đang giữ' | 'Đã trả';
+}
+
 export interface Room {
   MaPhong: string;
   Tang: string;
@@ -69,9 +103,15 @@ export interface Room {
   SafeStatus: SafeStatus;
   /** Có thay giường trong lượt dọn này không — 'Có' hoặc rỗng */
   LinenChange: string;
+  /** Mã xe đẩy — TỰ ĐỘNG lấy theo mã nhóm phân công (VD "N1") khi giám sát gán phòng ở tab Phân công */
+  TrolleyCode: string;
+  /** Tầng đang giữ máy hút bụi trong ca này (VD "5FL") — chọn ở khung Bàn giao thiết bị đầu màn Nhiệm vụ */
+  VacuumFloor: string;
   /** Trạng thái tạm thời — KHÔNG lưu vào Sheet, chỉ tồn tại trong phiên làm việc hiện tại */
   isInspecting: boolean;
 }
+
+export const VACUUM_FLOORS = ['1FL', '2FL', '3FL', '4FL', '5FL', '6FL', '7FL', '8FL', '9FL'];
 
 export const HK_STATUSES: HkStatus[] = [
   'Phòng dơ',
