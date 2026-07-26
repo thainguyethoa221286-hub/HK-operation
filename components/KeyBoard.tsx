@@ -36,6 +36,9 @@ export default function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn }:
         {KEY_SETS.map((label) => {
           // Bộ chìa nào cũng chỉ có tối đa 1 dòng "Đang giữ" tại 1 thời điểm (đã chặn phía Code.gs)
           const activeLog = keyLogs.find((l) => l.keyLabel === label && l.trangThai === 'Đang giữ');
+          // Lượt gần nhất trong ngày (dù đang giữ hay đã trả) — để luôn hiện "Nhận giờ - Trả giờ" ngay trên thẻ
+          const logsForKey = keyLogs.filter((l) => l.keyLabel === label);
+          const latestLog = logsForKey.length > 0 ? logsForKey[logsForKey.length - 1] : null;
           const isHeldByMe = activeLog && activeLog.nhanVien === myName;
           const isHeldByOther = activeLog && !isHeldByMe;
           const isPending = selected.includes(label);
@@ -67,10 +70,15 @@ export default function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn }:
               )}
               <Key className={`w-4 h-4 mx-auto mb-1 ${isHeldByMe ? 'text-blue-600' : isHeldByOther ? 'text-slate-400' : 'text-emerald-600'}`} />
               <div className="text-[11px] font-extrabold text-slate-800 leading-tight">{label}</div>
-              {activeLog ? (
-                <div className="mt-1 text-[9px] font-semibold text-slate-500 flex items-center justify-center gap-0.5">
+              {activeLog && (
+                <div className="mt-1 text-[9px] font-semibold text-slate-500">
+                  {isHeldByMe ? 'Bạn giữ' : activeLog.nhanVien}
+                </div>
+              )}
+              {latestLog ? (
+                <div className="mt-0.5 text-[9px] font-semibold text-slate-500 flex items-center justify-center gap-0.5">
                   <Clock className="w-2.5 h-2.5" />
-                  {isHeldByMe ? 'Bạn giữ' : activeLog.nhanVien} · {formatTimeOnly(activeLog.gioMuon)}
+                  Nhận {formatTimeOnly(latestLog.gioMuon)} — {latestLog.gioTra ? `Trả ${formatTimeOnly(latestLog.gioTra)}` : 'Chưa trả'}
                 </div>
               ) : (
                 <div className="mt-1 text-[9px] font-bold text-emerald-600">Có sẵn</div>
