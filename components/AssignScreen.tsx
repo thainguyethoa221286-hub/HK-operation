@@ -98,8 +98,11 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
   const assignRooms = async (maPhongList: string[], group: Group) => {
     const label = groupCurrentLabel(group);
-    setRooms((prev) => prev.map((r) => (maPhongList.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: label } : r)));
-    await Promise.all(maPhongList.map((id) => updateRoomField(id, 'NhanVienPhuTrach', label)));
+    setRooms((prev) => prev.map((r) => (maPhongList.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: label, TrolleyCode: group.id } : r)));
+    await Promise.all(maPhongList.map((id) => Promise.all([
+      updateRoomField(id, 'NhanVienPhuTrach', label),
+      updateRoomField(id, 'TrolleyCode', group.id),
+    ])));
   };
 
   const unassignRoom = async (maPhong: string) => {
