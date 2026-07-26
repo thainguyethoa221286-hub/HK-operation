@@ -85,6 +85,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     const cleaningCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Đang dọn').length;
     const arrivalCount = myRoomsRaw.filter((r) => r.FoStatus === 'Arrival').length;
     const dndCount = myRoomsRaw.filter((r) => r.TaskStatus === 'DND').length;
+    const rfCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Refused').length;
 
     // Đồng bộ với RoomCard đang cần: đảm bảo phòng luôn thể hiện đúng dữ liệu mới nhất trong modal đang mở
     const currentSelected = selectedRoom ? rooms.find((r) => r.MaPhong === selectedRoom.MaPhong) || null : null;
@@ -107,7 +108,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3.5">
               <div className="bg-red-50 border border-red-100 rounded-xl px-2.5 py-2 text-center">
                 <div className="text-red-500 text-[10px] font-bold">Cần dọn</div>
                 <div className="text-red-600 text-lg font-extrabold">{dirtyCount}</div>
@@ -127,6 +128,10 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-2 text-center">
                 <div className="text-amber-600 text-[10px] font-bold">DND</div>
                 <div className="text-amber-700 text-lg font-extrabold">{dndCount}</div>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 rounded-xl px-2.5 py-2 text-center">
+                <div className="text-purple-600 text-[10px] font-bold">RF</div>
+                <div className="text-purple-700 text-lg font-extrabold">{rfCount}</div>
               </div>
             </div>
           </div>
