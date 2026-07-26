@@ -3,26 +3,19 @@ import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
    MỤC 2 — QUY TẮC MÀU SẮC THẺ PHÒNG (dựa trên HK Status)
-   Viền trái đổi màu theo trạng thái; nền mặc định trắng.
+   Viền đầy đủ (border-2) + nền đổi theo từng trạng thái.
    ========================================================= */
-export const HK_STYLE: Record<HkStatus, { border: string }> = {
-  'Phòng dơ': { border: 'border-l-red-500' },
-  'Phòng đang dọn': { border: 'border-l-blue-500' },
-  'Phòng sạch': { border: 'border-l-yellow-400' },
-  'Đã kiểm tra': { border: 'border-l-green-500' },
-  'Phòng sửa chữa (OOO)': { border: 'border-l-slate-400' },
+export const HK_STYLE: Record<HkStatus, { border: string; bg: string }> = {
+  'Phòng dơ': { border: 'border-red-500', bg: 'bg-white' },
+  'Phòng đang dọn': { border: 'border-blue-500', bg: 'bg-blue-100' },
+  'Phòng sạch': { border: 'border-amber-400', bg: 'bg-white' },
+  'Đã kiểm tra': { border: 'border-emerald-500', bg: 'bg-white' },
+  'Phòng sửa chữa (OOO)': { border: 'border-slate-400', bg: 'bg-white' },
 };
 
-/** Badge trạng thái vệ sinh dạng viên thuốc (pill) màu đậm, chữ trắng — dùng cho thiết kế thẻ phòng mới.
- *  Giữ nguyên 5 trạng thái/màu đã có (không gộp "Sạch" và "Đã kiểm tra" làm một, vì luồng
- *  Kiểm phòng/Nhả phòng của app phân biệt rõ 2 bước này). */
-export const HK_STATUS_PILL: Record<HkStatus, { label: string; cls: string }> = {
-  'Phòng dơ': { label: 'DƠ', cls: 'bg-red-500 text-white' },
-  'Phòng đang dọn': { label: 'ĐANG DỌN', cls: 'bg-blue-500 text-white' },
-  'Phòng sạch': { label: 'SẠCH', cls: 'bg-yellow-400 text-slate-800' },
-  'Đã kiểm tra': { label: 'ĐÃ KIỂM', cls: 'bg-green-500 text-white' },
-  'Phòng sửa chữa (OOO)': { label: 'OOO', cls: 'bg-slate-400 text-white' },
-};
+/** Khi Admin/Giám sát bấm [KIỂM PHÒNG] — ưu tiên cao nhất, đè lên mọi màu trạng thái khác.
+ *  Khi bấm [NHẢ PHÒNG]/[HOÀN THÀNH] để kiểm xong, trả lại đúng màu "Đã kiểm tra" (xanh lá, nền trắng). */
+export const INSPECTING_STYLE = { border: 'border-purple-500', bg: 'bg-purple-100' };
 
 /** Nhãn chữ ngắn gọn cho trạng thái khách (FoStatus) — dùng cạnh icon ở chân thẻ phòng */
 export const FO_STATUS_LABEL: Record<FoStatus, string> = {
@@ -33,22 +26,13 @@ export const FO_STATUS_LABEL: Record<FoStatus, string> = {
   Vacant: 'Phòng trống',
 };
 
-/** Nền tạm thời khi phòng đang trong quá trình kiểm phòng — ưu tiên cao nhất, đè lên mọi nền khác */
-export const INSPECTING_BG = 'bg-yellow-100';
-
-/** Nền riêng cho trạng thái "Phòng đang dọn" */
-export const CLEANING_BG = 'bg-blue-50';
-
 /**
  * Trả về class border + background cho 1 phòng.
- * Thứ tự ưu tiên nền: isInspecting (vàng) > Phòng đang dọn (xanh nhạt) > mặc định (trắng)
+ * "Đang kiểm phòng" (tím) ưu tiên cao nhất, đè lên mọi trạng thái HK Status khác.
  */
 export function getRoomCardStyle(hkStatus: HkStatus, isInspecting: boolean) {
-  const base = HK_STYLE[hkStatus] ?? HK_STYLE['Phòng dơ'];
-  let bg = 'bg-white';
-  if (hkStatus === 'Phòng đang dọn') bg = CLEANING_BG;
-  if (isInspecting) bg = INSPECTING_BG;
-  return { border: base.border, bg };
+  if (isInspecting) return INSPECTING_STYLE;
+  return HK_STYLE[hkStatus] ?? HK_STYLE['Phòng dơ'];
 }
 
 /* =========================================================
@@ -167,6 +151,19 @@ export function hasDndOrRf(note: string): { dnd: boolean; rf: boolean } {
 
 /** Badge thẻ treo DND (đỏ) / RF (tím đậm) — dùng inline trực tiếp trong RoomCard/AssignScreen,
  *  hàm này giữ lại để tái sử dụng nếu cần render rời (không có móc treo). */
+/** Thẻ treo cửa (Door Hanger) cho DND/RF trên góc thẻ phòng — mô phỏng bảng treo thực tế
+ *  ở tay cầm cửa: có 1 lỗ tròn nhỏ phía trên (chỗ xỏ vào tay nắm cửa) + thân thẻ màu đậm bên dưới. */
+export function DoorHangerTag({ label, colorCls }: { label: string; colorCls: string }) {
+  return (
+    <div className="relative inline-flex flex-col items-center flex-shrink-0">
+      <div className="w-[7px] h-[7px] rounded-full bg-white border border-slate-300 z-10 -mb-[3px]" />
+      <div className={`px-1.5 pt-[5px] pb-[2px] rounded-[3px] text-[8px] font-extrabold text-white shadow-sm leading-none ${colorCls}`}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export function DndRfBadge({ note }: { note: string }) {
   const { dnd, rf } = hasDndOrRf(note);
   if (!dnd && !rf) return null;
