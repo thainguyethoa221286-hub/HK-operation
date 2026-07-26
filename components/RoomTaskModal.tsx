@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   X, Moon, AlertTriangle, Play, Square, RotateCcw,
-  Lock, Unlock, User, CheckCircle2, Undo2, BellRing, Send, MessageSquareWarning,
+  Lock, Unlock, CheckCircle2, Undo2, BellRing, Send, MessageSquareWarning,
 } from 'lucide-react';
 import type { Room } from '@/lib/types';
 import {
@@ -267,11 +267,6 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               </div>
             )}
 
-            <div className="text-[12px] font-semibold text-slate-500 mb-1">Nhân viên dọn:</div>
-            <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 mb-3">
-              <User className="w-4 h-4 text-slate-400" />
-              <span className="text-[13px] font-semibold text-slate-700">{staffName || '—'}</span>
-            </div>
             <div className="text-[12px] font-semibold text-slate-500 mb-1">Ghi chú chi tiết phòng:</div>
             <input
               value={noteDraft}
