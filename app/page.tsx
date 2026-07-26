@@ -90,7 +90,7 @@ export default function HomePage() {
   // Đồng bộ real-time giữa các thiết bị (VD: nhân viên bấm Hoàn thành trên điện thoại,
   // màn Sơ đồ phòng của chị trên máy tính cần tự cập nhật mà không phải bấm F5) —
   // tự động lấy lại dữ liệu mới nhất từ Google Sheet mỗi 15 giây.
-  const POLL_INTERVAL_MS = 15000;
+  const POLL_INTERVAL_MS = 8000;
   useEffect(() => {
     if (!API_URL) return;
     const timer = setInterval(() => {
