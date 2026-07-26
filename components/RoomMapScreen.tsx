@@ -42,7 +42,7 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
     setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, ...changes } : r)));
     const fieldMap: Record<string, string> = {
       HkStatus: 'HkStatus', FoStatus: 'FoStatus',
-      NhanVienPhuTrach: 'NhanVienPhuTrach', GhiChu: 'GhiChu', GhiChuNV: 'GhiChuNV', Flags: 'Flags',
+      NhanVienPhuTrach: 'NhanVienPhuTrach', GhiChu: 'GhiChu', GhiChuNV: 'GhiChuNV', GhiChuAdmin: 'GhiChuAdmin', Flags: 'Flags',
     };
     for (const [key, value] of Object.entries(changes)) {
       if (fieldMap[key]) await updateRoomField(maPhong, fieldMap[key], String(value));
