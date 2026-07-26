@@ -141,7 +141,7 @@ export default function RoomMapScreen({ rooms, setRooms }: RoomMapScreenProps) {
       {floors.map((floor) => (
         <div key={floor}>
           <div className="text-xs font-bold tracking-wide text-slate-500 my-4">TẦNG {floor}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:[grid-template-columns:repeat(auto-fill,minmax(120px,1fr))] gap-2 md:gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-3">
             {byFloor[floor].map((room) => {
               const isSpecial = SPECIAL_ROOMS.includes(room.MaPhong);
               return (
