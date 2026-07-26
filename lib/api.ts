@@ -111,6 +111,22 @@ export async function login(id: string, password: string): Promise<{ success: bo
   return r;
 }
 
+/** Đăng nhập CHỈ bằng mật khẩu (không cần nhập tên đăng nhập) — hệ thống tự dò đúng tài khoản khớp mật khẩu */
+export async function loginByPassword(password: string): Promise<{ success: boolean; account?: Account; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; account?: Account; error?: string }>('loginByPassword', { password });
+  if (!r) return { success: false, error: 'Không nhận được phản hồi từ Apps Script' };
+  return r;
+}
+
+/** Lấy danh sách tài khoản (chỉ id + hoTen + vaiTro, KHÔNG có mật khẩu) — dùng để lấy danh sách
+ *  nhân viên ĐỘNG cho màn Phân công, thay vì hardcode cứng trong code. */
+export async function listAccounts(): Promise<Account[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; accounts?: Account[] }>('listAccounts', {});
+  return r?.accounts || [];
+}
+
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
   if (!API_URL) return { success: true, updated: chunk.length };
   const result = await jsonp<{ success: boolean; updated?: number; notFound?: string[]; error?: string }>(
