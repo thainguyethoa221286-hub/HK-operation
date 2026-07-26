@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText } from 'lucide-react';
+import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText, MessageSquareWarning, ListChecks } from 'lucide-react';
 import type { Room, KeyLog } from '@/lib/types';
 import { getKeyLogs } from '@/lib/api';
-import { stripCodesFromNote } from '@/lib/roomStyles';
+import { stripCodesFromNote, hasDndOrRf, combineNotes, NoteIcons } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
 
 interface ReportScreenProps {
@@ -28,6 +28,10 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
   // Mục "Ghi chú nhân viên" — liệt kê toàn bộ phòng có ghi chú tự do (VD khách yêu cầu riêng),
   // để giám sát xem 1 chỗ, không cần mở từng phòng trên Sơ đồ.
   const staffNotedRooms = rooms.filter((r) => stripCodesFromNote(r.GhiChuNV));
+  // Mục "Ghi chú giám sát" — toàn bộ ghi chú do Admin/Giám sát tự nhập (GhiChuAdmin), lưu trữ theo dõi
+  const adminNotedRooms = rooms.filter((r) => r.GhiChuAdmin);
+  // Danh sách đầy đủ 55 phòng, sắp theo số phòng tăng dần (102 -> 999)
+  const allRoomsSorted = [...rooms].sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
 
   const total = rooms.length;
   const doneCount = rooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
@@ -154,6 +158,28 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         </div>
       )}
 
+      {/* Ghi chú giám sát hôm nay — GhiChuAdmin, lưu trữ/theo dõi thông tin do Admin/Giám sát tự ghi */}
+      {adminNotedRooms.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
+            <MessageSquareWarning className="w-4 h-4 text-amber-600" /> Ghi chú giám sát hôm nay
+          </h2>
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 space-y-2">
+            {adminNotedRooms.map((r) => (
+              <div key={r.MaPhong} className="flex items-start gap-3 border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                <span className="bg-amber-100 text-amber-700 font-extrabold rounded-lg px-2 py-1 text-[12px] flex-shrink-0">
+                  {r.MaPhong}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-slate-700">{r.GhiChuAdmin}</div>
+                  {r.NhanVienPhuTrach && <div className="text-[10px] text-slate-400">Nhân viên phụ trách: {r.NhanVienPhuTrach}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Module 2 — Giao nhận chìa khóa (chỉ xem, đồng bộ mỗi 15s) — mỗi thẻ đã tự hiện Nhận/Trả */}
       <div className="mt-6">
         <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
@@ -161,6 +187,55 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         </h2>
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
           <KeyBoard keyLogs={keyLogs} />
+        </div>
+      </div>
+
+      {/* Danh sách đầy đủ 55 phòng (102 -> 999) — DND/RF/Két sắt/Thay giường/BBC/EB/HON */}
+      <div className="mt-6">
+        <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
+          <ListChecks className="w-4 h-4 text-slate-500" /> Danh sách 55 phòng
+        </h2>
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase">
+                <th className="px-3 py-2 text-left">Phòng</th>
+                <th className="px-2 py-2 text-center">DND</th>
+                <th className="px-2 py-2 text-center">RF</th>
+                <th className="px-2 py-2 text-center">Két sắt</th>
+                <th className="px-2 py-2 text-center">Thay giường</th>
+                <th className="px-2 py-2 text-center">Dịch vụ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allRoomsSorted.map((r) => {
+                const combinedNote = combineNotes(r.GhiChu, r.GhiChuNV);
+                const { dnd, rf } = hasDndOrRf(combinedNote);
+                return (
+                  <tr key={r.MaPhong} className="border-t border-slate-50">
+                    <td className="px-3 py-1.5 font-bold text-slate-700">{r.MaPhong}</td>
+                    <td className="px-2 py-1.5 text-center">
+                      {dnd && <span className="bg-red-600 text-white font-extrabold px-1.5 py-[1px] rounded text-[9px]">DND</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      {rf && <span className="bg-purple-800 text-white font-extrabold px-1.5 py-[1px] rounded text-[9px]">RF</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-center text-slate-500 font-semibold">
+                      {r.SafeStatus === 'Chưa kiểm' ? '—' : r.SafeStatus}
+                    </td>
+                    <td className="px-2 py-1.5 text-center text-slate-500 font-semibold">
+                      {r.LinenChange === 'Có' ? 'Có' : '—'}
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <div className="flex items-center justify-center">
+                        <NoteIcons note={combinedNote} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
