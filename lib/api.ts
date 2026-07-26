@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry } from './types';
+import type { Room, Account, HistoryEntry, KeyLog } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -73,6 +73,8 @@ export async function fetchRooms(): Promise<Room[]> {
     TaskStatus: String(row.TaskStatus ?? '') || 'Chưa dọn',
     SafeStatus: String(row.SafeStatus ?? '') || 'Chưa kiểm',
     LinenChange: String(row.LinenChange ?? ''),
+    TrolleyCode: String(row.TrolleyCode ?? ''),
+    VacuumFloor: String(row.VacuumFloor ?? ''),
     isInspecting: false,
   })) as Room[];
 }
@@ -101,6 +103,27 @@ export async function getTaskHistory(maPhong: string): Promise<HistoryEntry[]> {
   if (!API_URL) return [];
   const r = await jsonp<{ success: boolean; history?: HistoryEntry[] }>('getTaskHistory', { maPhong });
   return r?.history || [];
+}
+
+/** Lấy toàn bộ lượt giao/nhận chìa TRONG NGÀY HÔM NAY (mọi nhân viên) — dùng để vẽ trạng thái 9 thẻ chìa */
+export async function getKeyLogs(): Promise<KeyLog[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; logs?: KeyLog[] }>('getKeyLogs', {});
+  return r?.logs || [];
+}
+
+/** Mượn 1 bộ chìa — ghi 1 dòng mới, trạng thái "Đang giữ" */
+export async function borrowKey(nhanVien: string, keyLabel: string): Promise<{ success: boolean; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; error?: string }>('borrowKey', { nhanVien, keyLabel });
+  return r || { success: false, error: 'Không nhận được phản hồi' };
+}
+
+/** Trả chìa — cập nhật đúng dòng (theo rowIndex) sang trạng thái "Đã trả" */
+export async function returnKey(rowIndex: number): Promise<{ success: boolean; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; error?: string }>('returnKey', { rowIndex: String(rowIndex) });
+  return r || { success: false, error: 'Không nhận được phản hồi' };
 }
 
 /** Đăng nhập bằng ID + mật khẩu, đối chiếu tab "TaiKhoan" trên Google Sheet qua Code.gs */
