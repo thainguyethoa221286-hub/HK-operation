@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
-import { MASTER_STAFF_LIST } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
@@ -57,9 +56,11 @@ function getLeftBadge(note: string) {
 interface AssignScreenProps {
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
+  /** Mục 3 — danh sách tên nhân viên lấy ĐỘNG từ tab TaiKhoan (page.tsx fetch qua listAccounts), không hardcode */
+  staffList: string[];
 }
 
-export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
+export default function AssignScreen({ rooms, setRooms, staffList }: AssignScreenProps) {
   const [groups, setGroups] = useState<Group[]>(DEFAULT_GROUPS);
   const [addStaffOpenFor, setAddStaffOpenFor] = useState<string | null>(null);
   const [taskModalGroupId, setTaskModalGroupId] = useState<string | null>(null);
@@ -318,7 +319,7 @@ export default function AssignScreen({ rooms, setRooms }: AssignScreenProps) {
               </button>
               {addStaffOpenFor === g.id && (
                 <div className="absolute z-20 top-full mt-1 left-0 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-28 max-h-48 overflow-y-auto">
-                  {MASTER_STAFF_LIST.filter((s) => !g.staffs.includes(s)).map((s) => (
+                  {staffList.filter((s) => !g.staffs.includes(s)).map((s) => (
                     <div key={s} onClick={() => addStaffToGroup(g.id, s)} className="px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">
                       {s}
                     </div>
