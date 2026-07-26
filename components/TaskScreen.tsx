@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import type { Room, Account } from '@/lib/types';
+import { useEffect, useState } from 'react';
+import type { Room, Account, KeyLog } from '@/lib/types';
+import { VACUUM_FLOORS } from '@/lib/types';
 import RoomCard from './RoomCard';
 import RoomTaskModal from './RoomTaskModal';
-import { updateRoomFields } from '@/lib/api';
-import { TASK_STATUS_STYLE } from '@/lib/roomStyles';
+import KeyBoard from './KeyBoard';
+import { updateRoomFields, getKeyLogs, borrowKey, returnKey } from '@/lib/api';
+import { TASK_STATUS_STYLE, formatTimeOnly } from '@/lib/roomStyles';
+import { Truck, Lock } from 'lucide-react';
 
 const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
 
@@ -64,6 +67,30 @@ interface TaskScreenProps {
 export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps) {
   const isStaff = account.vaiTro === 'HKStaff';
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+
+  const refreshKeyLogs = () => { getKeyLogs().then(setKeyLogs); };
+  useEffect(() => {
+    refreshKeyLogs();
+    const timer = setInterval(refreshKeyLogs, 15000); // đồng bộ khi người khác mượn/trả chìa
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleBorrowKey = async (keyLabel: string) => {
+    const res = await borrowKey(account.hoTen, keyLabel);
+    if (!res.success) { alert(res.error || 'Không mượn được chìa này'); }
+    refreshKeyLogs();
+  };
+  const handleReturnKey = async (rowIndex: number) => {
+    await returnKey(rowIndex);
+    refreshKeyLogs();
+  };
+
+  // Ô Máy hút bụi — ghi VacuumFloor lên TOÀN BỘ phòng đang được giao cho nhân viên này hôm nay
+  const handleSetVacuumFloor = async (maPhongList: string[], floor: string) => {
+    setRooms((prev) => prev.map((r) => (maPhongList.includes(r.MaPhong) ? { ...r, VacuumFloor: floor } : r)));
+    await Promise.all(maPhongList.map((id) => updateRoomFields(id, { VacuumFloor: floor })));
+  };
 
   const handleUpdate = async (maPhong: string, fields: Partial<Room>) => {
     setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, ...fields } : r)));
@@ -87,12 +114,74 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     const dndCount = myRoomsRaw.filter((r) => r.TaskStatus === 'DND').length;
     const rfCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Refused').length;
 
+    // Chìa khóa đang giữ (nếu có) — quyết định khóa/mở toàn bộ thao tác phía dưới
+    const myKey = keyLogs.find((l) => l.nhanVien === account.hoTen && l.trangThai === 'Đang giữ');
+    // Mã xe đẩy — tự động lấy từ mã nhóm đã gán ở tab Phân công (ghi kèm khi giám sát gán phòng)
+    const trolleyCode = myRoomsRaw.find((r) => r.TrolleyCode)?.TrolleyCode || '';
+    // Tầng máy hút bụi hiện tại — lấy từ phòng nào đã có giá trị (đồng bộ chung 1 giá trị cho cả ca)
+    const vacuumFloor = myRoomsRaw.find((r) => r.VacuumFloor)?.VacuumFloor || '';
+    const myRoomIds = myRoomsRaw.map((r) => r.MaPhong);
+
     // Đồng bộ với RoomCard đang cần: đảm bảo phòng luôn thể hiện đúng dữ liệu mới nhất trong modal đang mở
     const currentSelected = selectedRoom ? rooms.find((r) => r.MaPhong === selectedRoom.MaPhong) || null : null;
 
     return (
       <div>
         <h1 className="text-[19px] font-bold mb-3">Nhiệm vụ của tôi</h1>
+
+        {/* ===== KHUNG BÀN GIAO THIẾT BỊ & XE ĐẨY — đầu màn hình, trước tiến độ và danh sách phòng ===== */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-slate-500" />
+              <span className="text-[13px] font-extrabold text-slate-700">BÀN GIAO THIẾT BỊ</span>
+            </div>
+            {trolleyCode ? (
+              <span className="bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                🛒 Xe số: {trolleyCode}
+              </span>
+            ) : (
+              <span className="text-[11px] text-slate-400 font-semibold">Chưa có mã xe đẩy (chờ giám sát phân công)</span>
+            )}
+          </div>
+
+          {/* Ô máy hút bụi */}
+          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5 mb-3">
+            <span className="text-[12px] font-bold text-slate-600">🧹 Máy hút bụi</span>
+            <select
+              value={vacuumFloor}
+              onChange={(e) => handleSetVacuumFloor(myRoomIds, e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-slate-700"
+            >
+              <option value="">— Chưa lấy —</option>
+              {VACUUM_FLOORS.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Nhận / trả chìa khóa */}
+          {myKey ? (
+            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+              <span className="text-[12px] font-bold text-emerald-700">
+                🔑 Đã nhận chìa: {myKey.keyLabel} · {formatTimeOnly(myKey.gioMuon)}
+              </span>
+              <button
+                onClick={() => handleReturnKey(myKey.rowIndex)}
+                className="text-[11px] font-bold text-red-600 bg-white border border-red-200 rounded-lg px-2.5 py-1.5"
+              >
+                TRẢ CHÌA KHÓA
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-2.5 text-[12px] font-bold text-red-600">
+                <Lock className="w-3.5 h-3.5" /> Chưa nhận chìa khóa — chọn 1 bộ chìa bên dưới để mở khóa nhiệm vụ
+              </div>
+              <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onBorrow={handleBorrowKey} onReturn={handleReturnKey} />
+            </div>
+          )}
+        </div>
 
         {/* Bảng thống kê tiến độ */}
         {myRoomsRaw.length > 0 && (
@@ -137,7 +226,14 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
           </div>
         )}
 
-        {myRooms.length === 0 ? (
+        {/* Danh sách phòng — BỊ KHÓA cho tới khi nhận chìa khóa */}
+        {!myKey ? (
+          <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-10 text-center">
+            <Lock className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+            <div className="text-[13px] font-bold text-slate-400">Danh sách phòng đang khóa</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Nhận chìa khóa ở khung phía trên để bắt đầu dọn phòng</div>
+          </div>
+        ) : myRooms.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Chưa có phòng nào được giao cho bạn hôm nay.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
