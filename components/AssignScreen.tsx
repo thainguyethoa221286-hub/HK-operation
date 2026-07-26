@@ -5,7 +5,8 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
-import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
+import { NoteIcons, hasDndOrRf, combineNotes, stripCodesFromNote } from '@/lib/roomStyles';
+import { MessageSquareWarning, MessageSquareText } from 'lucide-react';
 import { updateRoomField } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -202,6 +203,8 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
   }) => {
     const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
+    const hasAdminNote = !!room.GhiChuAdmin;
+    const hasStaffNote = !!stripCodesFromNote(room.GhiChuNV);
     return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
@@ -221,8 +224,18 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         )}
       </span>
 
-      {/* Mục 3 — phải: icon EB/BBC/HON + nút xoá */}
+      {/* Mục 3 — phải: icon ghi chú Admin/Nhân viên + icon EB/BBC/HON + nút xoá */}
       <span className="flex items-center gap-1 flex-shrink-0">
+        {hasAdminNote && (
+          <span title={`Giám sát ghi: ${room.GhiChuAdmin}`}>
+            <MessageSquareWarning className="w-3.5 h-3.5 text-amber-600" />
+          </span>
+        )}
+        {hasStaffNote && (
+          <span title={`Nhân viên ghi: ${stripCodesFromNote(room.GhiChuNV)}`}>
+            <MessageSquareText className="w-3.5 h-3.5 text-blue-500" />
+          </span>
+        )}
         <NoteIcons note={combinedNote} />
         {removable && (
           <button onClick={(e) => { e.stopPropagation(); onRemove?.(); }} className="text-slate-400 hover:text-red-500 font-bold px-1">✕</button>
