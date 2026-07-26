@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText, MessageSquareWarning, ListChecks } from 'lucide-react';
 import type { Room, KeyLog } from '@/lib/types';
 import { getKeyLogs } from '@/lib/api';
-import { stripCodesFromNote, hasDndOrRf, combineNotes, NoteIcons } from '@/lib/roomStyles';
+import { stripCodesFromNote, formatDateShort, formatTimeOnly } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
 
 interface ReportScreenProps {
@@ -14,6 +14,20 @@ interface ReportScreenProps {
 /** Tổng số phút từ danh sách Duration dạng chuỗi (bỏ qua giá trị rỗng/không hợp lệ) */
 function sumDuration(rooms: Room[]): number {
   return rooms.reduce((sum, r) => sum + (parseInt(r.Duration, 10) || 0), 0);
+}
+
+/** Map HkStatus (tiếng Việt) -> badge chuẩn Tiếng Anh khách sạn cho HOUSEKEEPING DAILY REPORT */
+const STATUS_BADGE_EN: Record<string, { label: string; cls: string }> = {
+  'Phòng dơ': { label: 'DIRTY', cls: 'bg-red-100 text-red-600' },
+  'Phòng đang dọn': { label: 'CLEANING', cls: 'bg-amber-100 text-amber-600' },
+  'Phòng sạch': { label: 'CLEAN', cls: 'bg-blue-100 text-blue-600' },
+  'Đã kiểm tra': { label: 'INSPECTED', cls: 'bg-emerald-100 text-emerald-600' },
+  'Phòng sửa chữa (OOO)': { label: 'OOO', cls: 'bg-slate-100 text-slate-500' },
+};
+const CHECKING_BADGE = { label: 'CHECKING', cls: 'bg-amber-100 text-amber-600' };
+
+function StatusBadge({ label, cls }: { label: string; cls: string }) {
+  return <span className={`inline-block font-bold px-2 py-0.5 rounded text-[10px] ${cls}`}>{label}</span>;
 }
 
 export default function ReportScreen({ rooms }: ReportScreenProps) {
@@ -32,6 +46,9 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
   const adminNotedRooms = rooms.filter((r) => r.GhiChuAdmin);
   // Danh sách đầy đủ 55 phòng, sắp theo số phòng tăng dần (102 -> 999)
   const allRoomsSorted = [...rooms].sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
+  // Ngày hôm nay (dd/mm/yyyy) cho tiêu đề báo cáo
+  const now = new Date();
+  const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
   const total = rooms.length;
   const doneCount = rooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
@@ -190,47 +207,53 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         </div>
       </div>
 
-      {/* Danh sách đầy đủ 55 phòng (102 -> 999) — DND/RF/Két sắt/Thay giường/BBC/EB/HON */}
+      {/* HOUSEKEEPING DAILY REPORT — 9 cột chuẩn nghiệp vụ khách sạn tiếng Anh */}
       <div className="mt-6">
         <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
-          <ListChecks className="w-4 h-4 text-slate-500" /> Danh sách 55 phòng
+          <ListChecks className="w-4 h-4 text-slate-500" /> HOUSEKEEPING DAILY REPORT — {todayStr}
         </h2>
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase">
-                <th className="px-3 py-2 text-left">Phòng</th>
-                <th className="px-2 py-2 text-center">DND</th>
-                <th className="px-2 py-2 text-center">RF</th>
-                <th className="px-2 py-2 text-center">Két sắt</th>
-                <th className="px-2 py-2 text-center">Thay giường</th>
-                <th className="px-2 py-2 text-center">Dịch vụ</th>
+              <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase whitespace-nowrap">
+                <th className="px-3 py-2 text-left">Room</th>
+                <th className="px-2 py-2 text-left">Type</th>
+                <th className="px-2 py-2 text-left">Assigned Staff</th>
+                <th className="px-2 py-2 text-left">Check-in / Check-out</th>
+                <th className="px-2 py-2 text-center">Morning Status</th>
+                <th className="px-2 py-2 text-center">Current Status</th>
+                <th className="px-2 py-2 text-center">Working Time</th>
+                <th className="px-2 py-2 text-center">Safe Box</th>
+                <th className="px-3 py-2 text-left">Remarks (QL &amp; NV)</th>
               </tr>
             </thead>
             <tbody>
               {allRoomsSorted.map((r) => {
-                const combinedNote = combineNotes(r.GhiChu, r.GhiChuNV);
-                const { dnd, rf } = hasDndOrRf(combinedNote);
+                // Cột 5 — MORNING STATUS: ảnh chụp cố định lúc Đồng bộ AI, KHÔNG đổi trong ngày
+                const morningBadge = STATUS_BADGE_EN[r.MorningStatus] || STATUS_BADGE_EN['Phòng dơ'];
+                // Cột 6 — CURRENT STATUS: thực tế real-time; "Đang kiểm phòng" (isInspecting) ưu tiên hiện CHECKING
+                const currentBadge = r.isInspecting ? CHECKING_BADGE : (STATUS_BADGE_EN[r.HkStatus] || STATUS_BADGE_EN['Phòng dơ']);
+                const workingTime = r.StartTime ? `${formatTimeOnly(r.StartTime)} - ${r.EndTime ? formatTimeOnly(r.EndTime) : ''}` : '—';
+                const remarks = [
+                  r.GhiChuAdmin ? `QL: ${r.GhiChuAdmin}` : '',
+                  stripCodesFromNote(r.GhiChuNV) ? `NV: ${stripCodesFromNote(r.GhiChuNV)}` : '',
+                ].filter(Boolean).join(' / ');
+
                 return (
-                  <tr key={r.MaPhong} className="border-t border-slate-50">
-                    <td className="px-3 py-1.5 font-bold text-slate-700">{r.MaPhong}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      {dnd && <span className="bg-red-600 text-white font-extrabold px-1.5 py-[1px] rounded text-[9px]">DND</span>}
+                  <tr key={r.MaPhong} className="border-t border-slate-50 align-top">
+                    <td className="px-3 py-2 font-bold text-slate-800">{r.MaPhong}</td>
+                    <td className="px-2 py-2 text-slate-600 font-semibold">{r.LoaiPhong}</td>
+                    <td className="px-2 py-2 text-slate-600 font-semibold whitespace-nowrap">{r.NhanVienPhuTrach || '—'}</td>
+                    <td className="px-2 py-2 text-slate-600 font-semibold whitespace-nowrap">{formatDateShort(r.NgayO) || '—'}</td>
+                    <td className="px-2 py-2 text-center"><StatusBadge {...morningBadge} /></td>
+                    <td className="px-2 py-2 text-center"><StatusBadge {...currentBadge} /></td>
+                    <td className="px-2 py-2 text-center text-slate-500 font-semibold whitespace-nowrap">{workingTime}</td>
+                    <td className="px-2 py-2 text-center">
+                      {r.SafeStatus === 'Đóng' ? (
+                        <span className="inline-block bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded text-[10px]">LOCKED</span>
+                      ) : '—'}
                     </td>
-                    <td className="px-2 py-1.5 text-center">
-                      {rf && <span className="bg-purple-800 text-white font-extrabold px-1.5 py-[1px] rounded text-[9px]">RF</span>}
-                    </td>
-                    <td className="px-2 py-1.5 text-center text-slate-500 font-semibold">
-                      {r.SafeStatus === 'Chưa kiểm' ? '—' : r.SafeStatus}
-                    </td>
-                    <td className="px-2 py-1.5 text-center text-slate-500 font-semibold">
-                      {r.LinenChange === 'Có' ? 'Có' : '—'}
-                    </td>
-                    <td className="px-2 py-1.5 text-center">
-                      <div className="flex items-center justify-center">
-                        <NoteIcons note={combinedNote} />
-                      </div>
-                    </td>
+                    <td className="px-3 py-2 text-slate-600">{remarks || ''}</td>
                   </tr>
                 );
               })}
