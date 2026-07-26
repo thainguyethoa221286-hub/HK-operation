@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus } from '@/lib/types';
-import { HK_STATUSES, FO_STATUSES, FLAGS, STAFF_LIST } from '@/lib/types';
+import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
 import { formatDateShort, DndRfBadge, NoteIcons, combineNotes } from '@/lib/roomStyles';
 
 interface RoomModalProps {
@@ -11,9 +11,11 @@ interface RoomModalProps {
   onClose: () => void;
   onSave: (maPhong: string, changes: Partial<Room>) => void;
   onToggleInspecting: (maPhong: string, value: boolean) => void;
+  /** Mục 1 — danh sách tên nhân viên lấy ĐỘNG từ tab TaiKhoan, không hardcode */
+  staffList: string[];
 }
 
-export default function RoomModal({ room, onClose, onSave, onToggleInspecting }: RoomModalProps) {
+export default function RoomModal({ room, onClose, onSave, onToggleInspecting, staffList }: RoomModalProps) {
   const [hk, setHk] = useState<HkStatus>('Phòng dơ');
   const [fo, setFo] = useState<FoStatus>('Vacant');
   const [staff, setStaff] = useState('');
@@ -69,7 +71,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
               {room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}
             </div>
           </div>
-          <X className="w-[18px] h-[18px] text-slate-500 cursor-pointer" onClick={onClose} />
+          <X className="w-[18px] h-[18px] text-slate-500 cursor-pointer" onClick={handleClose} />
         </div>
 
         <div className="flex gap-2.5 mb-3">
@@ -113,7 +115,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting }:
             className="flex-1 bg-transparent font-semibold text-sm outline-none cursor-pointer"
           >
             <option value="">— Chưa gán —</option>
-            {STAFF_LIST.map((s) => (
+            {staffList.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
