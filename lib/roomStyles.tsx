@@ -1,4 +1,4 @@
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -68,13 +68,33 @@ export function FoStatusIcon({ status }: { status: FoStatus }) {
    ========================================================= */
 export function FlagBadgeIcons({ flags }: { flags: string }) {
   const list = (flags || '').split(',').map((f) => f.trim()).filter(Boolean);
-  if (list.length === 0) return null;
-  const cls = 'w-3.5 h-3.5';
+  if (!list.includes('SuaChua')) return null;
   return (
     <div className="flex items-center gap-1">
-      {list.includes('CayBac') && <Bell className={`${cls} text-red-500`} aria-label="Rush" />}
-      {list.includes('TrangDiem') && <PenTool className={`${cls} text-purple-500`} aria-label="MKR" />}
-      {list.includes('SuaChua') && <Wrench className={`${cls} text-slate-600`} aria-label="Sửa chữa" />}
+      <Wrench className="w-3.5 h-3.5 text-slate-600" aria-label="Sửa chữa" />
+    </div>
+  );
+}
+
+/** Badge NỔI BẬT cho cờ Rush (khẩn cấp, đón khách gấp) và MKR (khách yêu cầu dọn) —
+ *  tách riêng khỏi FlagBadgeIcons (icon nhỏ) vì cần thu hút sự chú ý mạnh của nhân viên ca trực. */
+export function PriorityFlagBadges({ flags }: { flags: string }) {
+  const list = (flags || '').split(',').map((f) => f.trim()).filter(Boolean);
+  const hasRush = list.includes('CayBac');
+  const hasMkr = list.includes('TrangDiem');
+  if (!hasRush && !hasMkr) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {hasRush && (
+        <span className="bg-red-600 text-white font-extrabold px-1.5 py-[2px] rounded text-[8px] animate-pulse">
+          RUSH
+        </span>
+      )}
+      {hasMkr && (
+        <span className="bg-blue-600 text-white font-bold px-1.5 py-[2px] rounded text-[8px] flex items-center gap-0.5">
+          <Sparkles className="w-2.5 h-2.5" /> MKR
+        </span>
+      )}
     </div>
   );
 }
