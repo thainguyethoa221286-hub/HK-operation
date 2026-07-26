@@ -86,7 +86,7 @@ export function PriorityFlagBadges({ flags }: { flags: string }) {
   return (
     <div className="flex items-center gap-1">
       {hasRush && (
-        <span className="bg-red-600 text-white font-extrabold px-1.5 py-[2px] rounded text-[8px] animate-pulse">
+        <span className="bg-orange-600 text-white font-extrabold px-1.5 py-[2px] rounded text-[8px] animate-pulse">
           RUSH
         </span>
       )}
