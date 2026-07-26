@@ -1,7 +1,10 @@
 'use client';
 
-import { Building2, CheckCircle2, Clock3, AlertCircle, Printer } from 'lucide-react';
-import type { Room } from '@/lib/types';
+import { useEffect, useState } from 'react';
+import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound } from 'lucide-react';
+import type { Room, KeyLog } from '@/lib/types';
+import { getKeyLogs } from '@/lib/api';
+import KeyBoard from './KeyBoard';
 
 interface ReportScreenProps {
   rooms: Room[];
@@ -13,6 +16,15 @@ function sumDuration(rooms: Room[]): number {
 }
 
 export default function ReportScreen({ rooms }: ReportScreenProps) {
+  const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+
+  useEffect(() => {
+    getKeyLogs().then(setKeyLogs);
+    const timer = setInterval(() => getKeyLogs().then(setKeyLogs), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const heldKeys = keyLogs.filter((l) => l.trangThai === 'Đang giữ');
   const total = rooms.length;
   const doneCount = rooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
   const cleaningCount = rooms.filter((r) => r.TaskStatus === 'Đang dọn').length;
@@ -99,6 +111,29 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
           })}
         </div>
       )}
+
+      {/* Module 2 — Giao nhận chìa khóa (chỉ xem, đồng bộ mỗi 15s) */}
+      <div className="mt-6">
+        <h2 className="text-[15px] font-bold mb-3 flex items-center gap-1.5">
+          <KeyRound className="w-4 h-4 text-slate-500" /> Giao nhận chìa khóa
+        </h2>
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-3">
+          <KeyBoard keyLogs={keyLogs} />
+        </div>
+        {heldKeys.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
+            <div className="text-[12px] font-bold text-slate-500 mb-2">Đang được giữ:</div>
+            <div className="space-y-1.5">
+              {heldKeys.map((l, i) => (
+                <div key={i} className="flex items-center justify-between text-[12px]">
+                  <span className="font-semibold text-slate-700">{l.nhanVien} ➔ {l.keyLabel}</span>
+                  <span className="text-slate-400">từ {l.gioMuon?.slice(0, 5)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
