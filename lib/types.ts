@@ -92,7 +92,7 @@ export const FO_STATUSES: FoStatus[] = [
 export const FLAGS = [
   { key: 'CayBac', label: 'Rush', icon: '🔔' },
   { key: 'TrangDiem', label: 'MKR', icon: '🖌' },
-  { key: 'DaOut', label: 'Đã out', icon: '🛏' },
+  { key: 'DaOut', label: 'Đã out', icon: '🧳' },
   { key: 'SuaChua', label: 'Sửa chữa', icon: '🔧' },
 ] as const;
 
