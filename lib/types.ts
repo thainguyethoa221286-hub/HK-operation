@@ -32,6 +32,17 @@ export const ROLE_LABELS: Record<Role, string> = {
   HKStaff: 'Nhân viên HK',
 };
 
+/** 1 dòng lịch sử thao tác của 1 phòng trong ngày — lưu ở tab riêng "LichSuDon",
+ *  KHÔNG ghi đè, mỗi lần bấm hành động (Bắt đầu/Hoàn thành/Báo dơ lại/DND/RF/Làm lại) thêm 1 dòng mới. */
+export interface HistoryEntry {
+  ngay: string;
+  maPhong: string;
+  nhanVien: string;
+  hanhDong: string;
+  gio: string;
+  chiTiet: string;
+}
+
 export interface Room {
   MaPhong: string;
   Tang: string;
