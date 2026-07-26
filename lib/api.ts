@@ -1,4 +1,4 @@
-import type { Room, Account } from './types';
+import type { Room, Account, HistoryEntry } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -87,6 +87,20 @@ export async function updateRoomField(maPhong: string, field: string, value: str
 export async function updateRoomFields(maPhong: string, fields: Record<string, string>) {
   if (!API_URL) return;
   await Promise.all(Object.entries(fields).map(([field, value]) => jsonp('updateRoom', { maPhong, field, value })));
+}
+
+/** Ghi 1 dòng lịch sử mới (KHÔNG ghi đè) vào tab "LichSuDon" — dùng mỗi khi nhân viên bấm
+ *  Bắt đầu/Hoàn thành/Báo dơ lại/DND/Từ chối/Làm lại phòng, để có nhật ký nhiều lần trong ngày. */
+export async function logTaskAction(maPhong: string, nhanVien: string, hanhDong: string, chiTiet: string = '') {
+  if (!API_URL) return;
+  await jsonp('logTaskAction', { maPhong, nhanVien, hanhDong, chiTiet });
+}
+
+/** Lấy lịch sử thao tác TRONG NGÀY của 1 phòng, mới nhất lên đầu */
+export async function getTaskHistory(maPhong: string): Promise<HistoryEntry[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; history?: HistoryEntry[] }>('getTaskHistory', { maPhong });
+  return r?.history || [];
 }
 
 /** Đăng nhập bằng ID + mật khẩu, đối chiếu tab "TaiKhoan" trên Google Sheet qua Code.gs */
