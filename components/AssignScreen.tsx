@@ -34,11 +34,11 @@ const COLUMN_THEMES = [
 ];
 
 const DEFAULT_GROUPS: Group[] = [
-  { id: 'N1', staffs: ['Hải'], extraTasks: [] },
-  { id: 'N2', staffs: ['Tâm', 'Nghị'], extraTasks: [] },
-  { id: 'N3', staffs: ['Tiến'], extraTasks: [] },
-  { id: 'N4', staffs: ['Đầu'], extraTasks: [] },
-  { id: 'N5', staffs: ['Nhân'], extraTasks: [] },
+  { id: 'N1', staffs: [], extraTasks: [] },
+  { id: 'N2', staffs: [], extraTasks: [] },
+  { id: 'N3', staffs: [], extraTasks: [] },
+  { id: 'N4', staffs: [], extraTasks: [] },
+  { id: 'N5', staffs: [], extraTasks: [] },
 ];
 
 /* Mục 2.B — badge DND (đỏ) / RF (tím đậm) trong ghi chú, hiện đồng thời nếu có cả 2 */
