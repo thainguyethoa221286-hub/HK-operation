@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react';
 import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
-import { fetchRooms, API_URL } from '@/lib/api';
+import { fetchRooms, listAccounts, API_URL } from '@/lib/api';
 import RoomMapScreen from '@/components/RoomMapScreen';
 import AssignScreen from '@/components/AssignScreen';
 import TaskScreen from '@/components/TaskScreen';
+import ReportScreen from '@/components/ReportScreen';
 import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao';
 const STORAGE_KEY = 'hk_pro_rooms';
 const ACCOUNT_KEY = 'hk_pro_account';
 
@@ -20,6 +21,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  // Mục 3 — danh sách nhân viên cho màn Phân công lấy ĐỘNG từ tab TaiKhoan, không hardcode
+  const [staffList, setStaffList] = useState<string[]>([]);
 
   // RBAC — tài khoản đăng nhập, đọc từ localStorage (đăng nhập 1 lần trên thiết bị)
   const [account, setAccount] = useState<Account | null>(null);
@@ -101,6 +104,15 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Mục 3 — lấy danh sách tên nhân viên (vai trò HKStaff) ĐỘNG từ tab TaiKhoan cho màn Phân công
+  useEffect(() => {
+    if (!API_URL) return;
+    listAccounts().then((accounts) => {
+      const names = accounts.filter((a) => a.vaiTro === 'HKStaff').map((a) => a.hoTen).filter(Boolean);
+      setStaffList(names);
+    }).catch(() => {});
+  }, []);
+
   // Fix 4 — lưu mọi thay đổi vào LocalStorage để không mất khi refresh
   useEffect(() => {
     if (rooms.length > 0) {
@@ -118,7 +130,7 @@ export default function HomePage() {
     { key: isStaff ? null : 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
     { key: isStaff ? null : 'phancong', label: 'Phân công', icon: ClipboardList },
     { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
-    { key: null, label: 'Báo cáo', icon: FileText },
+    { key: isStaff ? null : 'baocao', label: 'Báo cáo', icon: FileText },
     { key: null, label: 'Bảng thiếc', icon: MessageSquare },
     { key: null, label: 'Cài đặt', icon: Settings },
   ];
@@ -197,8 +209,9 @@ export default function HomePage() {
         ) : (
           <>
             {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRooms} />}
-            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRooms} />}
+            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRooms} staffList={staffList} />}
             {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRooms} account={account} />}
+            {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
           </>
         )}
       </main>
