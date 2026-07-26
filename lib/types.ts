@@ -82,6 +82,10 @@ export interface Room {
   Tang: string;
   LoaiPhong: string;
   HkStatus: HkStatus;
+  /** Ảnh chụp CỐ ĐỊNH của HkStatus tại đúng thời điểm "Đồng bộ AI" chạy mỗi sáng (đọc PDF) —
+   *  KHÔNG đổi theo thời gian thực trong ngày, dùng làm mốc so sánh "đầu ca" cho Báo cáo.
+   *  HkStatus (bên trên) mới là trạng thái thực tế, đổi liên tục khi nhân viên dọn phòng. */
+  MorningStatus: HkStatus;
   FoStatus: FoStatus;
   NgayO: string;
   NhanVienPhuTrach: string;
