@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import {
   X, Moon, AlertTriangle, Play, Square, RotateCcw,
-  Lock, Unlock, User, CheckCircle2, Undo2, History,
+  Lock, Unlock, User, CheckCircle2, Undo2, BellRing, Send,
 } from 'lucide-react';
-import type { Room, HistoryEntry } from '@/lib/types';
+import type { Room } from '@/lib/types';
 import {
   formatDateShort, formatTimeOnly, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
   addNoteCode, removeNoteCode, stripCodesFromNote, extractNoteCodes, FO_STATUS_LABEL,
 } from '@/lib/roomStyles';
-import { getTaskHistory, logTaskAction } from '@/lib/api';
+import { logTaskAction } from '@/lib/api';
 
 interface RoomTaskModalProps {
   room: Room;
@@ -22,22 +22,8 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   const [noteDraft, setNoteDraft] = useState(stripCodesFromNote(room.GhiChuNV || ''));
   const [tick, setTick] = useState(0);
   const [safeWarning, setSafeWarning] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
 
   useEffect(() => setNoteDraft(stripCodesFromNote(room.GhiChuNV || '')), [room.GhiChuNV]);
-
-  const refreshHistory = () => {
-    getTaskHistory(room.MaPhong).then((list) => {
-      setHistory(list);
-      setLoadingHistory(false);
-    });
-  };
-
-  useEffect(() => {
-    refreshHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.MaPhong]);
 
   useEffect(() => {
     if (room.TaskStatus !== 'Đang dọn') return;
@@ -48,8 +34,9 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   const staffName = room.NhanVienPhuTrach || '';
 
   // Ghi log + refresh lại danh sách để hiện ngay lập tức (không cần đợi polling 15s)
+  // Ghi log ngầm (dùng cho Báo cáo sau này) — Section 4 "Lịch sử dọn hôm nay" đã ẩn khỏi Nhiệm vụ
   const log = (hanhDong: string, chiTiet: string = '') => {
-    logTaskAction(room.MaPhong, staffName, hanhDong, chiTiet).then(refreshHistory);
+    logTaskAction(room.MaPhong, staffName, hanhDong, chiTiet);
   };
 
   const saveNote = () => {
@@ -80,6 +67,21 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   const redoRoom = () => {
     onUpdate(room.MaPhong, { TaskStatus: 'Chưa dọn', StartTime: '', GhiChuNV: removeNoteCode(room.GhiChuNV, 'RF') });
     log('Làm lại phòng');
+  };
+
+  // "Hẹn quay lại" — phòng khách từ chối dọn, nhân viên hẹn giờ sẽ quay lại thử dọn lần nữa.
+  // Chỉ ghi lại mốc giờ hẹn vào lịch sử (Section 4), không đổi trạng thái phòng — vẫn giữ nguyên "Refused"
+  // cho tới khi nhân viên chủ động bấm "Làm lại" khi thực sự quay lại dọn.
+  const scheduleReturn = () => {
+    const time = window.prompt('Hẹn quay lại lúc mấy giờ? (VD: 14:30)', '');
+    if (!time) return;
+    log('Hẹn quay lại', `Dự kiến quay lại lúc ${time}`);
+  };
+
+  // "Gửi thông báo DND" — ghi nhận đã báo cho lễ tân/giám sát biết phòng đang bật DND,
+  // chỉ ghi log mốc giờ gửi, không đổi trạng thái phòng.
+  const notifyDnd = () => {
+    log('Đã gửi thông báo DND');
   };
 
   const setSafeStatus = (value: 'Mở' | 'Đóng') => {
@@ -163,9 +165,21 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               <span className={`text-[12px] font-extrabold ${isRefused ? 'text-purple-700' : 'text-amber-700'}`}>
                 {isRefused ? `PHÒNG KHÔNG LÀM — ${formatTimeOnly(room.StartTime)}: Refused` : 'DND — KHÔNG LÀM PHIỀN'}
               </span>
-              <button onClick={isRefused ? redoRoom : toggleDnd} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 flex-shrink-0 ml-2">
-                <RotateCcw className="w-3.5 h-3.5" /> {isRefused ? 'LÀM LẠI' : 'BỎ DND'}
-              </button>
+              <span className="flex items-center gap-2.5 flex-shrink-0 ml-2">
+                {isRefused && (
+                  <button onClick={scheduleReturn} className="flex items-center gap-1 text-[11px] font-bold text-purple-600">
+                    <BellRing className="w-3.5 h-3.5" /> HẸN QUAY LẠI
+                  </button>
+                )}
+                <button onClick={isRefused ? redoRoom : toggleDnd} className="flex items-center gap-1 text-[11px] font-bold text-blue-600">
+                  <RotateCcw className="w-3.5 h-3.5" /> {isRefused ? 'LÀM LẠI' : 'BỎ DND'}
+                </button>
+                {isDnd && (
+                  <button onClick={notifyDnd} title="Gửi thông báo DND cho lễ tân/giám sát" className="text-amber-600">
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </span>
             </div>
           )}
 
@@ -293,31 +307,6 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               )}
             </div>
           )}
-
-          {/* SECTION 4 — Lịch sử dọn thời gian thực tế (nhiều dòng trong ngày, không ghi đè) */}
-          <div>
-            <div className="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5" /> Section 4: Lịch sử dọn hôm nay
-            </div>
-            {loadingHistory ? (
-              <div className="text-[12px] text-slate-400 text-center py-3">Đang tải lịch sử...</div>
-            ) : history.length === 0 ? (
-              <div className="text-[12px] text-slate-400 text-center py-3">Chưa có thao tác nào hôm nay.</div>
-            ) : (
-              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                {history.map((h, i) => (
-                  <div key={i} className="flex items-start justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-[12px]">
-                    <div>
-                      <span className="font-bold text-slate-700">{h.hanhDong}</span>
-                      {h.chiTiet && <span className="text-slate-500"> — {h.chiTiet}</span>}
-                      {h.nhanVien && <div className="text-[10px] text-slate-400">Nhân viên: {h.nhanVien}</div>}
-                    </div>
-                    <span className="text-slate-400 font-semibold flex-shrink-0 ml-2">{h.gio?.slice(0, 5)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
