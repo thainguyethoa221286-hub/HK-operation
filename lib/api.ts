@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -218,4 +218,41 @@ export async function readPdfWithAI(file: File): Promise<any[]> {
     throw new Error(data.error || 'Đồng bộ AI thất bại');
   }
   return data.rooms;
+}
+
+/** ===== MODULE TASK CHART ===== */
+
+/** Lấy toàn bộ bảng Task Chart + toàn bộ ô dữ liệu (mọi bảng) trong 1 lần gọi */
+export async function getTaskCharts(): Promise<{ charts: TaskChart[]; cells: TaskChartCell[] }> {
+  if (!API_URL) return { charts: [], cells: [] };
+  const r = await jsonp<{ success: boolean; charts?: TaskChart[]; cells?: TaskChartCell[] }>('getTaskCharts', {});
+  return { charts: r?.charts || [], cells: r?.cells || [] };
+}
+
+/** Tạo 1 bảng Task Chart mới */
+export async function createTaskChart(title: string): Promise<{ success: boolean; chart?: TaskChart; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; chart?: TaskChart; error?: string }>('createTaskChart', { title });
+  return r || { success: false, error: 'Không nhận được phản hồi' };
+}
+
+/** Xoá 1 bảng Task Chart (và toàn bộ ô dữ liệu của bảng đó) */
+export async function deleteTaskChart(chartId: string): Promise<{ success: boolean; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; error?: string }>('deleteTaskChart', { chartId });
+  return r || { success: false, error: 'Không nhận được phản hồi' };
+}
+
+/** Đổi tên / đổi bảng màu của 1 Task Chart */
+export async function updateTaskChartMeta(chartId: string, title: string, palette: number): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('updateTaskChartMeta', { chartId, title, palette: String(palette) });
+  return r || { success: false };
+}
+
+/** Ghi 1 ô (checkbox + ghi chú) của 1 phòng trong 1 Task Chart — auto-save */
+export async function updateTaskCell(chartId: string, maPhong: string, checked: boolean, note: string): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('updateTaskCell', { chartId, maPhong, checked: checked ? '1' : '', note });
+  return r || { success: false };
 }
