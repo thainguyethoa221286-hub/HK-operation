@@ -29,4 +29,8 @@ body {
     size: landscape;
     margin: 8mm;
   }
+  /* Bản in LUÔN giữ đúng cấu trúc gốc 4 cột, không áp dụng kiểu rút gọn 3 cột của mobile */
+  .chart-block-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
 }
