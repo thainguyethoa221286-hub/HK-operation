@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X } from 'lucide-react';
+import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X, ListTodo, Wrench, PackageSearch } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 import { fetchRooms, listAccounts, API_URL } from '@/lib/api';
@@ -140,16 +140,19 @@ export default function HomePage() {
     { key: isStaff ? null : 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
     { key: isStaff ? null : 'phancong', label: 'Phân công', icon: ClipboardList },
     { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
-    { key: isStaff ? null : 'baocao', label: 'Báo cáo', icon: FileText },
-    { key: null, label: 'Bảng thiếc', icon: MessageSquare },
+    { key: isStaff ? null : 'baocao', label: 'Daily Report', icon: FileText },
+    { key: null, label: 'Task', icon: ListTodo },
+    { key: null, label: 'Maintenance', icon: Wrench },
+    { key: null, label: 'Lost and Found', icon: PackageSearch },
+    { key: null, label: 'Noted Board', icon: MessageSquare },
     { key: null, label: 'Cài đặt', icon: Settings },
   ];
 
   const SidebarContent = (
     <>
       <div className="flex items-center gap-2 font-bold text-white text-[17px] px-4 pb-4">
-        <span className="bg-blue-600 w-[26px] h-[26px] rounded-lg flex items-center justify-center text-xs">🧹</span>
-        HK PRO
+        <span className="bg-emerald-600 w-[26px] h-[26px] rounded-lg flex items-center justify-center text-xs">🧹</span>
+        HK OPERATION
       </div>
       <div className="flex items-center gap-2.5 px-4 py-3 border-t border-b border-white/10 mb-2.5">
         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
@@ -168,7 +171,7 @@ export default function HomePage() {
             disabled={!item.key}
             onClick={() => { if (item.key) { setScreen(item.key); setMobileNavOpen(false); } }}
             className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${
-              item.key === screen ? 'bg-blue-600 text-white' : item.key ? 'text-slate-300 hover:bg-white/5' : 'text-slate-400 opacity-40'
+              item.key === screen ? 'bg-emerald-600 text-white' : item.key ? 'text-slate-300 hover:bg-white/5' : 'text-slate-400 opacity-40'
             }`}
           >
             <item.icon className="w-4 h-4" /> {item.label}
@@ -181,14 +184,14 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen">
       {/* Fix 5 — Sidebar cố định trên desktop, ẩn trên mobile */}
-      <aside className="hidden md:flex md:w-64 bg-navy text-slate-300 flex-shrink-0 flex-col py-4">
+      <aside className="hidden md:flex md:w-64 bg-emerald-900 text-slate-300 flex-shrink-0 flex-col py-4">
         {SidebarContent}
       </aside>
 
       {/* Fix 5 — Drawer trượt cho mobile, mở bằng nút Hamburger */}
       {mobileNavOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="w-64 bg-navy text-slate-300 flex flex-col py-4">
+          <div className="w-64 bg-emerald-900 text-slate-300 flex flex-col py-4">
             <div className="flex justify-end px-3 mb-1">
               <X className="w-5 h-5 text-white cursor-pointer" onClick={() => setMobileNavOpen(false)} />
             </div>
@@ -202,10 +205,10 @@ export default function HomePage() {
       <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 overflow-x-hidden">
         {/* Fix 5 — Header mobile với nút Hamburger */}
         <div className="md:hidden flex items-center gap-3 mb-3">
-          <button onClick={() => setMobileNavOpen(true)} className="w-9 h-9 rounded-lg bg-navy text-white flex items-center justify-center">
+          <button onClick={() => setMobileNavOpen(true)} className="w-9 h-9 rounded-lg bg-emerald-900 text-white flex items-center justify-center">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-[15px]">HK PRO</span>
+          <span className="font-bold text-[15px]">HK OPERATION</span>
         </div>
 
         {syncError && (
