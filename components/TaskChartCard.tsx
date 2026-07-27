@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trash2, Printer, Building2 } from 'lucide-react';
 import type { TaskChart, TaskChartCell } from '@/lib/types';
-import { TASK_CHART_COLUMNS } from '@/lib/types';
+import { TASK_CHART_FLOORS } from '@/lib/types';
 
 const PALETTES: Record<number, string> = {
   1: 'bg-slate-800 text-white',
@@ -15,14 +15,6 @@ const PALETTE_SWATCH: Record<number, string> = {
   2: 'bg-purple-800',
   3: 'bg-zinc-700',
 };
-
-/** Tầng của 1 phòng — 777/888/999 là phòng đặc biệt tính theo tầng 7/8/9 */
-function getFloor(maPhong: string): string {
-  if (maPhong === '777') return '7';
-  if (maPhong === '888') return '8';
-  if (maPhong === '999') return '9';
-  return maPhong[0];
-}
 
 interface TaskChartCardProps {
   chart: TaskChart;
@@ -42,8 +34,8 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
   cells.forEach((c) => { cellMap[c.maPhong] = c; });
   const getCell = (maPhong: string) => cellMap[maPhong] || { chartId: chart.id, maPhong, checked: false, note: '' };
 
+  const totalRooms = TASK_CHART_FLOORS.reduce((sum, f) => sum + f.rooms.length, 0);
   const totalChecked = cells.filter((c) => c.checked).length;
-  const totalRooms = TASK_CHART_COLUMNS.reduce((sum, col) => sum + col.length, 0);
 
   const q = search.trim().toLowerCase();
   const matchesSearch = (maPhong: string) => {
@@ -54,7 +46,7 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
 
   const headerCls = PALETTES[chart.palette] || PALETTES[1];
 
-  // Mục 4 — in riêng ĐÚNG bảng Task này: đánh dấu card này là .print-target, ẩn mọi thứ khác
+  // In riêng ĐÚNG bảng Task này: đánh dấu card này là .print-target, ẩn mọi thứ khác
   const handlePrint = () => {
     document.body.classList.add('printing-chart-mode');
     cardRef.current?.classList.add('print-target');
@@ -106,57 +98,51 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
         </button>
       </div>
 
-      {/* Lưới 4 cột — mỗi cột tự phân vùng theo tầng của chính nó (ranh giới tầng khác nhau giữa các cột) */}
-      <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-        {TASK_CHART_COLUMNS.map((col, colIdx) => {
-          let lastFloor = '';
-          return (
-            <div key={colIdx} className="border border-slate-300 rounded-lg overflow-hidden">
-              {/* Header Room | Note của cột này */}
-              <div className={`flex ${headerCls}`}>
-                <div className="w-14 flex-shrink-0 px-2 py-2 text-[10px] font-bold uppercase text-center border-r border-white/20">Room</div>
-                <div className="flex-1 px-2 py-2 text-[10px] font-bold uppercase text-center">Note</div>
-              </div>
+      {/* Header Room | Note — 1 hàng duy nhất, nằm ngoài grid, không lặp theo từng tầng */}
+      <div className={`flex mx-3 mt-3 rounded-t-lg overflow-hidden ${headerCls}`}>
+        <div className="w-14 flex-shrink-0 px-2 py-2 text-[10px] font-bold uppercase text-center border-r border-white/20">Room</div>
+        <div className="flex-1 px-2 py-2 text-[10px] font-bold uppercase text-center">Note</div>
+      </div>
 
-              {col.map((maPhong) => {
-                const floor = getFloor(maPhong);
-                const showFloorHeader = floor !== lastFloor;
-                lastFloor = floor;
-                const cell = getCell(maPhong);
-                const visible = matchesSearch(maPhong);
-
-                return (
-                  <div key={maPhong}>
-                    {showFloorHeader && (
-                      <div className="bg-slate-100 font-bold text-slate-700 text-[11px] py-1 px-2 border-y border-slate-300 flex items-center gap-1">
-                        <Building2 className="w-3 h-3" /> TẦNG {floor}
-                      </div>
-                    )}
-                    <div className={`flex border-b border-slate-200 last:border-b-0 ${visible ? '' : 'opacity-20'}`}>
-                      <div className="w-14 flex-shrink-0 flex items-center gap-1.5 px-2 py-1.5 border-r border-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={cell.checked}
-                          onChange={(e) => onUpdateCell(maPhong, e.target.checked, cell.note)}
-                          className="w-3.5 h-3.5 accent-emerald-600 flex-shrink-0"
-                        />
-                        <span className={`font-extrabold text-slate-700 text-[12px] ${cell.checked ? 'line-through opacity-50' : ''}`}>
-                          {maPhong}
-                        </span>
-                      </div>
-                      <input
-                        defaultValue={cell.note}
-                        onBlur={(e) => onUpdateCell(maPhong, cell.checked, e.target.value)}
-                        placeholder="—"
-                        className={`flex-1 min-w-0 text-[12px] outline-none bg-transparent px-2 py-1.5 ${cell.checked ? 'line-through opacity-50 text-slate-400' : 'text-slate-600'}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+      {/*
+        Mục 1+2 — MẢNG PHẲNG theo tầng 1->9, mỗi tầng là 1 "floor-group" độc lập trong CSS Grid:
+        - Desktop: grid-cols-4 + grid-flow-row -> tự chảy trái sang phải, tầng 1,2,3,4 cùng hàng, 5,6,7,8 hàng sau...
+        - Mobile & In ấn: task-chart-container chuyển display:block (xem globals.css) -> xếp dọc ĐÚNG thứ tự 1->9,
+          vì dữ liệu gốc đã là mảng phẳng sắp theo tầng, không còn bị nhảy cóc như cấu trúc 4 cột cứng trước đây.
+      */}
+      <div className="task-chart-container grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 grid-flow-row gap-3 p-3">
+        {TASK_CHART_FLOORS.map(({ floor, rooms }) => (
+          <div key={floor} className="floor-group border border-slate-300 rounded-lg overflow-hidden">
+            <div className="bg-slate-100 font-bold text-slate-700 text-[11px] py-1.5 px-2 border-b border-slate-300 flex items-center gap-1">
+              <Building2 className="w-3 h-3" /> TẦNG {floor}
             </div>
-          );
-        })}
+            {rooms.map((maPhong) => {
+              const cell = getCell(maPhong);
+              const visible = matchesSearch(maPhong);
+              return (
+                <div key={maPhong} className={`flex border-b border-slate-200 last:border-b-0 ${visible ? '' : 'opacity-20'}`}>
+                  <div className="w-14 flex-shrink-0 flex items-center gap-1.5 px-2 py-1.5 border-r border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={cell.checked}
+                      onChange={(e) => onUpdateCell(maPhong, e.target.checked, cell.note)}
+                      className="w-3.5 h-3.5 accent-emerald-600 flex-shrink-0"
+                    />
+                    <span className={`font-extrabold text-slate-700 text-[12px] ${cell.checked ? 'line-through opacity-50' : ''}`}>
+                      {maPhong}
+                    </span>
+                  </div>
+                  <input
+                    defaultValue={cell.note}
+                    onBlur={(e) => onUpdateCell(maPhong, cell.checked, e.target.value)}
+                    placeholder="—"
+                    className={`flex-1 min-w-0 text-[12px] outline-none bg-transparent px-2 py-1.5 ${cell.checked ? 'line-through opacity-50 text-slate-400' : 'text-slate-600'}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* Footer tổng kết */}
