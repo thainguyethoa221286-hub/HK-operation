@@ -19,11 +19,11 @@ export const INSPECTING_STYLE = { border: 'border-purple-500', bg: 'bg-purple-10
 
 /** Nhãn chữ ngắn gọn cho trạng thái khách (FoStatus) — dùng cạnh icon ở chân thẻ phòng */
 export const FO_STATUS_LABEL: Record<FoStatus, string> = {
-  Occupied: 'Đang ở',
-  'Due out': 'Trả phòng',
-  Arrival: 'Khách đến',
-  'Due out/ARR': 'Trả phòng/Đến',
-  Vacant: 'Phòng trống',
+  Occupied: 'Occupied',
+  'Due out': 'Due out',
+  Arrival: 'Arrival',
+  'Due out/ARR': 'Back to Back',
+  Vacant: 'Vacant',
 };
 
 /**
