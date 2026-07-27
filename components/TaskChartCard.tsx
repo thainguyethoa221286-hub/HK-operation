@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Trash2, Printer, Building2 } from 'lucide-react';
 import type { TaskChart, TaskChartCell } from '@/lib/types';
 import { TASK_CHART_COLUMNS } from '@/lib/types';
 
@@ -16,6 +16,14 @@ const PALETTE_SWATCH: Record<number, string> = {
   3: 'bg-zinc-700',
 };
 
+/** Tầng của 1 phòng — 777/888/999 là phòng đặc biệt tính theo tầng 7/8/9 */
+function getFloor(maPhong: string): string {
+  if (maPhong === '777') return '7';
+  if (maPhong === '888') return '8';
+  if (maPhong === '999') return '9';
+  return maPhong[0];
+}
+
 interface TaskChartCardProps {
   chart: TaskChart;
   cells: TaskChartCell[];
@@ -28,18 +36,16 @@ interface TaskChartCardProps {
 export default function TaskChartCard({ chart, cells, search, onDelete, onUpdateMeta, onUpdateCell }: TaskChartCardProps) {
   const [titleDraft, setTitleDraft] = useState(chart.title);
   useEffect(() => setTitleDraft(chart.title), [chart.title]);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const cellMap: Record<string, TaskChartCell> = {};
   cells.forEach((c) => { cellMap[c.maPhong] = c; });
-
   const getCell = (maPhong: string) => cellMap[maPhong] || { chartId: chart.id, maPhong, checked: false, note: '' };
 
   const totalChecked = cells.filter((c) => c.checked).length;
   const totalRooms = TASK_CHART_COLUMNS.reduce((sum, col) => sum + col.length, 0);
 
-  const maxRows = Math.max(...TASK_CHART_COLUMNS.map((c) => c.length));
   const q = search.trim().toLowerCase();
-
   const matchesSearch = (maPhong: string) => {
     if (!q) return true;
     const cell = getCell(maPhong);
@@ -48,17 +54,34 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
 
   const headerCls = PALETTES[chart.palette] || PALETTES[1];
 
+  // Mục 4 — in riêng ĐÚNG bảng Task này: đánh dấu card này là .print-target, ẩn mọi thứ khác
+  const handlePrint = () => {
+    document.body.classList.add('printing-chart-mode');
+    cardRef.current?.classList.add('print-target');
+    const cleanup = () => {
+      document.body.classList.remove('printing-chart-mode');
+      cardRef.current?.classList.remove('print-target');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-      {/* Tiêu đề Task + xoá + chọn bảng màu */}
-      <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-2.5">
+    <div ref={cardRef} className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+      {/* Tiêu đề Task (to, nổi bật — in ra giấy vẫn giữ) */}
+      <div className="p-4 pb-2">
         <input
           value={titleDraft}
           onChange={(e) => setTitleDraft(e.target.value)}
           onBlur={() => { if (titleDraft !== chart.title) onUpdateMeta(titleDraft.trim() || 'Task mới', chart.palette); }}
           placeholder="[ NHẬP TÊN TASKS / CHART TITLE ]"
-          className="flex-1 min-w-[180px] text-[15px] font-extrabold text-slate-800 outline-none border-b-2 border-transparent focus:border-emerald-400 px-1 py-1"
+          className="w-full text-2xl font-bold text-slate-800 outline-none border-b-2 border-transparent focus:border-emerald-400 px-1 py-1"
         />
+      </div>
+
+      {/* Thanh điều khiển — ẨN KHI IN (.no-print) */}
+      <div className="no-print px-4 pb-3 flex flex-wrap items-center gap-2.5 border-b border-slate-200">
         <div className="flex items-center gap-1.5">
           {[1, 2, 3].map((p) => (
             <button
@@ -70,6 +93,12 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
           ))}
         </div>
         <button
+          onClick={handlePrint}
+          className="flex items-center gap-1 text-[12px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5"
+        >
+          <Printer className="w-3.5 h-3.5" /> IN TASK
+        </button>
+        <button
           onClick={onDelete}
           className="flex items-center gap-1 text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5"
         >
@@ -77,59 +106,61 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
         </button>
       </div>
 
-      {/* Lưới 4 cột kép Room Number | Note */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr>
-              {[0, 1, 2, 3].map((i) => (
-                <th key={i} colSpan={2} className={`px-0 py-0 ${headerCls}`}>
-                  <div className="flex">
-                    <div className="flex-1 px-2.5 py-2 text-[10px] font-bold uppercase border-r border-white/20 text-center">Room</div>
-                    <div className="flex-[2] px-2.5 py-2 text-[10px] font-bold uppercase text-center">Note</div>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: maxRows }).map((_, rowIdx) => (
-              <tr key={rowIdx} className="border-t border-slate-50">
-                {TASK_CHART_COLUMNS.map((col, colIdx) => {
-                  const maPhong = col[rowIdx];
-                  if (!maPhong) return <td key={colIdx} colSpan={2} className="border-r border-slate-100 last:border-r-0" />;
-                  const cell = getCell(maPhong);
-                  const visible = matchesSearch(maPhong);
-                  return (
-                    <td key={colIdx} colSpan={2} className="p-0 border-r border-slate-100 last:border-r-0">
-                      <div className={`flex items-center gap-1.5 px-2 py-1.5 ${visible ? '' : 'opacity-20'}`}>
+      {/* Lưới 4 cột — mỗi cột tự phân vùng theo tầng của chính nó (ranh giới tầng khác nhau giữa các cột) */}
+      <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        {TASK_CHART_COLUMNS.map((col, colIdx) => {
+          let lastFloor = '';
+          return (
+            <div key={colIdx} className="border border-slate-300 rounded-lg overflow-hidden">
+              {/* Header Room | Note của cột này */}
+              <div className={`flex ${headerCls}`}>
+                <div className="w-14 flex-shrink-0 px-2 py-2 text-[10px] font-bold uppercase text-center border-r border-white/20">Room</div>
+                <div className="flex-1 px-2 py-2 text-[10px] font-bold uppercase text-center">Note</div>
+              </div>
+
+              {col.map((maPhong) => {
+                const floor = getFloor(maPhong);
+                const showFloorHeader = floor !== lastFloor;
+                lastFloor = floor;
+                const cell = getCell(maPhong);
+                const visible = matchesSearch(maPhong);
+
+                return (
+                  <div key={maPhong}>
+                    {showFloorHeader && (
+                      <div className="bg-slate-100 font-bold text-slate-700 text-[11px] py-1 px-2 border-y border-slate-300 flex items-center gap-1">
+                        <Building2 className="w-3 h-3" /> TẦNG {floor}
+                      </div>
+                    )}
+                    <div className={`flex border-b border-slate-200 last:border-b-0 ${visible ? '' : 'opacity-20'}`}>
+                      <div className="w-14 flex-shrink-0 flex items-center gap-1.5 px-2 py-1.5 border-r border-slate-200">
                         <input
                           type="checkbox"
                           checked={cell.checked}
                           onChange={(e) => onUpdateCell(maPhong, e.target.checked, cell.note)}
-                          className="w-4 h-4 accent-emerald-600 flex-shrink-0"
+                          className="w-3.5 h-3.5 accent-emerald-600 flex-shrink-0"
                         />
-                        <span className={`font-extrabold text-slate-700 w-9 flex-shrink-0 ${cell.checked ? 'line-through opacity-50' : ''}`}>
+                        <span className={`font-extrabold text-slate-700 text-[12px] ${cell.checked ? 'line-through opacity-50' : ''}`}>
                           {maPhong}
                         </span>
-                        <input
-                          defaultValue={cell.note}
-                          onBlur={(e) => onUpdateCell(maPhong, cell.checked, e.target.value)}
-                          placeholder="—"
-                          className={`flex-1 min-w-0 text-[12px] outline-none bg-transparent ${cell.checked ? 'line-through opacity-50 text-slate-400' : 'text-slate-600'}`}
-                        />
                       </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      <input
+                        defaultValue={cell.note}
+                        onBlur={(e) => onUpdateCell(maPhong, cell.checked, e.target.value)}
+                        placeholder="—"
+                        className={`flex-1 min-w-0 text-[12px] outline-none bg-transparent px-2 py-1.5 ${cell.checked ? 'line-through opacity-50 text-slate-400' : 'text-slate-600'}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer tổng kết */}
-      <div className="px-4 py-3 border-t border-slate-100 text-right">
+      <div className="px-4 py-3 border-t border-slate-200 text-right">
         <span className="text-[12px] font-extrabold text-slate-600">
           TOTAL: {totalChecked} / {totalRooms}
         </span>
