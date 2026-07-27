@@ -26,3 +26,17 @@ body {
     display: none !important;
   }
 }
+
+/* Mục 1+2 — Mobile & In ấn: ép luồng dọc tự nhiên theo đúng thứ tự DOM (đã là mảng phẳng sắp theo tầng
+   1->9), không dùng grid-cols trên các màn hình này để tránh mọi rủi ro nhảy thứ tự tầng.
+   floor-group: tránh bị cắt ngang giữa 1 tầng khi sang trang in mới. */
+@media print, (max-width: 768px) {
+  .task-chart-container {
+    display: block !important;
+  }
+  .floor-group {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 12px;
+  }
+}
