@@ -5,3 +5,24 @@
 body {
   font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Mục 4 — In riêng đúng 1 bảng Task Chart: ẩn toàn bộ trang, chỉ hiện phần tử có class .print-target,
+   và ẩn thêm các nút điều khiển (.no-print) ngay cả khi chúng nằm bên trong .print-target */
+@media print {
+  body.printing-chart-mode * {
+    visibility: hidden;
+  }
+  body.printing-chart-mode .print-target,
+  body.printing-chart-mode .print-target * {
+    visibility: visible;
+  }
+  body.printing-chart-mode .print-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  body.printing-chart-mode .no-print {
+    display: none !important;
+  }
+}
