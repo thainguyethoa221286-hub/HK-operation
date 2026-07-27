@@ -183,11 +183,8 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
             </div>
           )}
 
-          {/* SECTION 1 — Các thao tác nhanh */}
+          {/* Các thao tác nhanh */}
           <div>
-            <div className="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide mb-2">
-              Section 1: Các thao tác nhanh
-            </div>
             {!isRefused && (
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <button
@@ -250,11 +247,8 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
             )}
           </div>
 
-          {/* SECTION 2 — Ghi chú buồng phòng & nhân viên */}
+          {/* Ghi chú buồng phòng & nhân viên */}
           <div>
-            <div className="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide mb-2">
-              Section 2: Ghi chú buồng phòng &amp; nhân viên
-            </div>
 
             {/* Ghi chú từ Admin/Giám sát — nổi bật NỀN VÀNG để gây chú ý, chỉ đọc (không sửa từ đây) */}
             {room.GhiChuAdmin && (
@@ -277,12 +271,9 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
             />
           </div>
 
-          {/* SECTION 3 — Đồng hồ tác vụ & thao tác trạng thái */}
+          {/* Đồng hồ tác vụ & thao tác trạng thái */}
           {!isRefused && (
             <div>
-              <div className="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide mb-2">
-                Section 3: Đồng hồ tác vụ &amp; thao tác trạng thái
-              </div>
               {!isCleaning && !isDone && (
                 <button
                   onClick={startCleaning}
