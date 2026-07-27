@@ -43,6 +43,26 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** ===== MODULE TASK CHART (Nhiệm vụ định kỳ dạng bảng) ===== */
+export interface TaskChart {
+  id: string;
+  title: string;
+  palette: 1 | 2 | 3;
+}
+export interface TaskChartCell {
+  chartId: string;
+  maPhong: string;
+  checked: boolean;
+  note: string;
+}
+/** 4 cột phòng CỐ ĐỊNH theo đúng thứ tự chị yêu cầu — không đổi theo dữ liệu Sheet */
+export const TASK_CHART_COLUMNS: string[][] = [
+  ['202', '204', '206', '208', '210', '212', '214', '216', '602', '604', '606', '608', '610', '612', '614', '616'],
+  ['302', '304', '306', '308', '310', '312', '314', '316', '777', '702', '704', '706', '708'],
+  ['402', '404', '406', '408', '410', '412', '414', '416', '888', '802', '804', '102', '104'],
+  ['502', '504', '506', '508', '510', '512', '514', '516', '999', '902', '904', '906', '908'],
+];
+
 /** 9 bộ chìa khóa cố định của khách sạn — mỗi mã (123/456/789) là 1 chìa MASTER mở được 3 tầng
  *  tương ứng (123 = tầng 1-2-3, 456 = tầng 4-5-6, 789 = tầng 7-8-9), mỗi mã có 3 BỘ giống hệt nhau
  *  (Bộ 01/02/03) để nhiều nhân viên dùng cùng lúc trên cùng cụm tầng đó. */
