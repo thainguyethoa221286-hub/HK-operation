@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText, MessageSquareWarning, ListChecks } from 'lucide-react';
 import type { Room, KeyLog } from '@/lib/types';
 import { getKeyLogs } from '@/lib/api';
-import { stripCodesFromNote, formatDateShort, formatTimeOnly } from '@/lib/roomStyles';
+import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
 
 interface ReportScreenProps {
@@ -52,8 +52,8 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
 
   const total = rooms.length;
   const doneCount = rooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
-  const cleaningCount = rooms.filter((r) => r.TaskStatus === 'Đang dọn').length;
-  const dirtyCount = rooms.filter((r) => r.TaskStatus === 'Chưa dọn' || !r.TaskStatus).length;
+  const dndCount = rooms.filter((r) => r.TaskStatus === 'DND').length;
+  const rfCount = rooms.filter((r) => r.TaskStatus === 'Refused').length;
 
   const assignedRooms = rooms.filter((r) => r.NhanVienPhuTrach);
   const byStaff = assignedRooms.reduce<Record<string, Room[]>>((acc, r) => {
@@ -97,17 +97,17 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
         </div>
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-bold text-blue-500 uppercase">Đang dọn</div>
-            <div className="text-xl font-extrabold text-blue-600">{cleaningCount}</div>
+            <div className="text-[10px] font-bold text-amber-600 uppercase">DND</div>
+            <div className="text-xl font-extrabold text-amber-700">{dndCount}</div>
           </div>
-          <Clock3 className="w-6 h-6 text-blue-200" />
+          <Clock3 className="w-6 h-6 text-amber-200" />
         </div>
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-bold text-red-500 uppercase">Cần dọn</div>
-            <div className="text-xl font-extrabold text-red-600">{dirtyCount}</div>
+            <div className="text-[10px] font-bold text-purple-600 uppercase">Refused</div>
+            <div className="text-xl font-extrabold text-purple-700">{rfCount}</div>
           </div>
-          <AlertCircle className="w-6 h-6 text-red-200" />
+          <AlertCircle className="w-6 h-6 text-purple-200" />
         </div>
       </div>
 
@@ -234,7 +234,9 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                 // Cột 6 — CURRENT STATUS: thực tế real-time; "Đang kiểm phòng" (isInspecting) ưu tiên hiện CHECKING
                 const currentBadge = r.isInspecting ? CHECKING_BADGE : (STATUS_BADGE_EN[r.HkStatus] || STATUS_BADGE_EN['Phòng dơ']);
                 const workingTime = r.StartTime ? `${formatTimeOnly(r.StartTime)} - ${r.EndTime ? formatTimeOnly(r.EndTime) : ''}` : '—';
+                const codes = extractNoteCodes(combineNotes(r.GhiChu, r.GhiChuNV));
                 const remarks = [
+                  codes.length > 0 ? codes.join(', ') : '',
                   r.GhiChuAdmin ? `QL: ${r.GhiChuAdmin}` : '',
                   stripCodesFromNote(r.GhiChuNV) ? `NV: ${stripCodesFromNote(r.GhiChuNV)}` : '',
                 ].filter(Boolean).join(' / ');
