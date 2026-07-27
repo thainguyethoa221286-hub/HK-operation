@@ -8,10 +8,11 @@ import { fetchRooms, listAccounts, API_URL } from '@/lib/api';
 import RoomMapScreen from '@/components/RoomMapScreen';
 import AssignScreen from '@/components/AssignScreen';
 import TaskScreen from '@/components/TaskScreen';
+import TaskChartScreen from '@/components/TaskChartScreen';
 import ReportScreen from '@/components/ReportScreen';
 import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task';
 const STORAGE_KEY = 'hk_pro_rooms';
 const ACCOUNT_KEY = 'hk_pro_account';
 
@@ -141,7 +142,7 @@ export default function HomePage() {
     { key: isStaff ? null : 'phancong', label: 'Phân công', icon: ClipboardList },
     { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
     { key: isStaff ? null : 'baocao', label: 'Daily Report', icon: FileText },
-    { key: null, label: 'Task', icon: ListTodo },
+    { key: isStaff ? null : 'task', label: 'Task', icon: ListTodo },
     { key: null, label: 'Maintenance', icon: Wrench },
     { key: null, label: 'Lost and Found', icon: PackageSearch },
     { key: null, label: 'Noted Board', icon: MessageSquare },
@@ -225,6 +226,7 @@ export default function HomePage() {
             {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
             {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
             {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
+            {screen === 'task' && !isStaff && <TaskChartScreen />}
           </>
         )}
       </main>
