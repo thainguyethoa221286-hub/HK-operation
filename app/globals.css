@@ -6,8 +6,12 @@ body {
   font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Mục 4 — In riêng đúng 1 bảng Task Chart: ẩn toàn bộ trang, chỉ hiện phần tử có class .print-target,
-   và ẩn thêm các nút điều khiển (.no-print) ngay cả khi chúng nằm bên trong .print-target */
+/* Bản in luôn hiện: .print-only-a4 (mặc định ẩn trên màn hình) */
+.print-only-a4 {
+  display: none;
+}
+
+/* In riêng đúng 1 bảng Task Chart: ẩn toàn bộ trang, chỉ hiện phần tử có class .print-target */
 @media print {
   body.printing-chart-mode * {
     visibility: hidden;
@@ -22,21 +26,77 @@ body {
     top: 0;
     width: 100%;
   }
-  body.printing-chart-mode .no-print {
+
+  /* Khi in: ẩn hẳn phần tương tác (màn hình), chỉ hiện bảng in A4 ngang riêng */
+  .screen-only {
     display: none !important;
+  }
+  .print-only-a4 {
+    display: block !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 10mm;
   }
 }
 
-/* Mục 1+2 — Mobile & In ấn: ép luồng dọc tự nhiên theo đúng thứ tự DOM (đã là mảng phẳng sắp theo tầng
-   1->9), không dùng grid-cols trên các màn hình này để tránh mọi rủi ro nhảy thứ tự tầng.
-   floor-group: tránh bị cắt ngang giữa 1 tầng khi sang trang in mới. */
-@media print, (max-width: 768px) {
+/* Mobile (màn hình, KHÔNG phải in): ép luồng dọc tự nhiên theo đúng thứ tự DOM (mảng phẳng theo tầng
+   1->9), tránh mọi rủi ro nhảy thứ tự tầng khi rơi về 1 cột. */
+@media (max-width: 768px) {
   .task-chart-container {
     display: block !important;
   }
   .floor-group {
-    page-break-inside: avoid;
-    break-inside: avoid;
     margin-bottom: 12px;
   }
+}
+
+/* ===== Bảng in A4 ngang — y hệt mẫu giấy: tiêu đề Task + 2 khối x 4 cột (Room Number | Note) ===== */
+.print-a4-title {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid #94a3b8;
+  padding: 8px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.print-a4-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6px;
+  table-layout: fixed;
+}
+.print-a4-table th {
+  border: 1px solid #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 2px;
+  text-align: center;
+  background: #f1f5f9;
+}
+.print-a4-table td {
+  border: 1px solid #94a3b8;
+  font-size: 11px;
+  padding: 3px 4px;
+  height: 18px;
+}
+.print-a4-room {
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+.print-a4-checkbox {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.print-a4-note {
+  color: #334155;
+}
+.print-a4-total {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 6px;
 }
