@@ -46,9 +46,13 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
       HkStatus: 'HkStatus', FoStatus: 'FoStatus',
       NhanVienPhuTrach: 'NhanVienPhuTrach', GhiChu: 'GhiChu', GhiChuNV: 'GhiChuNV', GhiChuAdmin: 'GhiChuAdmin', GhiChuSuaChua: 'GhiChuSuaChua', Flags: 'Flags',
     };
-    for (const [key, value] of Object.entries(changes)) {
-      if (fieldMap[key]) await updateRoomField(maPhong, fieldMap[key], String(value));
-    }
+    // Ghi SONG SONG toàn bộ field thay đổi (thay vì tuần tự từng cái) — giảm mạnh tổng thời gian
+    // lưu, tránh vượt quá cửa sổ bảo vệ chống chớp tắt (EDIT_PROTECT_MS) khi Modal đổi nhiều field cùng lúc.
+    await Promise.all(
+      Object.entries(changes)
+        .filter(([key]) => fieldMap[key])
+        .map(([key, value]) => updateRoomField(maPhong, fieldMap[key], String(value)))
+    );
   };
 
   const NHA_PHONG_TARGET_STATUSES = ['Phòng dơ', 'Phòng sạch', 'Phòng sửa chữa (OOO)'];
