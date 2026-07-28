@@ -25,7 +25,7 @@ const SETTLED_BG: Record<string, string> = {
 
 export default function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   const { border, bg: defaultBg } = getRoomCardStyle(room.HkStatus, room.isInspecting);
-  const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
+  const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
   const { dnd, rf } = hasDndOrRf(combinedNote);
 
   const isSettled = dimSettled && SETTLED_BG[room.TaskStatus];
