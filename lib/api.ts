@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -300,5 +300,38 @@ export async function updateMaintenanceIssue(
 export async function deleteMaintenanceIssue(id: number): Promise<{ success: boolean }> {
   if (!API_URL) return { success: false };
   const r = await jsonp<{ success: boolean }>('deleteMaintenanceIssue', { id: String(id) });
+  return r || { success: false };
+}
+
+/** ===== MODULE LOST & FOUND ===== */
+
+export async function getLostFoundItems(): Promise<LostFoundItem[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; items?: LostFoundItem[]; error?: string }>('getLostFoundItems', {});
+  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
+  if (!r.success) throw new Error(r.error || 'Apps Script báo lỗi không rõ nguyên nhân khi lấy danh sách Lost & Found');
+  return r.items || [];
+}
+
+export async function createLostFoundItem(item: {
+  dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string;
+}): Promise<{ success: boolean; item?: LostFoundItem; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; item?: LostFoundItem; error?: string }>('createLostFoundItem', item);
+  return r || { success: false, error: 'Không nhận được phản hồi' };
+}
+
+export async function updateLostFoundItem(
+  id: number,
+  item: { dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string }
+): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('updateLostFoundItem', { id: String(id), ...item });
+  return r || { success: false };
+}
+
+export async function deleteLostFoundItem(id: number): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('deleteLostFoundItem', { id: String(id) });
   return r || { success: false };
 }
