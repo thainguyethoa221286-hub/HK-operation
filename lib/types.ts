@@ -133,6 +133,11 @@ export interface Room {
   /** Ghi chú RIÊNG cho mục Sửa chữa — tách hẳn khỏi GhiChuNV/GhiChuAdmin, chỉ hiện khi cờ
    *  "Sửa chữa" (SuaChua trong Flags) đang bật. Nội dung này đồng thời đổ sang Module Maintenance. */
   GhiChuSuaChua: string;
+  /** Snapshot GhiChuNV/GhiChuAdmin ngay TRƯỚC LẦN Đồng bộ AI gần nhất — CHỈ dùng để hiện trong
+   *  Báo cáo (mục "Ghi chú nhân viên/giám sát hôm nay") cho đủ 1 ngày, tuyệt đối KHÔNG dùng ở bất kỳ
+   *  nơi nào khác (thẻ phòng, Modal...) vì các nơi đó phải xoá sạch ngay lập tức mỗi lần sync. */
+  GhiChuNVHomQua: string;
+  GhiChuAdminHomQua: string;
   /** Ghi chú RIÊNG của Admin/Giám sát nhập từ Sơ đồ phòng — TÁCH KHỎI GhiChuNV để phân biệt được
    *  nguồn, hiện nổi bật (nền vàng) bên màn Nhiệm vụ của nhân viên khi có nội dung. */
   GhiChuAdmin: string;
