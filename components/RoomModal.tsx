@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
-import type { Room, HkStatus, FoStatus } from '@/lib/types';
+import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
 import { formatDateShort } from '@/lib/roomStyles';
+import { createMaintenanceIssue } from '@/lib/api';
 
 interface RoomModalProps {
   room: Room | null;
@@ -13,14 +14,17 @@ interface RoomModalProps {
   onToggleInspecting: (maPhong: string, value: boolean) => void;
   /** Mục 1 — danh sách tên nhân viên lấy ĐỘNG từ tab TaiKhoan, không hardcode */
   staffList: string[];
+  /** Tài khoản Admin/Giám sát đang đăng nhập — dùng làm "Người báo" khi tự tạo ticket Maintenance */
+  account: Account | null;
 }
 
-export default function RoomModal({ room, onClose, onSave, onToggleInspecting, staffList }: RoomModalProps) {
+export default function RoomModal({ room, onClose, onSave, onToggleInspecting, staffList, account }: RoomModalProps) {
   const [hk, setHk] = useState<HkStatus>('Phòng dơ');
   const [fo, setFo] = useState<FoStatus>('Vacant');
   const [staff, setStaff] = useState('');
   const [note, setNote] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
+  const [initialNote, setInitialNote] = useState('');
 
   useEffect(() => {
     if (!room) return;
@@ -28,6 +32,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     setFo(room.FoStatus);
     setStaff(room.NhanVienPhuTrach || '');
     setNote(room.GhiChuAdmin || '');
+    setInitialNote(room.GhiChuAdmin || '');
     setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
   }, [room]);
 
@@ -51,6 +56,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   const tagNote = () => setNote((prev) => (prev ? prev + ' ' : '') + '[Sửa chữa] ');
 
   const handleClose = () => {
+    // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: nếu ghi chú VỪA được gắn/sửa
+    // với tag "[Sửa chữa]" trong phiên mở modal này (khác lúc mở lên), tự tạo 1 ticket mới.
+    if (note.includes('[Sửa chữa]') && note !== initialNote) {
+      const desc = note.replace('[Sửa chữa]', '').trim();
+      if (desc) {
+        createMaintenanceIssue(room.MaPhong, desc, account?.hoTen || 'Giám sát');
+      }
+    }
     onSave(room.MaPhong, {
       HkStatus: hk,
       FoStatus: fo,
