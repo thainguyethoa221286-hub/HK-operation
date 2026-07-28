@@ -9,10 +9,11 @@ import RoomMapScreen from '@/components/RoomMapScreen';
 import AssignScreen from '@/components/AssignScreen';
 import TaskScreen from '@/components/TaskScreen';
 import TaskChartScreen from '@/components/TaskChartScreen';
+import MaintenanceScreen from '@/components/MaintenanceScreen';
 import ReportScreen from '@/components/ReportScreen';
 import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task' | 'maintenance';
 const STORAGE_KEY = 'hk_pro_rooms';
 const ACCOUNT_KEY = 'hk_pro_account';
 
@@ -100,7 +101,7 @@ export default function HomePage() {
   // màn Sơ đồ phòng của chị trên máy tính cần tự cập nhật mà không phải bấm F5) —
   // tự động lấy lại dữ liệu mới nhất từ Google Sheet mỗi 15 giây.
   const POLL_INTERVAL_MS = 8000;
-  const EDIT_PROTECT_MS = 4000; // tạm bỏ qua làm mới trong 4s sau khi vừa sửa, tránh chớp tắt do lấy về dữ liệu chưa kịp ghi xong
+  const EDIT_PROTECT_MS = 3000; // tạm bỏ qua làm mới trong 3s sau khi vừa sửa, tránh chớp tắt do lấy về dữ liệu chưa kịp ghi xong
   useEffect(() => {
     if (!API_URL) return;
     const timer = setInterval(() => {
@@ -143,7 +144,7 @@ export default function HomePage() {
     { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
     { key: isStaff ? null : 'baocao', label: 'Daily Report', icon: FileText },
     { key: isStaff ? null : 'task', label: 'Task', icon: ListTodo },
-    { key: null, label: 'Maintenance', icon: Wrench },
+    { key: isStaff ? null : 'maintenance', label: 'Maintenance', icon: Wrench },
     { key: null, label: 'Lost and Found', icon: PackageSearch },
     { key: null, label: 'Noted Board', icon: MessageSquare },
     { key: null, label: 'Cài đặt', icon: Settings },
@@ -222,11 +223,12 @@ export default function HomePage() {
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
         ) : (
           <>
-            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
+            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
             {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
             {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
             {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
             {screen === 'task' && !isStaff && <TaskChartScreen />}
+            {screen === 'maintenance' && !isStaff && <MaintenanceScreen />}
           </>
         )}
       </main>
