@@ -242,7 +242,7 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                 // Cột 6 — CURRENT STATUS: thực tế real-time; "Đang kiểm phòng" (isInspecting) ưu tiên hiện CHECKING
                 const currentBadge = r.isInspecting ? CHECKING_BADGE : (STATUS_BADGE_EN[r.HkStatus] || STATUS_BADGE_EN['Phòng dơ']);
                 const workingTime = r.StartTime ? `${formatTimeOnly(r.StartTime)} - ${r.EndTime ? formatTimeOnly(r.EndTime) : ''}` : '—';
-                const codes = extractNoteCodes(combineNotes(r.GhiChu, r.GhiChuNV));
+                const codes = extractNoteCodes(combineNotes(r.GhiChu, r.GhiChuNV, r.GhiChuAdmin));
                 const remarks = [
                   codes.length > 0 ? codes.join(', ') : '',
                   r.GhiChuAdmin ? `QL: ${r.GhiChuAdmin}` : '',
