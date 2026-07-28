@@ -43,6 +43,28 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** ===== MODULE NOTE BOARD (3 bảng độc lập) ===== */
+export interface WatchlistRoom {
+  id: number;
+  roomNo: string;
+  shiftNote: string; // Nội dung gốc lấy từ Báo cáo lúc đồng bộ — không đổi sau đó
+  extraNote: string; // Ghi chú bổ sung, tự do chỉnh sửa
+}
+export interface OverdueHistoryRow {
+  id: number;
+  category: 'ThayGiuong' | 'DND' | 'RF';
+  roomNo: string;
+  dateNoted: string; // ngày được ghi nhận (thường là "hôm qua" tính từ lúc Đồng bộ AI chạy)
+}
+export interface SupplyBoardItem {
+  label: string;
+  value: string;
+}
+export const SUPPLY_LABELS = [
+  'Extra Bed', 'Extra Bed sẵn', 'Baby cot', 'Tách giường', 'Ghép giường',
+  'Bathrobe', 'Blanket', 'Memory', 'Latex', 'Noted',
+] as const;
+
 /** ===== MODULE LOST & FOUND (Đồ thất lạc & tìm thấy) ===== */
 export interface LostFoundItem {
   id: number; // rowIndex thật trên Sheet
