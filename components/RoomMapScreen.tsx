@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import type { Room } from '@/lib/types';
+import type { Room, Account } from '@/lib/types';
 import RoomCard from '@/components/RoomCard';
 import RoomModal from '@/components/RoomModal';
 import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms } from '@/lib/api';
@@ -22,9 +22,10 @@ interface RoomMapScreenProps {
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
   staffList: string[];
+  account: Account | null;
 }
 
-export default function RoomMapScreen({ rooms, setRooms, staffList }: RoomMapScreenProps) {
+export default function RoomMapScreen({ rooms, setRooms, staffList, account }: RoomMapScreenProps) {
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
   const [aiSyncing, setAiSyncing] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
@@ -161,6 +162,7 @@ export default function RoomMapScreen({ rooms, setRooms, staffList }: RoomMapScr
         onSave={handleSave}
         onToggleInspecting={handleToggleInspecting}
         staffList={staffList}
+        account={account}
       />
 
       {aiSyncing && (
