@@ -43,6 +43,17 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** ===== MODULE LOST & FOUND (Đồ thất lạc & tìm thấy) ===== */
+export interface LostFoundItem {
+  id: number; // rowIndex thật trên Sheet
+  dateFound: string; // dd/MM/yyyy
+  roomNo: string;
+  itemDescription: string;
+  foundBy: string;
+  status: 'Lưu kho' | 'Đã trả';
+  notes: string;
+}
+
 /** ===== MODULE MAINTENANCE (Sửa chữa / Bảo trì) ===== */
 export interface MaintenanceIssue {
   id: number; // rowIndex thật trên Sheet — dùng để update/xoá đúng dòng
