@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { Wrench, Printer, Plus, Edit3, CalendarClock, Trash2, ChevronDown } from 'lucide-react';
 import type { MaintenanceIssue } from '@/lib/types';
 import { getMaintenanceIssues, createMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue } from '@/lib/api';
@@ -16,6 +16,13 @@ function parseDMY(s: string): Date | null {
 }
 function formatDMY(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+/** Hiện ngày gọn "DD/MM/YYYY" cho MỌI dạng dữ liệu — kể cả dòng cũ bị Sheets tự đổi thành chuỗi
+ *  Date dài dòng (VD "Tue Jul 28 2026 00:00:00 GMT+0700..."). Không có dữ liệu giờ phút thật nên
+ *  chỉ hiện ngày, không hiện HH:mm. */
+function formatReportedDate(s: string): string {
+  const d = parseDMY(s);
+  return d ? formatDMY(d) : s;
 }
 function toInputDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -214,8 +221,8 @@ export default function MaintenanceScreen() {
         </div>
       )}
 
-      {/* Danh sách thẻ sự cố — ẨN KHI IN */}
-      <div className="screen-only space-y-3">
+      {/* Bảng danh sách sự cố — ẨN KHI IN */}
+      <div className="screen-only bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="text-sm text-slate-400 text-center py-10">
             {loadError ? (
@@ -228,85 +235,108 @@ export default function MaintenanceScreen() {
         ) : filteredIssues.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Không có sự cố nào trong khoảng thời gian này.</div>
         ) : (
-          filteredIssues.map((issue) => {
-            const isDone = issue.status === 'Đã xong';
-            return (
-              <div key={issue.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-extrabold text-slate-800">{issue.roomNo}</span>
-                    <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 ${isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {issue.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleStatus(issue)}
-                      className={`text-[12px] font-bold rounded-lg px-3 py-1.5 border ${isDone ? 'text-slate-500 border-slate-200 bg-white' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}
-                    >
-                      {isDone ? 'Mở lại' : 'Xong'}
-                    </button>
-                    <button onClick={() => setExpandedId(expandedId === issue.id ? null : issue.id)} className="text-slate-400 font-bold px-1">•••</button>
-                  </div>
-                </div>
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="bg-slate-100 text-slate-700 text-[11px] font-bold uppercase whitespace-nowrap">
+                <th className="px-3 py-2.5 text-left">Số phòng</th>
+                <th className="px-2 py-2.5 text-left">Lỗi của phòng</th>
+                <th className="px-2 py-2.5 text-left">Thời gian</th>
+                <th className="px-2 py-2.5 text-center">Trạng thái</th>
+                <th className="px-2 py-2.5 text-center">Xong</th>
+                <th className="px-2 py-2.5 text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredIssues.map((issue) => {
+                const isDone = issue.status === 'Đã xong';
+                const rowExpanded = expandedId === issue.id || editingId === issue.id || schedulingId === issue.id;
+                return (
+                  <Fragment key={issue.id}>
+                    <tr className="border-t border-slate-200 align-top">
+                      <td className="px-3 py-2.5 font-extrabold text-slate-800 whitespace-nowrap">{issue.roomNo}</td>
+                      <td className="px-2 py-2.5 text-slate-700 min-w-[160px]">{issue.issueDescription}</td>
+                      <td className="px-2 py-2.5 text-slate-500 whitespace-nowrap">
+                        <div>{formatReportedDate(issue.reportedDate)}</div>
+                        <div className="text-[10px] text-slate-400">👤 {issue.reportedBy}</div>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <span className={`inline-block text-[10px] font-bold rounded-full px-2.5 py-1 whitespace-nowrap ${
+                          isDone ? 'bg-emerald-100 text-emerald-700' : issue.dueDate ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-600'
+                        }`}>
+                          {isDone ? 'Đã xong' : issue.dueDate ? 'Hẹn lịch sửa' : 'Đang xử lý'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <button
+                          onClick={() => toggleStatus(issue)}
+                          className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border whitespace-nowrap ${isDone ? 'text-slate-500 border-slate-200 bg-white' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}
+                        >
+                          {isDone ? 'Mở lại' : 'Xong'}
+                        </button>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <button onClick={() => setExpandedId(expandedId === issue.id ? null : issue.id)} className="text-slate-400 font-bold px-2 hover:text-slate-700">•••</button>
+                      </td>
+                    </tr>
 
-                {expandedId === issue.id && (
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => { setEditingId(issue.id); setEditDraft(issue.issueDescription); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-blue-700 bg-white border border-slate-200 rounded-lg py-2"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" /> Sửa
-                    </button>
-                    <button
-                      onClick={() => { setSchedulingId(issue.id); setScheduleDraft(''); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange-600 bg-white border border-slate-200 rounded-lg py-2"
-                    >
-                      <CalendarClock className="w-3.5 h-3.5" /> Hẹn
-                    </button>
-                    <button
-                      onClick={() => handleDelete(issue.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-red-600 bg-white border border-red-200 rounded-lg py-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Xóa
-                    </button>
-                  </div>
-                )}
+                    {rowExpanded && (
+                      <tr className="bg-slate-50/60 border-t border-slate-100">
+                        <td colSpan={6} className="px-3 py-3">
+                          {expandedId === issue.id && editingId !== issue.id && schedulingId !== issue.id && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => { setEditingId(issue.id); setEditDraft(issue.issueDescription); }}
+                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-blue-700 bg-white border border-slate-200 rounded-lg py-2"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" /> Sửa
+                              </button>
+                              <button
+                                onClick={() => { setSchedulingId(issue.id); setScheduleDraft(''); }}
+                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange-600 bg-white border border-slate-200 rounded-lg py-2"
+                              >
+                                <CalendarClock className="w-3.5 h-3.5" /> Hẹn
+                              </button>
+                              <button
+                                onClick={() => handleDelete(issue.id)}
+                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-red-600 bg-white border border-red-200 rounded-lg py-2"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Xóa
+                              </button>
+                            </div>
+                          )}
 
-                {editingId === issue.id ? (
-                  <div className="mt-3">
-                    <textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[14px]" />
-                    <div className="flex gap-2 mt-1.5">
-                      <button onClick={() => saveEdit(issue.id)} className="text-[12px] font-bold text-white bg-blue-600 rounded-lg px-3 py-1.5">Lưu</button>
-                      <button onClick={() => setEditingId(null)} className="text-[12px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-1.5">Huỷ</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[15px] text-slate-700 mt-3">{issue.issueDescription}</div>
-                )}
+                          {editingId === issue.id && (
+                            <div>
+                              <textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[13px] bg-white" />
+                              <div className="flex gap-2 mt-1.5">
+                                <button onClick={() => saveEdit(issue.id)} className="text-[12px] font-bold text-white bg-blue-600 rounded-lg px-3 py-1.5">Lưu</button>
+                                <button onClick={() => setEditingId(null)} className="text-[12px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-1.5">Huỷ</button>
+                              </div>
+                            </div>
+                          )}
 
-                {issue.dueDate && !schedulingId && (
-                  <div className="text-[11px] text-orange-600 font-semibold mt-1.5">📅 Hẹn: {issue.dueDate}</div>
-                )}
+                          {schedulingId === issue.id && (
+                            <div>
+                              <div className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Chọn ngày hẹn</div>
+                              <input type="date" value={scheduleDraft} onChange={(e) => setScheduleDraft(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm mb-2 bg-white" />
+                              <div className="flex gap-2">
+                                <button onClick={() => confirmSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-white bg-orange-500 rounded-lg py-2">XÁC NHẬN</button>
+                                <button onClick={() => cancelSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-slate-600 bg-slate-200 rounded-lg py-2">BỎ HẸN</button>
+                              </div>
+                            </div>
+                          )}
 
-                {schedulingId === issue.id && (
-                  <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Chọn ngày hẹn</div>
-                    <input type="date" value={scheduleDraft} onChange={(e) => setScheduleDraft(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm mb-2" />
-                    <div className="flex gap-2">
-                      <button onClick={() => confirmSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-white bg-orange-500 rounded-lg py-2">XÁC NHẬN</button>
-                      <button onClick={() => cancelSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-slate-600 bg-slate-200 rounded-lg py-2">BỎ HẸN</button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-semibold">
-                  <span>👤 {issue.reportedBy.toUpperCase()}</span>
-                  <span>🕒 {issue.reportedDate}</span>
-                </div>
-              </div>
-            );
-          })
+                          {issue.dueDate && !schedulingId && (
+                            <div className="text-[11px] text-blue-600 font-semibold mt-1">📅 Hẹn: {formatReportedDate(issue.dueDate)}</div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -332,7 +362,7 @@ export default function MaintenanceScreen() {
                 <td className="border border-slate-300 px-2 py-1.5 font-bold">{issue.roomNo}</td>
                 <td className="border border-slate-300 px-2 py-1.5">{issue.issueDescription}</td>
                 <td className="border border-slate-300 px-2 py-1.5">{issue.reportedBy}</td>
-                <td className="border border-slate-300 px-2 py-1.5">{issue.reportedDate}</td>
+                <td className="border border-slate-300 px-2 py-1.5">{formatReportedDate(issue.reportedDate)}</td>
                 <td className="border border-slate-300 px-2 py-1.5">{issue.status}</td>
               </tr>
             ))}
