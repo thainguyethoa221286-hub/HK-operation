@@ -41,11 +41,18 @@ export default function MaintenanceScreen() {
 
   const printRef = useRef<HTMLDivElement>(null);
 
+  const [loadError, setLoadError] = useState('');
   const refresh = () => {
-    getMaintenanceIssues().then((data) => {
-      setIssues(data);
-      setLoading(false);
-    });
+    setLoadError('');
+    getMaintenanceIssues()
+      .then((data) => {
+        setIssues(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setLoading(false);
+        setLoadError(err?.message || 'Không tải được dữ liệu Maintenance — kiểm tra lại Code.gs đã Deploy phiên bản mới chưa.');
+      });
   };
   useEffect(() => { refresh(); }, []);
 
@@ -207,7 +214,14 @@ export default function MaintenanceScreen() {
       {/* Danh sách thẻ sự cố — ẨN KHI IN */}
       <div className="screen-only space-y-3">
         {loading ? (
-          <div className="text-sm text-slate-400 text-center py-10">Đang tải...</div>
+          <div className="text-sm text-slate-400 text-center py-10">
+            {loadError ? (
+              <div>
+                <div className="text-red-500 font-semibold mb-2">⚠ {loadError}</div>
+                <button onClick={refresh} className="text-[12px] font-bold text-white bg-slate-700 rounded-lg px-3 py-1.5">Thử lại</button>
+              </div>
+            ) : 'Đang tải...'}
+          </div>
         ) : filteredIssues.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Không có sự cố nào trong khoảng thời gian này.</div>
         ) : (
