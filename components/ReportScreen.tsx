@@ -39,11 +39,13 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Mục "Ghi chú nhân viên" — liệt kê toàn bộ phòng có ghi chú tự do (VD khách yêu cầu riêng),
-  // để giám sát xem 1 chỗ, không cần mở từng phòng trên Sơ đồ.
-  const staffNotedRooms = rooms.filter((r) => stripCodesFromNote(r.GhiChuNV));
+  // Mục "Ghi chú nhân viên" — CHỈ ở Báo cáo mới kết hợp ghi chú hiện tại + "hôm qua" (giữ đủ 1 ngày),
+  // mọi nơi khác trong app (thẻ phòng, Modal...) chỉ dùng GhiChuNV/GhiChuAdmin hiện tại, xoá ngay khi sync.
+  const staffNoteFor = (r: Room) => stripCodesFromNote(r.GhiChuNV) || stripCodesFromNote(r.GhiChuNVHomQua);
+  const adminNoteFor = (r: Room) => r.GhiChuAdmin || r.GhiChuAdminHomQua;
+  const staffNotedRooms = rooms.filter((r) => staffNoteFor(r));
   // Mục "Ghi chú giám sát" — toàn bộ ghi chú do Admin/Giám sát tự nhập (GhiChuAdmin), lưu trữ theo dõi
-  const adminNotedRooms = rooms.filter((r) => r.GhiChuAdmin);
+  const adminNotedRooms = rooms.filter((r) => adminNoteFor(r));
   // Danh sách đầy đủ 55 phòng, sắp theo số phòng tăng dần (102 -> 999)
   const allRoomsSorted = [...rooms].sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
   // Ngày hôm nay (dd/mm/yyyy) cho tiêu đề báo cáo
@@ -166,7 +168,10 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                   {r.MaPhong}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-slate-700">{stripCodesFromNote(r.GhiChuNV)}</div>
+                  <div className="text-[13px] font-semibold text-slate-700">
+                    {staffNoteFor(r)}
+                    {!stripCodesFromNote(r.GhiChuNV) && <span className="text-[10px] text-slate-400 font-normal ml-1">(hôm qua)</span>}
+                  </div>
                   {r.NhanVienPhuTrach && <div className="text-[10px] text-slate-400">Nhân viên: {r.NhanVienPhuTrach}</div>}
                 </div>
               </div>
@@ -188,7 +193,10 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                   {r.MaPhong}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-slate-700">{r.GhiChuAdmin}</div>
+                  <div className="text-[13px] font-semibold text-slate-700">
+                    {adminNoteFor(r)}
+                    {!r.GhiChuAdmin && <span className="text-[10px] text-slate-400 font-normal ml-1">(hôm qua)</span>}
+                  </div>
                   {r.NhanVienPhuTrach && <div className="text-[10px] text-slate-400">Nhân viên phụ trách: {r.NhanVienPhuTrach}</div>}
                 </div>
               </div>
