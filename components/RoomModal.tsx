@@ -24,7 +24,9 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   const [staff, setStaff] = useState('');
   const [note, setNote] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
-  const [initialNote, setInitialNote] = useState('');
+  // Ghi chú Sửa chữa — TÁCH RIÊNG hoàn toàn khỏi ghi chú nhân viên/giám sát, chỉ hiện khi cờ Sửa chữa bật
+  const [repairNote, setRepairNote] = useState('');
+  const [initialRepairNote, setInitialRepairNote] = useState('');
 
   useEffect(() => {
     if (!room) return;
@@ -32,7 +34,8 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     setFo(room.FoStatus);
     setStaff(room.NhanVienPhuTrach || '');
     setNote(room.GhiChuAdmin || '');
-    setInitialNote(room.GhiChuAdmin || '');
+    setRepairNote(room.GhiChuSuaChua || '');
+    setInitialRepairNote(room.GhiChuSuaChua || '');
     setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
   }, [room]);
 
@@ -53,22 +56,20 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     toggleFlag('DaOut');
   };
 
-  const tagNote = () => setNote((prev) => (prev ? prev + ' ' : '') + '[Sửa chữa] ');
+  const isRepairActive = flags.includes('SuaChua');
 
   const handleClose = () => {
-    // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: nếu ghi chú VỪA được gắn/sửa
-    // với tag "[Sửa chữa]" trong phiên mở modal này (khác lúc mở lên), tự tạo 1 ticket mới.
-    if (note.includes('[Sửa chữa]') && note !== initialNote) {
-      const desc = note.replace('[Sửa chữa]', '').trim();
-      if (desc) {
-        createMaintenanceIssue(room.MaPhong, desc, account?.hoTen || 'Giám sát');
-      }
+    // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: cờ Sửa chữa đang bật + có nội dung
+    // MỚI (khác lúc mở modal) trong ô Ghi chú sửa chữa riêng -> tự tạo 1 ticket mới.
+    if (isRepairActive && repairNote.trim() && repairNote !== initialRepairNote) {
+      createMaintenanceIssue(room.MaPhong, repairNote.trim(), account?.hoTen || 'Giám sát');
     }
     onSave(room.MaPhong, {
       HkStatus: hk,
       FoStatus: fo,
       NhanVienPhuTrach: staff,
       GhiChuAdmin: note,
+      GhiChuSuaChua: repairNote,
       Flags: flags.join(','),
     });
     onClose();
@@ -153,6 +154,22 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
           })}
         </div>
 
+        {/* Ô Ghi chú Sửa chữa RIÊNG — chỉ hiện khi cờ "Sửa chữa" đang bật, tách biệt hoàn toàn
+            khỏi Ghi chú nhân viên/giám sát. Nội dung này tự đổ sang Module Maintenance khi Đóng. */}
+        {isRepairActive && (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3.5">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 uppercase mb-2">
+              🔧 Ghi chú sửa chữa
+            </div>
+            <textarea
+              value={repairNote}
+              onChange={(e) => setRepairNote(e.target.value)}
+              placeholder="Mô tả sự cố cần sửa (VD: AC ồn, cửa bị cứng...)"
+              className="w-full min-h-[60px] border border-orange-200 rounded-lg p-2.5 text-sm resize-y bg-white"
+            />
+          </div>
+        )}
+
         {/* Mục 3 — Logic tương tác Kiểm phòng / Nhả phòng (isInspecting) */}
         <div className="flex gap-2 mb-3.5">
           <button
@@ -188,12 +205,6 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
             placeholder="Ví dụ: Khách hàng cần thêm gối..."
             className="w-full min-h-[70px] border border-slate-200 rounded-lg p-2.5 text-sm resize-y"
           />
-          <button
-            onClick={tagNote}
-            className="absolute -top-2.5 right-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded"
-          >
-            ✎ Sửa chữa
-          </button>
         </div>
 
         <button
