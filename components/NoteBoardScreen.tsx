@@ -160,21 +160,27 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
           </div>
         </div>
 
-        {/* ===== BẢNG 03 — Dụng cụ & vật tư đặc biệt ===== */}
+        {/* ===== BẢNG 03 — Dụng cụ & vật tư đặc biệt (dạng SỔ GHI CHÉP — mỗi danh mục 1 hàng) ===== */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h2 className="text-lg font-bold text-slate-800 mb-3">Dụng cụ &amp; vật tư đặc biệt</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {SUPPLY_LABELS.map((label) => {
+          <div className="border border-slate-300 rounded-xl overflow-hidden">
+            {SUPPLY_LABELS.map((label, idx) => {
               const item = supplies.find((s) => s.label === label);
               return (
-                <div key={label} className="border border-slate-200 rounded-xl p-3">
-                  <div className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">{label}</div>
-                  <input
+                <div
+                  key={label}
+                  className={`flex flex-col sm:flex-row sm:items-stretch ${idx !== SUPPLY_LABELS.length - 1 ? 'border-b border-slate-300' : ''}`}
+                >
+                  <div className="w-full sm:w-40 flex-shrink-0 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-300 px-3 py-3 flex items-center">
+                    <span className="text-[13px] font-bold text-slate-700 uppercase">{label}</span>
+                  </div>
+                  <textarea
                     defaultValue={item?.value || ''}
                     onChange={(e) => handleSupplyChange(label, e.target.value)}
                     onBlur={(e) => handleSupplyBlur(label, e.target.value)}
-                    placeholder="Nhập số lượng / số phòng..."
-                    className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-blue-400"
+                    placeholder="Ghi liên tục tại đây: số lượng, số phòng, ngày..."
+                    rows={3}
+                    className="flex-1 min-w-0 text-sm px-3 py-3 outline-none focus:bg-blue-50/30 resize-y bg-transparent"
                   />
                 </div>
               );
