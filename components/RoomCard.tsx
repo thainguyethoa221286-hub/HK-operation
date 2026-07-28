@@ -29,12 +29,13 @@ export default function RoomCard({ room, onClick, special, dimSettled }: RoomCar
   const { dnd, rf } = hasDndOrRf(combinedNote);
 
   const isSettled = dimSettled && SETTLED_BG[room.TaskStatus];
-  // Cờ "Đã out" (DaOut) — nền ĐỎ NHẠT để Admin/Giám sát biết ngay phòng vừa trả, NHƯNG chỉ
-  // khi phòng CHƯA được dọn xong (còn "Phòng dơ"/"Phòng đang dọn"). Ngay khi Giám sát Nhả phòng
-  // (chuyển "Phòng sạch"/"Đã kiểm tra"), tự động trả về đúng màu viền chuẩn — không còn đỏ nữa.
+  // Cờ "Đã out" (DaOut) — nền ĐỎ NHẠT chỉ khi phòng CÒN CHƯA BẮT ĐẦU DỌN ("Phòng dơ").
+  // Ngay khi nhân viên bấm "Bắt đầu dọn phòng" (HkStatus -> "Phòng đang dọn"), nền phải chuyển
+  // XANH DƯƠNG NHẠT theo đúng viền (không còn giữ đỏ nữa) để phản ánh đúng đang xử lý.
   const hasDaOut = (room.Flags || '').split(',').map((f) => f.trim()).includes('DaOut');
-  const daOutActive = hasDaOut && !room.isInspecting && (room.HkStatus === 'Phòng dơ' || room.HkStatus === 'Phòng đang dọn');
-  const bg = isSettled ? SETTLED_BG[room.TaskStatus] : daOutActive ? 'bg-red-50' : defaultBg;
+  const daOutActive = hasDaOut && !room.isInspecting && room.HkStatus === 'Phòng dơ';
+  const isCleaningNow = room.HkStatus === 'Phòng đang dọn';
+  const bg = isSettled ? SETTLED_BG[room.TaskStatus] : isCleaningNow ? 'bg-blue-50' : daOutActive ? 'bg-red-50' : defaultBg;
   // Có ghi chú tự do do nhân viên gõ (VD khách yêu cầu riêng) — khác mã hệ thống EB/BBC/HON/DND/RF
   const hasStaffNote = !!stripCodesFromNote(room.GhiChuNV);
 
