@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -254,5 +254,45 @@ export async function updateTaskChartMeta(chartId: string, title: string, palett
 export async function updateTaskCell(chartId: string, maPhong: string, checked: boolean, note: string): Promise<{ success: boolean }> {
   if (!API_URL) return { success: false };
   const r = await jsonp<{ success: boolean }>('updateTaskCell', { chartId, maPhong, checked: checked ? '1' : '', note });
+  return r || { success: false };
+}
+
+/** ===== MODULE MAINTENANCE ===== */
+
+export async function getMaintenanceIssues(): Promise<MaintenanceIssue[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; issues?: MaintenanceIssue[] }>('getMaintenanceIssues', {});
+  return r?.issues || [];
+}
+
+export async function createMaintenanceIssue(
+  roomNo: string,
+  issueDescription: string,
+  reportedBy: string
+): Promise<{ success: boolean; issue?: MaintenanceIssue; error?: string }> {
+  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
+  const r = await jsonp<{ success: boolean; issue?: MaintenanceIssue; error?: string }>('createMaintenanceIssue', {
+    roomNo, issueDescription, reportedBy,
+  });
+  return r || { success: false, error: 'Không nhận được phản hồi' };
+}
+
+export async function updateMaintenanceIssue(
+  id: number,
+  changes: { issueDescription?: string; status?: string; dueDate?: string }
+): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('updateMaintenanceIssue', {
+    id: String(id),
+    issueDescription: changes.issueDescription ?? '__skip__',
+    status: changes.status ?? '__skip__',
+    dueDate: changes.dueDate ?? '__skip__',
+  });
+  return r || { success: false };
+}
+
+export async function deleteMaintenanceIssue(id: number): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('deleteMaintenanceIssue', { id: String(id) });
   return r || { success: false };
 }
