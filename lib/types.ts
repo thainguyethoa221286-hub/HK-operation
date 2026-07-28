@@ -43,6 +43,17 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** ===== MODULE MAINTENANCE (Sửa chữa / Bảo trì) ===== */
+export interface MaintenanceIssue {
+  id: number; // rowIndex thật trên Sheet — dùng để update/xoá đúng dòng
+  roomNo: string;
+  issueDescription: string;
+  reportedBy: string;
+  reportedDate: string; // dd/MM/yyyy
+  status: 'Đang xử lý' | 'Đã xong';
+  dueDate: string; // ngày hẹn, rỗng nếu chưa hẹn
+}
+
 /** ===== MODULE TASK CHART (Nhiệm vụ định kỳ dạng bảng) ===== */
 export interface TaskChart {
   id: string;
