@@ -10,10 +10,11 @@ import AssignScreen from '@/components/AssignScreen';
 import TaskScreen from '@/components/TaskScreen';
 import TaskChartScreen from '@/components/TaskChartScreen';
 import MaintenanceScreen from '@/components/MaintenanceScreen';
+import LostFoundScreen from '@/components/LostFoundScreen';
 import ReportScreen from '@/components/ReportScreen';
 import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task' | 'maintenance';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task' | 'maintenance' | 'lostfound';
 const STORAGE_KEY = 'hk_pro_rooms';
 const ACCOUNT_KEY = 'hk_pro_account';
 
@@ -145,7 +146,7 @@ export default function HomePage() {
     { key: isStaff ? null : 'baocao', label: 'Daily Report', icon: FileText },
     { key: isStaff ? null : 'task', label: 'Task', icon: ListTodo },
     { key: isStaff ? null : 'maintenance', label: 'Maintenance', icon: Wrench },
-    { key: null, label: 'Lost and Found', icon: PackageSearch },
+    { key: isStaff ? null : 'lostfound', label: 'Lost and Found', icon: PackageSearch },
     { key: null, label: 'Noted Board', icon: MessageSquare },
     { key: null, label: 'Cài đặt', icon: Settings },
   ];
@@ -229,6 +230,7 @@ export default function HomePage() {
             {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
             {screen === 'task' && !isStaff && <TaskChartScreen />}
             {screen === 'maintenance' && !isStaff && <MaintenanceScreen />}
+            {screen === 'lostfound' && !isStaff && <LostFoundScreen />}
           </>
         )}
       </main>
