@@ -264,8 +264,11 @@ export async function updateTaskCell(chartId: string, maPhong: string, checked: 
 
 export async function getMaintenanceIssues(): Promise<MaintenanceIssue[]> {
   if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; issues?: MaintenanceIssue[] }>('getMaintenanceIssues', {});
-  return r?.issues || [];
+  const r = await jsonp<{ success: boolean; issues?: MaintenanceIssue[]; error?: string }>('getMaintenanceIssues', {});
+  console.log('[HK PRO] Phản hồi getMaintenanceIssues từ Apps Script:', r);
+  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
+  if (!r.success) throw new Error(r.error || 'Apps Script báo lỗi không rõ nguyên nhân khi lấy danh sách Maintenance');
+  return r.issues || [];
 }
 
 export async function createMaintenanceIssue(
