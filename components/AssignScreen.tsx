@@ -202,7 +202,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     room: Room; removable?: boolean; onRemove?: () => void;
     selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
   }) => {
-    const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV);
+    const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
     const hasAdminNote = !!room.GhiChuAdmin;
     const hasStaffNote = !!stripCodesFromNote(room.GhiChuNV);
     return (
