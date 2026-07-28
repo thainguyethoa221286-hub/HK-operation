@@ -73,9 +73,14 @@ export default function TaskChartCard({ chart, cells, search, onDelete, onUpdate
   const handlePrint = () => {
     document.body.classList.add('printing-chart-mode');
     cardRef.current?.classList.add('print-target');
+    const styleTag = document.createElement('style');
+    styleTag.id = 'print-orientation-landscape';
+    styleTag.textContent = '@page { size: landscape; margin: 8mm; }';
+    document.head.appendChild(styleTag);
     const cleanup = () => {
       document.body.classList.remove('printing-chart-mode');
       cardRef.current?.classList.remove('print-target');
+      document.getElementById('print-orientation-landscape')?.remove();
       window.removeEventListener('afterprint', cleanup);
     };
     window.addEventListener('afterprint', cleanup);
