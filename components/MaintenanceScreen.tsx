@@ -8,8 +8,11 @@ import { getMaintenanceIssues, createMaintenanceIssue, updateMaintenanceIssue, d
 /** "dd/MM/yyyy" -> Date (00:00) */
 function parseDMY(s: string): Date | null {
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  // Dự phòng cho dữ liệu cũ (trước khi Code.gs ép Plain text) — Sheets có thể đã tự đổi ngày
+  // thành dạng khác (VD "Tue Jul 28 2026...") khiến không khớp regex trên, thử parse trực tiếp.
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
 }
 function formatDMY(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
