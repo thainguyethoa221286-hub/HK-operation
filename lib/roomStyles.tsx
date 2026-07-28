@@ -108,8 +108,8 @@ export function PriorityFlagBadges({ flags }: { flags: string }) {
    ========================================================= */
 /** Gộp ghi chú AI (GhiChu) + ghi chú tay nhân viên (GhiChuNV) thành 1 chuỗi
  *  để quét mã DND/RF/EB/BBC/HON từ cả 2 nguồn — dùng cho mọi nơi hiện badge trên thẻ phòng. */
-export function combineNotes(ghiChu?: string | null, ghiChuNV?: string | null): string {
-  return [ghiChu, ghiChuNV].filter(Boolean).join(' ');
+export function combineNotes(ghiChu?: string | null, ghiChuNV?: string | null, ghiChuAdmin?: string | null): string {
+  return [ghiChu, ghiChuNV, ghiChuAdmin].filter(Boolean).join(' ');
 }
 
 export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF'] as const;
