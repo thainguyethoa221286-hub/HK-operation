@@ -12,13 +12,20 @@ import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
 const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
 
-/** Mục 3B — thứ tự ưu tiên cho phòng CHƯA settled: Rush(0) > Arrival/Due out-ARR(1) > MKR(2) > còn lại(3) */
+/** Thứ tự ưu tiên cho phòng CHƯA settled — đúng 7 bậc theo yêu cầu:
+ *  1. Arrival + Rush  2. Arrival  3. MKR  4. Occupied  5. Vacant  6. Due out/ARR (Back to Back)  7. Due out */
 function priorityTier(r: Room): number {
   const flags = (r.Flags || '').split(',').map((f) => f.trim());
-  if (flags.includes('CayBac')) return 0; // Rush
-  if (r.FoStatus === 'Arrival' || r.FoStatus === 'Due out/ARR') return 1; // đón khách trong ngày
-  if (flags.includes('TrangDiem')) return 2; // MKR
-  return 3;
+  const isRush = flags.includes('CayBac');
+  const isMkr = flags.includes('TrangDiem');
+  if (r.FoStatus === 'Arrival' && isRush) return 0;
+  if (r.FoStatus === 'Arrival') return 1;
+  if (isMkr) return 2;
+  if (r.FoStatus === 'Occupied') return 3;
+  if (r.FoStatus === 'Vacant') return 4;
+  if (r.FoStatus === 'Due out/ARR') return 5;
+  if (r.FoStatus === 'Due out') return 6;
+  return 7;
 }
 
 /** Mục 3 — sắp xếp: phòng chưa xong lên trước (theo tier ưu tiên, rồi số phòng tăng dần),
