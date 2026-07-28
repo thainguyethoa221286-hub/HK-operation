@@ -25,12 +25,17 @@ body {
   body.printing-chart-mode .no-print {
     display: none !important;
   }
-  @page {
-    size: landscape;
-    margin: 8mm;
-  }
   /* Bản in LUÔN giữ đúng cấu trúc gốc 4 cột, không áp dụng kiểu rút gọn 3 cột của mobile */
   .chart-block-grid {
     grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+/* .print-only — dùng chung cho mọi module (Maintenance, v.v.) cần nội dung CHỈ hiện khi in */
+.print-only {
+  display: none;
+}
+@media print {
+  .print-only {
+    display: block !important;
   }
 }
