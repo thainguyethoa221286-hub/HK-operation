@@ -59,27 +59,36 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
   const handleToggleInspecting = (maPhong: string, value: boolean) => {
     let newHkStatus: string | null = null;
     let newFlags: string | null = null;
+
+    // Tính Flags mới 1 LẦN DUY NHẤT (dùng chung cho setRooms/setActiveRoom/ghi Sheet) — tránh lệch nhau.
+    // Bấm KIỂM PHÒNG (value=true): thêm cờ DangKiem — PERSIST THẬT lên Sheet, không còn chỉ tồn tại
+    // ở local state như trước (đây chính là lỗi mất trạng thái khi thoát app/refresh).
+    // Bấm NHẢ PHÒNG (value=false): xoá cờ DangKiem + xoá luôn RUSH (đã hoàn thành nhiệm vụ).
+    const computeFlags = (curFlags: string) => {
+      const list = (curFlags || '').split(',').map((f) => f.trim()).filter(Boolean);
+      if (value) {
+        if (!list.includes('DangKiem')) list.push('DangKiem');
+      } else {
+        const idx1 = list.indexOf('DangKiem'); if (idx1 !== -1) list.splice(idx1, 1);
+        const idx2 = list.indexOf('CayBac'); if (idx2 !== -1) list.splice(idx2, 1);
+      }
+      return list.join(',');
+    };
+
     setRooms((prev) =>
       prev.map((r) => {
         if (r.MaPhong !== maPhong) return r;
         const hk = !value && NHA_PHONG_TARGET_STATUSES.includes(r.HkStatus) ? 'Đã kiểm tra' : r.HkStatus;
         if (hk !== r.HkStatus) newHkStatus = hk;
-        // Nhả phòng (value=false) — cờ RUSH đã hoàn thành nhiệm vụ, tự động xoá khỏi Flags
-        let flags = r.Flags;
-        if (!value) {
-          const stripped = (r.Flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'CayBac').join(',');
-          if (stripped !== r.Flags) { flags = stripped; newFlags = stripped; }
-        }
+        const flags = computeFlags(r.Flags);
+        if (flags !== (r.Flags || '')) newFlags = flags;
         return { ...r, HkStatus: hk, Flags: flags, isInspecting: value };
       })
     );
     setActiveRoom((prev) => {
       if (!prev || prev.MaPhong !== maPhong) return prev;
       const hk = !value && NHA_PHONG_TARGET_STATUSES.includes(prev.HkStatus) ? 'Đã kiểm tra' : prev.HkStatus;
-      let flags = prev.Flags;
-      if (!value) {
-        flags = (prev.Flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'CayBac').join(',');
-      }
+      const flags = computeFlags(prev.Flags);
       return { ...prev, HkStatus: hk, Flags: flags, isInspecting: value };
     });
     if (newHkStatus) updateRoomField(maPhong, 'HkStatus', newHkStatus);
