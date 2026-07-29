@@ -28,11 +28,14 @@ export default function RoomCard({ room, onClick, special, dimSettled }: RoomCar
   const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
   const { dnd, rf } = hasDndOrRf(combinedNote);
 
-  const isSettled = dimSettled && SETTLED_BG[room.TaskStatus];
+  const flagList = (room.Flags || '').split(',').map((f) => f.trim());
+  const hasMkr = flagList.includes('TrangDiem');
+  // MKR luôn phải hiện RÕ cho nhân viên thấy — không bị làm mờ dù TaskStatus đang là DND/Refused/Hoàn thành
+  const isSettled = dimSettled && !hasMkr && SETTLED_BG[room.TaskStatus];
   // Cờ "Đã out" (DaOut) — nền ĐỎ NHẠT chỉ khi phòng CÒN CHƯA BẮT ĐẦU DỌN ("Phòng dơ").
   // Ngay khi nhân viên bấm "Bắt đầu dọn phòng" (HkStatus -> "Phòng đang dọn"), nền phải chuyển
   // XANH DƯƠNG NHẠT theo đúng viền (không còn giữ đỏ nữa) để phản ánh đúng đang xử lý.
-  const hasDaOut = (room.Flags || '').split(',').map((f) => f.trim()).includes('DaOut');
+  const hasDaOut = flagList.includes('DaOut');
   const daOutActive = hasDaOut && !room.isInspecting && room.HkStatus === 'Phòng dơ';
   const isCleaningNow = room.HkStatus === 'Phòng đang dọn';
   const bg = isSettled ? SETTLED_BG[room.TaskStatus] : isCleaningNow ? 'bg-blue-50' : daOutActive ? 'bg-red-50' : defaultBg;
