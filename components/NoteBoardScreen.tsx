@@ -1,80 +1,51 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClipboardList, RefreshCw, Trash2 } from 'lucide-react';
-import type { Room, WatchlistRoom, OverdueHistoryRow, SupplyBoardItem } from '@/lib/types';
+import { ClipboardList, Trash2 } from 'lucide-react';
+import type { Room, OverdueHistoryRow, SupplyBoardItem, LinenChangeHistoryRow } from '@/lib/types';
 import { SUPPLY_LABELS } from '@/lib/types';
 import {
-  getWatchlistRooms, addWatchlistRoom, updateWatchlistNote, deleteWatchlistRoom,
   getOverdueHistory, deleteOverdueHistoryRow, clearOverdueHistory,
-  getSuppliesBoard, updateSupplyItem,
+  getSuppliesBoard, updateSupplyItem, getLinenChangeHistory,
 } from '@/lib/api';
-import { stripCodesFromNote } from '@/lib/roomStyles';
 
 interface NoteBoardScreenProps {
   rooms: Room[];
 }
 
 const CATEGORY_LABEL: Record<string, { label: string; cls: string }> = {
-  ThayGiuong: { label: 'Thay giường', cls: 'bg-blue-100 text-blue-700' },
   DND: { label: 'DND', cls: 'bg-red-100 text-red-700' },
   RF: { label: 'RF', cls: 'bg-purple-100 text-purple-700' },
 };
 
 export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
-  const [watchlist, setWatchlist] = useState<WatchlistRoom[]>([]);
   const [overdue, setOverdue] = useState<OverdueHistoryRow[]>([]);
   const [supplies, setSupplies] = useState<SupplyBoardItem[]>([]);
+  const [linenHistory, setLinenHistory] = useState<LinenChangeHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  void rooms;
 
   const refreshAll = () => {
-    Promise.all([getWatchlistRooms(), getOverdueHistory(), getSuppliesBoard()])
-      .then(([w, o, s]) => { setWatchlist(w); setOverdue(o); setSupplies(s); setLoading(false); })
+    Promise.all([getOverdueHistory(), getSuppliesBoard(), getLinenChangeHistory()])
+      .then(([o, s, l]) => { setOverdue(o); setSupplies(s); setLinenHistory(l); setLoading(false); })
       .catch(() => setLoading(false));
   };
   useEffect(() => { refreshAll(); }, []);
 
-  // ===== Bảng 1 — Thông tin phòng theo dõi =====
-  const staffNoteFor = (r: Room) => stripCodesFromNote(r.GhiChuNV) || stripCodesFromNote(r.GhiChuNVHomQua);
-  const adminNoteFor = (r: Room) => r.GhiChuAdmin || r.GhiChuAdminHomQua;
-
-  const handleSyncFromReport = async () => {
-    const entries: { roomNo: string; note: string }[] = [];
-    rooms.forEach((r) => {
-      const sNote = staffNoteFor(r);
-      const aNote = adminNoteFor(r);
-      if (sNote) entries.push({ roomNo: r.MaPhong, note: `NV: ${sNote}` });
-      if (aNote) entries.push({ roomNo: r.MaPhong, note: `QL: ${aNote}` });
-    });
-    if (entries.length === 0) { alert('Không có ghi chú nào trong Báo cáo để đồng bộ.'); return; }
-    for (const e of entries) {
-      const res = await addWatchlistRoom(e.roomNo, e.note);
-      if (res.success && res.row) setWatchlist((prev) => [...prev, res.row!]);
-    }
-  };
-
-  const handleUpdateExtra = async (id: number, extraNote: string) => {
-    setWatchlist((prev) => prev.map((w) => (w.id === id ? { ...w, extraNote } : w)));
-    await updateWatchlistNote(id, extraNote);
-  };
-  const handleDeleteWatch = async (id: number) => {
-    setWatchlist((prev) => prev.filter((w) => w.id !== id));
-    await deleteWatchlistRoom(id);
-  };
-
-  // ===== Bảng 2 — Lịch thay giường & Special =====
   const handleDeleteOverdue = async (id: number) => {
     setOverdue((prev) => prev.filter((o) => o.id !== id));
     await deleteOverdueHistoryRow(id);
   };
   const handleClearOverdue = async () => {
-    if (!window.confirm('Xoá TOÀN BỘ lịch sử thay giường/DND/RF? Không thể hoàn tác.')) return;
+    if (!window.confirm('Xoá TOÀN BỘ lịch sử DND/RF? Không thể hoàn tác.')) return;
     setOverdue([]);
     await clearOverdueHistory();
   };
   const overdueByCategory = (cat: string) => overdue.filter((o) => o.category === cat);
 
-  // ===== Bảng 3 — Dụng cụ & vật tư đặc biệt =====
+  const linenChanged = linenHistory.filter((r) => r.status === 'Có');
+  const linenNotChanged = linenHistory.filter((r) => r.status === 'Không');
+
   const handleSupplyChange = (label: string, value: string) => {
     setSupplies((prev) => prev.map((s) => (s.label === label ? { ...s, value } : s)));
   };
@@ -93,49 +64,15 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
       </h1>
 
       <div className="space-y-6">
-        {/* ===== BẢNG 01 — Thông tin phòng theo dõi ===== */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-800">Thông tin phòng theo dõi</h2>
-            <button onClick={handleSyncFromReport} className="flex items-center gap-1.5 text-[12px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-              <RefreshCw className="w-3.5 h-3.5" /> Đồng bộ từ Báo cáo
-            </button>
-          </div>
-          {watchlist.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-6">Chưa có phòng nào trong danh sách theo dõi.</div>
-          ) : (
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-              {watchlist.map((w) => (
-                <div key={w.id} className="flex items-start gap-3 p-3">
-                  <span className="bg-slate-100 text-slate-700 font-extrabold rounded-lg px-2.5 py-1 text-[13px] flex-shrink-0">{w.roomNo}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] text-slate-600 mb-1.5">{w.shiftNote}</div>
-                    <input
-                      defaultValue={w.extraNote}
-                      onBlur={(e) => handleUpdateExtra(w.id, e.target.value)}
-                      placeholder="Ghi chú bổ sung / chỉnh sửa..."
-                      className="w-full text-[12px] border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400"
-                    />
-                  </div>
-                  <button onClick={() => handleDeleteWatch(w.id)} className="text-red-500 bg-red-50 rounded-lg p-1.5 flex-shrink-0">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ===== BẢNG 02 — Lịch thay giường & theo dõi Special ===== */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-800">Lịch thay giường &amp; theo dõi Special</h2>
+            <h2 className="text-lg font-bold text-slate-800">Lịch DND &amp; RF (hôm qua)</h2>
             <button onClick={handleClearOverdue} className="flex items-center gap-1.5 text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
               <Trash2 className="w-3.5 h-3.5" /> Xoá tất cả lịch sử
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {(['ThayGiuong', 'DND', 'RF'] as const).map((cat) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(['DND', 'RF'] as const).map((cat) => (
               <div key={cat} className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className={`px-3 py-2 text-[12px] font-bold ${CATEGORY_LABEL[cat].cls}`}>{CATEGORY_LABEL[cat].label}</div>
                 {overdueByCategory(cat).length === 0 ? (
@@ -160,27 +97,97 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
           </div>
         </div>
 
-        {/* ===== BẢNG 03 — Dụng cụ & vật tư đặc biệt (dạng SỔ GHI CHÉP — mỗi danh mục 1 hàng) ===== */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-          <h2 className="text-lg font-bold text-slate-800 mb-3">Dụng cụ &amp; vật tư đặc biệt</h2>
-          <div className="border border-slate-300 rounded-xl overflow-hidden">
-            {SUPPLY_LABELS.map((label, idx) => {
+          <h2 className="text-lg font-bold text-slate-800 mb-1">Báo cáo lịch thay ga/giường</h2>
+          <div className="text-[11px] text-slate-400 mb-3">Giữ báo cáo thêm 1 ngày — dữ liệu hôm qua vẫn hiện xuyên suốt hôm nay, chỉ mất ở lần Đồng bộ AI kế tiếp.</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-[12px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-2">
+                Báo cáo phòng THAY GIƯỜNG ({linenChanged.length})
+              </div>
+              <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                {linenChanged.length === 0 ? (
+                  <div className="text-[12px] text-slate-400 text-center py-6">Chưa có dữ liệu</div>
+                ) : (
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase whitespace-nowrap">
+                        <th className="px-2.5 py-2 text-left">Phòng</th>
+                        <th className="px-2 py-2 text-left">Loại</th>
+                        <th className="px-2 py-2 text-left">Ngày</th>
+                        <th className="px-2 py-2 text-left">Nhân viên</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linenChanged.map((r) => (
+                        <tr key={r.id} className="border-t border-slate-100">
+                          <td className="px-2.5 py-1.5 font-bold text-blue-600 whitespace-nowrap">{r.roomNo}</td>
+                          <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.roomType}</td>
+                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{r.date}</td>
+                          <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.staff || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 mb-2">
+                Báo cáo phòng KHÔNG THAY GIƯỜNG ({linenNotChanged.length})
+              </div>
+              <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                {linenNotChanged.length === 0 ? (
+                  <div className="text-[12px] text-slate-400 text-center py-6">Chưa có dữ liệu</div>
+                ) : (
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase whitespace-nowrap">
+                        <th className="px-2.5 py-2 text-left">Phòng</th>
+                        <th className="px-2 py-2 text-left">Loại</th>
+                        <th className="px-2 py-2 text-left">Ngày</th>
+                        <th className="px-2 py-2 text-left">Nhân viên</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linenNotChanged.map((r) => (
+                        <tr key={r.id} className="border-t border-slate-100">
+                          <td className="px-2.5 py-1.5 font-bold text-slate-700 whitespace-nowrap">{r.roomNo}</td>
+                          <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.roomType}</td>
+                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{r.date}</td>
+                          <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.staff || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#1a2e26] rounded-2xl shadow-lg p-5">
+          <h2 className="text-center text-white text-xl font-bold tracking-wide mb-5" style={{ fontFamily: 'cursive' }}>
+            GHI CHÚ DỊCH VỤ / SPECIAL
+          </h2>
+          <div className="divide-y divide-white/10">
+            {SUPPLY_LABELS.map((label) => {
               const item = supplies.find((s) => s.label === label);
               return (
-                <div
-                  key={label}
-                  className={`flex flex-col sm:flex-row sm:items-stretch ${idx !== SUPPLY_LABELS.length - 1 ? 'border-b border-slate-300' : ''}`}
-                >
-                  <div className="w-full sm:w-40 flex-shrink-0 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-300 px-3 py-3 flex items-center">
-                    <span className="text-[13px] font-bold text-slate-700 uppercase">{label}</span>
+                <div key={label} className="flex items-center gap-3 py-3">
+                  <div className="relative flex-shrink-0">
+                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-600" />
+                    <span className="bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-md shadow text-[12px] whitespace-nowrap inline-block">
+                      {label}
+                    </span>
                   </div>
-                  <textarea
+                  <input
                     defaultValue={item?.value || ''}
                     onChange={(e) => handleSupplyChange(label, e.target.value)}
                     onBlur={(e) => handleSupplyBlur(label, e.target.value)}
-                    placeholder="Ghi liên tục tại đây: số lượng, số phòng, ngày..."
-                    rows={3}
-                    className="flex-1 min-w-0 text-sm px-3 py-3 outline-none focus:bg-blue-50/30 resize-y bg-transparent"
+                    placeholder="Viết ghi chú tại đây..."
+                    className="flex-1 min-w-0 bg-transparent text-white placeholder-white/30 text-[14px] outline-none border-b border-white/10 focus:border-amber-400 py-1"
+                    style={{ fontFamily: 'cursive' }}
                   />
                 </div>
               );
