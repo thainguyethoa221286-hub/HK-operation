@@ -6,8 +6,8 @@ import { VACUUM_FLOORS } from '@/lib/types';
 import RoomCard from './RoomCard';
 import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
-import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs } from '@/lib/api';
-import type { InspectionLogRow } from '@/lib/types';
+import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs, getBroadcastTask, completeBroadcastTask } from '@/lib/api';
+import type { InspectionLogRow, BroadcastTaskData } from '@/lib/types';
 import { TASK_STATUS_STYLE, formatTimeOnly } from '@/lib/roomStyles';
 import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
@@ -77,6 +77,19 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
   const [inspectionLogs, setInspectionLogs] = useState<InspectionLogRow[]>([]);
+  const [broadcastTask, setBroadcastTaskState] = useState<BroadcastTaskData | null>(null);
+
+  const refreshBroadcast = () => { getBroadcastTask().then(setBroadcastTaskState).catch(() => {}); };
+  useEffect(() => {
+    refreshBroadcast();
+    const timer = setInterval(refreshBroadcast, 10000); // cần cập nhật nhanh để nhân viên thấy ngay khi giám sát gửi
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleCompleteBroadcast = async () => {
+    await completeBroadcastTask(account.hoTen);
+    refreshBroadcast();
+  };
 
   const refreshKeyLogs = () => { getKeyLogs().then(setKeyLogs); };
   useEffect(() => {
@@ -148,9 +161,25 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     // Đồng bộ với RoomCard đang cần: đảm bảo phòng luôn thể hiện đúng dữ liệu mới nhất trong modal đang mở
     const currentSelected = selectedRoom ? rooms.find((r) => r.MaPhong === selectedRoom.MaPhong) || null : null;
 
+    const iCompletedBroadcast = broadcastTask?.completions.includes(account.hoTen);
+
     return (
       <div>
         <h1 className="text-[19px] font-bold mb-3">Nhiệm vụ của tôi</h1>
+
+        {/* ===== TASK CHỈ ĐẠO ĐẶC BIỆT CỦA GIÁM SÁT — nền đỏ báo động, hiện ngay khi có task active ===== */}
+        {broadcastTask?.active && !iCompletedBroadcast && (
+          <div className="bg-red-600 text-white font-bold p-4 rounded-xl shadow-lg animate-pulse mb-4">
+            <div className="text-[11px] uppercase tracking-wide opacity-90 mb-1">🚨 Task chỉ đạo đặc biệt từ Giám sát</div>
+            <div className="text-[15px] mb-3">{broadcastTask.content}</div>
+            <button
+              onClick={handleCompleteBroadcast}
+              className="w-full bg-white text-red-600 font-extrabold rounded-lg py-2.5 text-sm"
+            >
+              🟢 HOÀN THÀNH
+            </button>
+          </div>
+        )}
 
         {/* ===== KHUNG BÀN GIAO THIẾT BỊ & XE ĐẨY — đầu màn hình, trước tiến độ và danh sách phòng ===== */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
@@ -309,7 +338,12 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-[14px] text-slate-800 truncate">{staff}</span>
+                      <span className="font-bold text-[14px] text-slate-800 truncate flex items-center gap-1.5">
+                        {staff}
+                        {broadcastTask?.active && broadcastTask.completions.includes(staff) && (
+                          <span className="bg-red-100 text-red-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ Đã xong Task chỉ đạo</span>
+                        )}
+                      </span>
                       <span className="text-[11px] font-extrabold text-slate-500 flex-shrink-0">{done}/{staffRooms.length} xong</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
