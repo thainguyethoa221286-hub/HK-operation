@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, ListTodo, Wrench, PackageSearch, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
-import { ROLE_LABELS } from '@/lib/types';
+import { ROLE_LABELS, getEffectiveModules } from '@/lib/types';
 import { fetchRooms, listAccounts, API_URL } from '@/lib/api';
 import RoomMapScreen from '@/components/RoomMapScreen';
 import AssignScreen from '@/components/AssignScreen';
@@ -26,7 +26,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [themeHex, setThemeHex] = useState('#f8fafc');
+  const [themeBackground, setThemeBackground] = useState('linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)');
   const [syncError, setSyncError] = useState<string | null>(null);
   // Mục 3 — danh sách nhân viên cho màn Phân công lấy ĐỘNG từ tab TaiKhoan, không hardcode
   const [staffList, setStaffList] = useState<string[]>([]);
@@ -72,7 +72,7 @@ export default function HomePage() {
       try {
         const saved = localStorage.getItem(THEME_KEY);
         const found = THEMES.find((t) => t.key === saved);
-        setThemeHex(found ? found.hex : '#f8fafc');
+        setThemeBackground(found ? found.background : 'linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)');
       } catch {}
     };
     applyThemeFromStorage();
@@ -165,30 +165,25 @@ export default function HomePage() {
   if (checkingAuth) return null;
   if (!account) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 
-  const isStaff = account.vaiTro === 'HKStaff';
-  const isAdmin = account.vaiTro === 'Admin';
-  const hasCustomAccess = account.modulesAllowed && account.modulesAllowed.length > 0;
+  // Quyền hiệu lực (🟢 Mở) của tài khoản đang đăng nhập — dùng CHUNG 1 nguồn logic với Ma trận
+  // phân quyền ở Cài đặt (getEffectiveModules), để menu luôn khớp tuyệt đối với những gì Admin cấu hình.
+  const effectiveModules = getEffectiveModules(account);
+  const canAccess = (moduleKey: string): boolean => effectiveModules.includes(moduleKey);
 
-  // Quyền mặc định theo Role: HKStaff chỉ vào "Nhiệm vụ"; GiamSat vào mọi module TRỪ Cài đặt; Admin toàn quyền.
-  // Nếu tài khoản có Ma trận phân quyền tuỳ chỉnh (modulesAllowed không rỗng) thì ĐÈ lên mặc định.
-  const canAccess = (moduleKey: string): boolean => {
-    if (hasCustomAccess) return account.modulesAllowed!.includes(moduleKey);
-    if (isStaff) return moduleKey === 'nhiemvu';
-    if (moduleKey === 'settings') return isAdmin;
-    return true;
-  };
-
-  const navItems: { key: ScreenKey | null; label: string; icon: any }[] = [
-    { key: canAccess('sodo') ? 'sodo' : null, label: 'Sơ đồ phòng', icon: LayoutGrid },
-    { key: canAccess('phancong') ? 'phancong' : null, label: 'Phân công', icon: ClipboardList },
-    { key: canAccess('nhiemvu') ? 'nhiemvu' : null, label: 'Nhiệm vụ', icon: ListChecks },
-    { key: canAccess('baocao') ? 'baocao' : null, label: 'Daily Report', icon: FileText },
-    { key: canAccess('noteboard') ? 'noteboard' : null, label: 'Noted Board', icon: MessageSquare },
-    { key: canAccess('task') ? 'task' : null, label: 'Task', icon: ListTodo },
-    { key: canAccess('maintenance') ? 'maintenance' : null, label: 'Maintenance', icon: Wrench },
-    { key: canAccess('lostfound') ? 'lostfound' : null, label: 'Lost and Found', icon: PackageSearch },
-    { key: canAccess('settings') ? 'settings' : null, label: 'Cài đặt', icon: Settings },
+  // Module đang 🔴 Đóng phải ẨN HOÀN TOÀN khỏi menu (không hiển thị mờ) — nên lọc bỏ hẳn ở đây,
+  // không giữ lại phần tử "key: null" như cách làm cũ nữa.
+  const allNavItems: { key: ScreenKey; label: string; icon: any }[] = [
+    { key: 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
+    { key: 'phancong', label: 'Phân công', icon: ClipboardList },
+    { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
+    { key: 'baocao', label: 'Daily Report', icon: FileText },
+    { key: 'noteboard', label: 'Noted Board', icon: MessageSquare },
+    { key: 'task', label: 'Task', icon: ListTodo },
+    { key: 'maintenance', label: 'Maintenance', icon: Wrench },
+    { key: 'lostfound', label: 'Lost and Found', icon: PackageSearch },
+    { key: 'settings', label: 'Cài đặt', icon: Settings },
   ];
+  const navItems = allNavItems.filter((item) => canAccess(item.key));
 
   const SidebarContent = (
     <>
@@ -212,11 +207,10 @@ export default function HomePage() {
         {navItems.map((item) => (
           <button
             key={item.label}
-            disabled={!item.key}
             title={sidebarCollapsed ? item.label : undefined}
-            onClick={() => { if (item.key) { setScreen(item.key); setMobileNavOpen(false); } }}
+            onClick={() => { setScreen(item.key); setMobileNavOpen(false); }}
             className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${sidebarCollapsed ? 'justify-center px-0' : ''} ${
-              item.key === screen ? 'bg-emerald-600 text-white' : item.key ? 'text-slate-300 hover:bg-white/5' : 'text-slate-400 opacity-40'
+              item.key === screen ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-white/5'
             }`}
           >
             <item.icon className="w-4 h-4 flex-shrink-0" /> {!sidebarCollapsed && item.label}
@@ -227,7 +221,7 @@ export default function HomePage() {
   );
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: themeHex }}>
+    <div className="flex min-h-screen" style={{ background: themeBackground }}>
       {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
       <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-[#054a36] text-slate-300 flex-shrink-0 flex-col py-4 relative transition-all duration-200`}>
         {SidebarContent}
@@ -278,10 +272,9 @@ export default function HomePage() {
           {navItems.map((item) => (
             <button
               key={item.label}
-              disabled={!item.key}
-              onClick={() => { if (item.key) setScreen(item.key); }}
+              onClick={() => setScreen(item.key)}
               className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap flex-shrink-0 ${
-                item.key === screen ? 'bg-emerald-600 text-white' : item.key ? 'text-slate-300' : 'text-slate-500 opacity-40'
+                item.key === screen ? 'bg-emerald-600 text-white' : 'text-slate-300'
               }`}
             >
               <item.icon className="w-4 h-4" />
