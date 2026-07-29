@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, Menu, X, ListTodo, Wrench, PackageSearch } from 'lucide-react';
+import { LayoutGrid, ClipboardList, ListChecks, FileText, MessageSquare, Settings, LogOut, User, ListTodo, Wrench, PackageSearch, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 import { fetchRooms, listAccounts, API_URL } from '@/lib/api';
@@ -12,10 +12,11 @@ import TaskChartScreen from '@/components/TaskChartScreen';
 import MaintenanceScreen from '@/components/MaintenanceScreen';
 import LostFoundScreen from '@/components/LostFoundScreen';
 import NoteBoardScreen from '@/components/NoteBoardScreen';
+import SettingsScreen, { THEME_KEY, THEMES } from '@/components/SettingsScreen';
 import ReportScreen from '@/components/ReportScreen';
 import LoginScreen from '@/components/LoginScreen';
 
-type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task' | 'maintenance' | 'lostfound' | 'noteboard';
+type ScreenKey = 'sodo' | 'phancong' | 'nhiemvu' | 'baocao' | 'task' | 'maintenance' | 'lostfound' | 'noteboard' | 'settings';
 const STORAGE_KEY = 'hk_pro_rooms';
 const ACCOUNT_KEY = 'hk_pro_account';
 
@@ -24,6 +25,8 @@ export default function HomePage() {
   const [screen, setScreen] = useState<ScreenKey>('sodo');
   const [loading, setLoading] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [themeHex, setThemeHex] = useState('#f8fafc');
   const [syncError, setSyncError] = useState<string | null>(null);
   // Mục 3 — danh sách nhân viên cho màn Phân công lấy ĐỘNG từ tab TaiKhoan, không hardcode
   const [staffList, setStaffList] = useState<string[]>([]);
@@ -62,6 +65,31 @@ export default function HomePage() {
   const handleLogout = () => {
     localStorage.removeItem(ACCOUNT_KEY);
     setAccount(null);
+  };
+
+  useEffect(() => {
+    const applyThemeFromStorage = () => {
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        const found = THEMES.find((t) => t.key === saved);
+        setThemeHex(found ? found.hex : '#f8fafc');
+      } catch {}
+    };
+    applyThemeFromStorage();
+    try {
+      const savedCollapsed = localStorage.getItem('hk_pro_sidebar_collapsed');
+      if (savedCollapsed === '1') setSidebarCollapsed(true);
+    } catch {}
+    window.addEventListener('hk-theme-change', applyThemeFromStorage);
+    return () => window.removeEventListener('hk-theme-change', applyThemeFromStorage);
+  }, []);
+
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('hk_pro_sidebar_collapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
   };
 
   // Fix 4 — khởi tạo an toàn cho SSR: chỉ đọc localStorage trong useEffect (client-only),
@@ -138,47 +166,60 @@ export default function HomePage() {
   if (!account) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 
   const isStaff = account.vaiTro === 'HKStaff';
+  const isAdmin = account.vaiTro === 'Admin';
+  const hasCustomAccess = account.modulesAllowed && account.modulesAllowed.length > 0;
 
-  // HK Staff chỉ được vào "Nhiệm vụ" — Sơ đồ phòng/Phân công là công cụ quản lý
+  // Quyền mặc định theo Role: HKStaff chỉ vào "Nhiệm vụ"; GiamSat vào mọi module TRỪ Cài đặt; Admin toàn quyền.
+  // Nếu tài khoản có Ma trận phân quyền tuỳ chỉnh (modulesAllowed không rỗng) thì ĐÈ lên mặc định.
+  const canAccess = (moduleKey: string): boolean => {
+    if (hasCustomAccess) return account.modulesAllowed!.includes(moduleKey);
+    if (isStaff) return moduleKey === 'nhiemvu';
+    if (moduleKey === 'settings') return isAdmin;
+    return true;
+  };
+
   const navItems: { key: ScreenKey | null; label: string; icon: any }[] = [
-    { key: isStaff ? null : 'sodo', label: 'Sơ đồ phòng', icon: LayoutGrid },
-    { key: isStaff ? null : 'phancong', label: 'Phân công', icon: ClipboardList },
-    { key: 'nhiemvu', label: 'Nhiệm vụ', icon: ListChecks },
-    { key: isStaff ? null : 'baocao', label: 'Daily Report', icon: FileText },
-    { key: isStaff ? null : 'task', label: 'Task', icon: ListTodo },
-    { key: isStaff ? null : 'maintenance', label: 'Maintenance', icon: Wrench },
-    { key: isStaff ? null : 'lostfound', label: 'Lost and Found', icon: PackageSearch },
-    { key: isStaff ? null : 'noteboard', label: 'Noted Board', icon: MessageSquare },
-    { key: null, label: 'Cài đặt', icon: Settings },
+    { key: canAccess('sodo') ? 'sodo' : null, label: 'Sơ đồ phòng', icon: LayoutGrid },
+    { key: canAccess('phancong') ? 'phancong' : null, label: 'Phân công', icon: ClipboardList },
+    { key: canAccess('nhiemvu') ? 'nhiemvu' : null, label: 'Nhiệm vụ', icon: ListChecks },
+    { key: canAccess('baocao') ? 'baocao' : null, label: 'Daily Report', icon: FileText },
+    { key: canAccess('task') ? 'task' : null, label: 'Task', icon: ListTodo },
+    { key: canAccess('maintenance') ? 'maintenance' : null, label: 'Maintenance', icon: Wrench },
+    { key: canAccess('lostfound') ? 'lostfound' : null, label: 'Lost and Found', icon: PackageSearch },
+    { key: canAccess('noteboard') ? 'noteboard' : null, label: 'Noted Board', icon: MessageSquare },
+    { key: canAccess('settings') ? 'settings' : null, label: 'Cài đặt', icon: Settings },
   ];
 
   const SidebarContent = (
     <>
-      <div className="flex items-center gap-2 font-bold text-white text-[17px] px-4 pb-4">
-        <span className="bg-emerald-600 w-[26px] h-[26px] rounded-lg flex items-center justify-center text-xs">🧹</span>
-        HK OPERATION
+      <div className={`flex items-center gap-2 font-bold text-white text-[17px] px-4 pb-4 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
+        <span className="bg-emerald-600 w-[26px] h-[26px] rounded-lg flex items-center justify-center text-xs flex-shrink-0">🧹</span>
+        {!sidebarCollapsed && 'HK OPERATION'}
       </div>
-      <div className="flex items-center gap-2.5 px-4 py-3 border-t border-b border-white/10 mb-2.5">
-        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+      <div className={`flex items-center gap-2.5 px-4 py-3 border-t border-b border-white/10 mb-2.5 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
+        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
           <User className="w-4 h-4" />
         </div>
-        <div className="flex-1 text-xs min-w-0">
-          <b className="block text-[13px] text-white truncate">{account.hoTen}</b>
-          {ROLE_LABELS[account.vaiTro] || account.vaiTro}
-        </div>
-        <LogOut className="w-4 h-4 opacity-60 cursor-pointer" onClick={handleLogout} />
+        {!sidebarCollapsed && (
+          <div className="flex-1 text-xs min-w-0">
+            <b className="block text-[13px] text-white truncate">{account.hoTen}</b>
+            {ROLE_LABELS[account.vaiTro] || account.vaiTro}
+          </div>
+        )}
+        {!sidebarCollapsed && <LogOut className="w-4 h-4 opacity-60 cursor-pointer flex-shrink-0" onClick={handleLogout} />}
       </div>
       <nav className="flex flex-col gap-0.5 px-2.5">
         {navItems.map((item) => (
           <button
             key={item.label}
             disabled={!item.key}
+            title={sidebarCollapsed ? item.label : undefined}
             onClick={() => { if (item.key) { setScreen(item.key); setMobileNavOpen(false); } }}
-            className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${
+            className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${sidebarCollapsed ? 'justify-center px-0' : ''} ${
               item.key === screen ? 'bg-emerald-600 text-white' : item.key ? 'text-slate-300 hover:bg-white/5' : 'text-slate-400 opacity-40'
             }`}
           >
-            <item.icon className="w-4 h-4" /> {item.label}
+            <item.icon className="w-4 h-4 flex-shrink-0" /> {!sidebarCollapsed && item.label}
           </button>
         ))}
       </nav>
@@ -186,33 +227,26 @@ export default function HomePage() {
   );
 
   return (
-    <div className="flex min-h-screen">
-      {/* Fix 5 — Sidebar cố định trên desktop, ẩn trên mobile */}
-      <aside className="hidden md:flex md:w-64 bg-emerald-900 text-slate-300 flex-shrink-0 flex-col py-4">
+    <div className="flex min-h-screen" style={{ backgroundColor: themeHex }}>
+      {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
+      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-[#054a36] text-slate-300 flex-shrink-0 flex-col py-4 relative transition-all duration-200`}>
         {SidebarContent}
+        <button
+          onClick={toggleSidebarCollapsed}
+          title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
+          className="absolute -right-3 top-16 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md hover:bg-emerald-500"
+        >
+          {sidebarCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
       </aside>
 
-      {/* Fix 5 — Drawer trượt cho mobile, mở bằng nút Hamburger */}
-      {mobileNavOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="w-64 bg-emerald-900 text-slate-300 flex flex-col py-4">
-            <div className="flex justify-end px-3 mb-1">
-              <X className="w-5 h-5 text-white cursor-pointer" onClick={() => setMobileNavOpen(false)} />
-            </div>
-            {SidebarContent}
-          </div>
-          <div className="flex-1 bg-black/40" onClick={() => setMobileNavOpen(false)} />
-        </div>
-      )}
-
       {/* MAIN */}
-      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 overflow-x-hidden">
-        {/* Fix 5 — Header mobile với nút Hamburger */}
-        <div className="md:hidden flex items-center gap-3 mb-3">
-          <button onClick={() => setMobileNavOpen(true)} className="w-9 h-9 rounded-lg bg-emerald-900 text-white flex items-center justify-center">
-            <Menu className="w-5 h-5" />
-          </button>
+      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 pb-20 md:pb-5 overflow-x-hidden">
+        {/* Mobile — Header đơn giản (không còn Hamburger/Drawer, xem thanh điều hướng ngang ở cuối màn hình) */}
+        <div className="md:hidden flex items-center gap-2 mb-3">
+          <span className="bg-emerald-600 w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0">🧹</span>
           <span className="font-bold text-[15px]">HK OPERATION</span>
+          <LogOut className="w-4 h-4 text-slate-400 ml-auto" onClick={handleLogout} />
         </div>
 
         {syncError && (
@@ -225,17 +259,37 @@ export default function HomePage() {
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
         ) : (
           <>
-            {screen === 'sodo' && !isStaff && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
-            {screen === 'phancong' && !isStaff && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
-            {screen === 'nhiemvu' && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
-            {screen === 'baocao' && !isStaff && <ReportScreen rooms={rooms} />}
-            {screen === 'task' && !isStaff && <TaskChartScreen />}
-            {screen === 'maintenance' && !isStaff && <MaintenanceScreen />}
-            {screen === 'lostfound' && !isStaff && <LostFoundScreen />}
-            {screen === 'noteboard' && !isStaff && <NoteBoardScreen rooms={rooms} />}
+            {screen === 'sodo' && canAccess('sodo') && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
+            {screen === 'phancong' && canAccess('phancong') && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
+            {screen === 'nhiemvu' && canAccess('nhiemvu') && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
+            {screen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} />}
+            {screen === 'task' && canAccess('task') && <TaskChartScreen />}
+            {screen === 'maintenance' && canAccess('maintenance') && <MaintenanceScreen />}
+            {screen === 'lostfound' && canAccess('lostfound') && <LostFoundScreen />}
+            {screen === 'noteboard' && canAccess('noteboard') && <NoteBoardScreen rooms={rooms} />}
+            {screen === 'settings' && canAccess('settings') && <SettingsScreen account={account} />}
           </>
         )}
       </main>
+
+      {/* Mobile — Thanh điều hướng NGANG cuộn được, cố định đáy màn hình, thay cho Sidebar dọc + Drawer */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#054a36] border-t border-white/10 overflow-x-auto">
+        <div className="flex gap-1 px-2 py-2 min-w-max">
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              disabled={!item.key}
+              onClick={() => { if (item.key) setScreen(item.key); }}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap flex-shrink-0 ${
+                item.key === screen ? 'bg-emerald-600 text-white' : item.key ? 'text-slate-300' : 'text-slate-500 opacity-40'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
