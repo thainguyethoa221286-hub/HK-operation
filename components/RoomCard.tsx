@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, PriorityFlagBadges, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
@@ -23,7 +24,7 @@ const SETTLED_BG: Record<string, string> = {
   'Refused': 'bg-purple-50',
 };
 
-export default function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
+function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   const { border, bg: defaultBg } = getRoomCardStyle(room.HkStatus, room.isInspecting);
   const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
   const { dnd, rf } = hasDndOrRf(combinedNote);
@@ -89,3 +90,5 @@ export default function RoomCard({ room, onClick, special, dimSettled }: RoomCar
     </div>
   );
 }
+
+export default memo(RoomCard);
