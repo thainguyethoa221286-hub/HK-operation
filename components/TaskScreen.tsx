@@ -18,30 +18,31 @@ const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
 /** Thứ tự ưu tiên cho phòng CHƯA settled:
  *  0. RUSH hoặc MKR — BẮT BUỘC lên đầu, KHÔNG phụ thuộc trạng thái khách (Occupied/Vacant/Due out...)
  *  1. Arrival  2. Occupied  3. Vacant  4. Due out/ARR (Back to Back)  5. Due out */
-function priorityTier(r: Room): number {
+/** Hàm tính ĐIỂM ƯU TIÊN tuyệt đối cho 1 phòng — MỘT bước duy nhất, không so sánh lồng nhau.
+ *  Điểm càng cao càng đứng đầu danh sách. */
+function getRoomPriority(r: Room): number {
   const flags = (r.Flags || '').split(',').map((f) => f.trim());
-  const isRush = flags.includes('CayBac');
   const isMkr = flags.includes('TrangDiem');
-  if (isRush || isMkr) return 0;
-  if (r.FoStatus === 'Arrival') return 1;
-  if (r.FoStatus === 'Occupied') return 2;
-  if (r.FoStatus === 'Vacant') return 3;
-  if (r.FoStatus === 'Due out/ARR') return 4;
-  if (r.FoStatus === 'Due out') return 5;
-  return 6;
+  const isRush = flags.includes('CayBac');
+  const isOut = flags.includes('DaOut');
+  if (isMkr || isRush) return 1000;                          // MKR / RUSH — LUÔN đứng đầu tuyệt đối
+  if (SETTLED_STATUSES.includes(r.TaskStatus)) return 10;    // Hoàn thành / Refused / DND — luôn xuống cuối
+  if (isOut) return 500;                                     // Đã out — đứng nhì
+  if (r.FoStatus === 'Arrival') return 190;
+  if (r.FoStatus === 'Occupied') return 180;
+  if (r.FoStatus === 'Vacant') return 170;
+  if (r.FoStatus === 'Due out/ARR') return 160;
+  if (r.FoStatus === 'Due out') return 150;
+  return 100;
 }
 
-/** Mục 3 — sắp xếp: phòng chưa xong lên trước (theo tier ưu tiên, rồi số phòng tăng dần),
- *  phòng Hoàn thành/Refused/DND bị đẩy xuống cuối danh sách. */
+/** Sắp xếp theo điểm ưu tiên (giảm dần), cùng điểm thì theo số phòng tăng dần.
+ *  Áp dụng TRỰC TIẾP trên mảng cuối cùng dùng để .map() ra thẻ phòng — không qua bước trung gian nào khác. */
 function sortTaskRooms(list: Room[]): Room[] {
   return [...list].sort((a, b) => {
-    const aSettled = SETTLED_STATUSES.includes(a.TaskStatus) ? 1 : 0;
-    const bSettled = SETTLED_STATUSES.includes(b.TaskStatus) ? 1 : 0;
-    if (aSettled !== bSettled) return aSettled - bSettled;
-    if (aSettled === 0) {
-      const pa = priorityTier(a), pb = priorityTier(b);
-      if (pa !== pb) return pa - pb;
-    }
+    const pa = getRoomPriority(a);
+    const pb = getRoomPriority(b);
+    if (pa !== pb) return pb - pa;
     return Number(a.MaPhong) - Number(b.MaPhong);
   });
 }
