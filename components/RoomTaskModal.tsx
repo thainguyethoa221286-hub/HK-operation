@@ -272,9 +272,9 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           {/* Ghi chú buồng phòng & nhân viên */}
           <div>
 
-            {/* Ghi chú từ Admin/Giám sát — nổi bật NỀN VÀNG để gây chú ý, chỉ đọc (không sửa từ đây) */}
+            {/* Ghi chú từ Admin/Giám sát — nổi bật NỀN VÀNG + NHẤP NHÁY để gây chú ý mạnh, chỉ đọc (không sửa từ đây) */}
             {room.GhiChuAdmin && (
-              <div className="flex items-start gap-2 bg-amber-100 border border-amber-400 text-amber-900 rounded-lg px-3 py-2.5 mb-3">
+              <div className="flex items-start gap-2 bg-amber-100 border border-amber-400 text-amber-900 rounded-lg px-3 py-2.5 mb-3 animate-pulse">
                 <MessageSquareWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-[10px] font-extrabold uppercase tracking-wide">Ghi chú từ Giám sát</div>
