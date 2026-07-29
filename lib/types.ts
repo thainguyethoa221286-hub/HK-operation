@@ -43,6 +43,16 @@ export interface HistoryEntry {
   chiTiet: string;
 }
 
+/** ===== LỊCH SỬ KIỂM PHÒNG CỦA GIÁM SÁT/ADMIN ===== */
+export interface InspectionLogRow {
+  id: number;
+  roomNo: string;
+  startTime: string; // HH:mm:ss — lúc bấm KIỂM PHÒNG
+  endTime: string; // HH:mm:ss — lúc bấm NHẢ PHÒNG
+  status: string; // Tình trạng phòng SAU KHI nhả phòng (VD: "Đã kiểm tra")
+  giamSat: string; // Tên giám sát/admin (từ account)
+}
+
 /** ===== MODULE NOTE BOARD (3 bảng độc lập) ===== */
 export interface WatchlistRoom {
   id: number;
