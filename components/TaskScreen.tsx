@@ -371,7 +371,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                   </div>
                 </div>
                 <div className="p-3 flex flex-wrap gap-1.5">
-                  {staffRooms.map((r) => {
+                  {sortTaskRooms(staffRooms).map((r) => {
                     const style = TASK_STATUS_STYLE[r.TaskStatus] || TASK_STATUS_STYLE['Chưa dọn'];
                     return (
                       <span
