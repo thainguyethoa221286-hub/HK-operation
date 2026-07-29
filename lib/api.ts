@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -153,6 +153,14 @@ export async function listAccounts(): Promise<Account[]> {
   if (!API_URL) return [];
   const r = await jsonp<{ success: boolean; accounts?: Account[] }>('listAccounts', {});
   return r?.accounts || [];
+}
+
+/** Cập nhật danh sách module 1 tài khoản được phép vào — dùng cho Ma trận phân quyền ở Cài đặt.
+ *  Truyền mảng RỖNG = xoá tuỳ chỉnh, quay về đúng mặc định theo Role. */
+export async function updateAccountModules(id: string, modules: string[]): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('updateAccountModules', { id, modules: modules.join(',') });
+  return r || { success: false };
 }
 
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
@@ -400,4 +408,33 @@ export async function getInspectionLogs(): Promise<InspectionLogRow[]> {
   if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
   if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Lịch sử kiểm phòng');
   return r.rows || [];
+}
+
+/** ===== TASK CHỈ ĐẠO ĐẶC BIỆT CỦA GIÁM SÁT (Broadcast) ===== */
+
+// Giám sát/Admin gửi 1 task khẩn — tự động thay thế task đang active trước đó (nếu có)
+export async function setBroadcastTask(content: string): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('setBroadcastTask', { content });
+  return r || { success: false };
+}
+
+// Huỷ task đang active (VD gửi nhầm) — mọi nhân viên sẽ hết thấy bảng đỏ ngay
+export async function clearBroadcastTask(): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('clearBroadcastTask', {});
+  return r || { success: false };
+}
+
+export async function getBroadcastTask(): Promise<BroadcastTaskData | null> {
+  if (!API_URL) return null;
+  const r = await jsonp<{ success: boolean; task?: BroadcastTaskData }>('getBroadcastTask', {});
+  return r?.task || null;
+}
+
+// Nhân viên bấm HOÀN THÀNH — ghi nhận đã xong, hiện lên "Tiến độ dọn phòng" cho Giám sát theo dõi
+export async function completeBroadcastTask(staff: string): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('completeBroadcastTask', { staff });
+  return r || { success: false };
 }
