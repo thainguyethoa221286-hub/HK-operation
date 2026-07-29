@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Key, Clock, CheckSquare, Square } from 'lucide-react';
 import { KEY_SETS } from '@/lib/types';
 import type { KeyLog } from '@/lib/types';
@@ -14,21 +14,26 @@ interface KeyBoardProps {
   /** Mục 3 — mượn NHIỀU chìa cùng lúc: nhận vào mảng nhãn đã tích chọn, chỉ gọi 1 lần khi bấm Xác nhận */
   onConfirmBorrow?: (keyLabels: string[]) => void;
   onReturn?: (rowIndex: number) => void;
+  /** Mục 1 — chỉ cho phép bấm trả chìa (kể cả từ ô đang giữ trong lưới này) khi đã chọn Máy hút bụi.
+   *  Mặc định true để không phá các nơi khác (VD màn Báo cáo) đang dùng KeyBoard chỉ để xem. */
+  canReturn?: boolean;
 }
 
-export default function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn }: KeyBoardProps) {
+function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn, canReturn = true }: KeyBoardProps) {
   const interactive = !!myName;
   const [selected, setSelected] = useState<string[]>([]);
 
-  const toggleSelect = (label: string) => {
+  const toggleSelect = useCallback((label: string) => {
     setSelected((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]));
-  };
+  }, []);
 
-  const handleConfirm = () => {
-    if (selected.length === 0) return;
-    onConfirmBorrow?.(selected);
-    setSelected([]);
-  };
+  const handleConfirm = useCallback(() => {
+    setSelected((prev) => {
+      if (prev.length === 0) return prev;
+      onConfirmBorrow?.(prev);
+      return [];
+    });
+  }, [onConfirmBorrow]);
 
   return (
     <div>
@@ -48,7 +53,8 @@ export default function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn }:
           else if (isHeldByOther) tileCls = 'border-slate-300 bg-slate-100';
           else if (isPending) tileCls = 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-400';
 
-          const canTap = interactive && (isHeldByMe || !activeLog);
+          // Nếu đang giữ chìa này mà chưa được phép trả (chưa chọn Máy hút bụi) -> khóa thao tác tại đây
+          const canTap = interactive && ((isHeldByMe && canReturn) || (!activeLog));
           const handleClick = () => {
             if (!canTap) return;
             if (isHeldByMe && activeLog) onReturn?.(activeLog.rowIndex);
@@ -100,3 +106,5 @@ export default function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn }:
     </div>
   );
 }
+
+export default memo(KeyBoard);
