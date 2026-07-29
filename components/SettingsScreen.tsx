@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Megaphone, Send, Trash2, Shield, Palette, Check } from 'lucide-react';
 import type { Account, BroadcastTaskData } from '@/lib/types';
-import { ALL_MODULE_KEYS, MODULE_LABELS } from '@/lib/types';
+import { ALL_MODULE_KEYS, MODULE_LABELS, getEffectiveModules } from '@/lib/types';
 import { listAccounts, updateAccountModules, setBroadcastTask, clearBroadcastTask, getBroadcastTask } from '@/lib/api';
 
 interface SettingsScreenProps {
@@ -11,12 +11,12 @@ interface SettingsScreenProps {
 }
 
 export const THEME_KEY = 'hk_pro_theme';
-export const THEMES: { key: string; label: string; hex: string }[] = [
-  { key: 'blue', label: 'Pastel Blue', hex: '#f0f7ff' },
-  { key: 'green', label: 'Pastel Green', hex: '#f0fdf4' },
-  { key: 'cream', label: 'Pastel Cream', hex: '#fffbeb' },
-  { key: 'pink', label: 'Pastel Pink', hex: '#fdf2f8' },
-  { key: 'slate', label: 'Pastel Slate (Mặc định)', hex: '#f8fafc' },
+export const THEMES: { key: string; label: string; background: string }[] = [
+  { key: 'violet', label: 'Thiên Hà Tím', background: 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 45%, #c7d2fe 100%)' },
+  { key: 'nebula', label: 'Tinh Vân Xanh', background: 'linear-gradient(135deg, #dbeafe 0%, #c7d2fe 45%, #ddd6fe 100%)' },
+  { key: 'aurora', label: 'Cực Quang', background: 'linear-gradient(135deg, #ccfbf1 0%, #a7f3d0 45%, #bae6fd 100%)' },
+  { key: 'sunset', label: 'Hoàng Hôn Vũ Trụ', background: 'linear-gradient(135deg, #fee2e2 0%, #fecdd3 45%, #fed7aa 100%)' },
+  { key: 'slate', label: 'Đêm Sao (Mặc định)', background: 'linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)' },
 ];
 
 export default function SettingsScreen({ account }: SettingsScreenProps) {
@@ -53,8 +53,13 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
 
   // ===== 2. Ma trận phân quyền =====
   const toggleModule = async (acc: Account, moduleKey: string) => {
-    const current = acc.modulesAllowed && acc.modulesAllowed.length > 0 ? acc.modulesAllowed : [];
-    const next = current.includes(moduleKey) ? current.filter((m) => m !== moduleKey) : [...current, moduleKey];
+    // Lấy đúng trạng thái ĐANG HIỂN THỊ (kể cả khi tài khoản chưa có Ma trận tuỳ chỉnh, đang dùng
+    // mặc định theo Vai trò) rồi chỉ đảo NGƯỢC đúng 1 module vừa bấm — các module còn lại giữ nguyên
+    // y hệt như đang hiển thị, không bị reset về rỗng.
+    const currentEffective = getEffectiveModules(acc);
+    const next = currentEffective.includes(moduleKey)
+      ? currentEffective.filter((m) => m !== moduleKey)
+      : [...currentEffective, moduleKey];
     setStaffAccounts((prev) => prev.map((a) => (a.id === acc.id ? { ...a, modulesAllowed: next } : a)));
     setSavingMatrix(acc.id);
     await updateAccountModules(acc.id, next);
@@ -118,7 +123,11 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
               <Shield className="w-5 h-5 text-slate-500" /> Ma trận phân quyền
             </h2>
-            <div className="text-[11px] text-slate-400 mb-3">Để trống (không tích ô nào) = tài khoản dùng đúng quyền mặc định theo Vai trò. Tích chọn = ghi đè, chỉ cho vào đúng các module đã chọn.</div>
+            <div className="text-[11px] text-slate-400 mb-3">
+              Bấm vào nút <span className="font-bold text-emerald-600">🟢 Mở</span> / <span className="font-bold text-slate-500">🔴 Đóng</span> để bật/tắt từng module cho từng nhân viên.
+              Module đang <span className="font-bold text-red-500">🔴 Đóng</span> sẽ <span className="font-bold">ẩn hoàn toàn</span> khỏi thanh menu của nhân viên đó — không chỉ mờ đi.
+              Bấm &quot;Về mặc định&quot; để xoá ghi đè, quay lại đúng quyền chuẩn theo Vai trò.
+            </div>
             <div className="overflow-x-auto">
               <table className="text-[12px] border-collapse min-w-[700px]">
                 <thead>
@@ -133,22 +142,29 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
                 <tbody>
                   {staffAccounts.map((acc) => {
                     const custom = acc.modulesAllowed && acc.modulesAllowed.length > 0;
+                    const effective = getEffectiveModules(acc);
                     return (
                       <tr key={acc.id} className="border-b border-slate-100">
                         <td className="sticky left-0 bg-white px-2 py-2 font-semibold text-slate-700 whitespace-nowrap">
                           {acc.hoTen} <span className="text-slate-400 font-normal">({acc.vaiTro})</span>
                         </td>
-                        {ALL_MODULE_KEYS.map((mk) => (
-                          <td key={mk} className="px-2 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!acc.modulesAllowed?.includes(mk)}
-                              onChange={() => toggleModule(acc, mk)}
-                              disabled={savingMatrix === acc.id}
-                              className="w-4 h-4 accent-emerald-600"
-                            />
-                          </td>
-                        ))}
+                        {ALL_MODULE_KEYS.map((mk) => {
+                          const isOpen = effective.includes(mk);
+                          return (
+                            <td key={mk} className="px-2 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => toggleModule(acc, mk)}
+                                disabled={savingMatrix === acc.id}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 ${
+                                  isOpen ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 text-slate-500 font-medium'
+                                }`}
+                              >
+                                {isOpen ? '🟢 Mở' : '🔴 Đóng'}
+                              </button>
+                            </td>
+                          );
+                        })}
                         <td className="px-2 py-2 text-center whitespace-nowrap">
                           {custom && (
                             <button onClick={() => resetToDefault(acc)} className="text-[10px] font-bold text-blue-600 underline">Về mặc định</button>
@@ -166,7 +182,7 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
         {/* ===== 3. Giao diện ===== */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
-            <Palette className="w-5 h-5 text-slate-500" /> Màu nền giao diện
+            <Palette className="w-5 h-5 text-slate-500" /> Màu nền giao diện (Tông Galaxy)
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {THEMES.map((t) => (
@@ -175,7 +191,7 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
                 onClick={() => applyTheme(t.key)}
                 className={`rounded-xl border-2 p-3 text-left ${theme === t.key ? 'border-emerald-500' : 'border-slate-200'}`}
               >
-                <div className="w-full h-10 rounded-lg mb-2 border border-slate-200" style={{ backgroundColor: t.hex }} />
+                <div className="w-full h-10 rounded-lg mb-2 border border-slate-200" style={{ background: t.background }} />
                 <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                   {theme === t.key && <Check className="w-3 h-3 text-emerald-600" />} {t.label}
                 </div>
