@@ -76,6 +76,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   const isStaff = account.vaiTro === 'HKStaff';
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+  const [isKeyGridExpanded, setIsKeyGridExpanded] = useState(false);
   const [inspectionLogs, setInspectionLogs] = useState<InspectionLogRow[]>([]);
   const [broadcastTask, setBroadcastTaskState] = useState<BroadcastTaskData | null>(null);
 
@@ -113,6 +114,12 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     const failed = results.filter((r) => !r.success);
     if (failed.length > 0) alert(failed.map((r) => r.error).join('\n'));
     refreshKeyLogs();
+  };
+  // Sau khi xác nhận mượn chìa thành công, tự động thu gọn lưới lại — gọn giao diện ngay,
+  // đúng yêu cầu "ẩn toàn bộ lưới danh sách bộ chìa khóa" sau khi đã chọn xong.
+  const handleConfirmBorrowAndCollapse = async (keyLabels: string[]) => {
+    await handleConfirmBorrow(keyLabels);
+    setIsKeyGridExpanded(false);
   };
   const handleReturnKey = async (rowIndex: number) => {
     await returnKey(rowIndex);
@@ -235,7 +242,14 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                     </button>
                   </div>
                 ))}
-                <div className="text-[11px] text-slate-400 font-semibold pt-0.5">Muốn lấy thêm chìa khác? Chọn tiếp bên dưới rồi bấm Xác nhận.</div>
+                {/* Thu gọn lưới chọn chìa mặc định khi đã có chìa đang giữ — tránh thao tác nhầm,
+                    chỉ xổ ra lại khi bấm nút này */}
+                <button
+                  onClick={() => setIsKeyGridExpanded((v) => !v)}
+                  className="w-full flex items-center justify-center gap-1.5 text-[12px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-xl py-2 mt-1"
+                >
+                  {isKeyGridExpanded ? '▲ Thu gọn danh sách chìa' : '🔑 LẤY THÊM CHÌA KHÓA'}
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-[12px] font-bold text-red-600">
@@ -243,7 +257,10 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
               </div>
             )}
           </div>
-          <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrow} onReturn={handleReturnKey} />
+          {/* Lưới chọn chìa — hiện mặc định khi CHƯA có chìa nào, hoặc khi bấm "LẤY THÊM CHÌA KHÓA" */}
+          {(myKeys.length === 0 || isKeyGridExpanded) && (
+            <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrowAndCollapse} onReturn={handleReturnKey} />
+          )}
         </div>
 
         {/* Bảng thống kê tiến độ */}
