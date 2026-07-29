@@ -183,10 +183,10 @@ export default function HomePage() {
     { key: canAccess('phancong') ? 'phancong' : null, label: 'Phân công', icon: ClipboardList },
     { key: canAccess('nhiemvu') ? 'nhiemvu' : null, label: 'Nhiệm vụ', icon: ListChecks },
     { key: canAccess('baocao') ? 'baocao' : null, label: 'Daily Report', icon: FileText },
+    { key: canAccess('noteboard') ? 'noteboard' : null, label: 'Noted Board', icon: MessageSquare },
     { key: canAccess('task') ? 'task' : null, label: 'Task', icon: ListTodo },
     { key: canAccess('maintenance') ? 'maintenance' : null, label: 'Maintenance', icon: Wrench },
     { key: canAccess('lostfound') ? 'lostfound' : null, label: 'Lost and Found', icon: PackageSearch },
-    { key: canAccess('noteboard') ? 'noteboard' : null, label: 'Noted Board', icon: MessageSquare },
     { key: canAccess('settings') ? 'settings' : null, label: 'Cài đặt', icon: Settings },
   ];
 
