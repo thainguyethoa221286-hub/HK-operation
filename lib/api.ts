@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, WatchlistRoom, OverdueHistoryRow, SupplyBoardItem } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, WatchlistRoom, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -393,4 +393,26 @@ export async function updateSupplyItem(label: string, value: string): Promise<{ 
   if (!API_URL) return { success: false };
   const r = await jsonp<{ success: boolean }>('updateSupplyItem', { label, value });
   return r || { success: false };
+}
+
+/** ===== LỊCH SỬ KIỂM PHÒNG CỦA GIÁM SÁT/ADMIN ===== */
+
+export async function startInspectionLog(roomNo: string, giamSat: string): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('startInspectionLog', { roomNo, giamSat });
+  return r || { success: false };
+}
+
+export async function endInspectionLog(roomNo: string, status: string): Promise<{ success: boolean }> {
+  if (!API_URL) return { success: false };
+  const r = await jsonp<{ success: boolean }>('endInspectionLog', { roomNo, status });
+  return r || { success: false };
+}
+
+export async function getInspectionLogs(): Promise<InspectionLogRow[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; rows?: InspectionLogRow[]; error?: string }>('getInspectionLogs', {});
+  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
+  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Lịch sử kiểm phòng');
+  return r.rows || [];
 }
