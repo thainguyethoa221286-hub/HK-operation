@@ -21,6 +21,25 @@ export interface Account {
   id: string;
   hoTen: string;
   vaiTro: Role;
+  /** Ma trận phân quyền tuỳ chỉnh — danh sách module Admin cấp riêng cho tài khoản này.
+   *  RỖNG/undefined = dùng quyền mặc định theo Role (Admin/GiamSat/HKStaff như cũ).
+   *  CÓ giá trị = ĐÈ lên mặc định, chỉ cho vào đúng các module trong danh sách này. */
+  modulesAllowed?: string[];
+}
+
+/** ===== MODULE CÀI ĐẶT & PHÂN QUYỀN ===== */
+export const ALL_MODULE_KEYS = [
+  'sodo', 'phancong', 'nhiemvu', 'baocao', 'task', 'maintenance', 'lostfound', 'noteboard', 'settings',
+] as const;
+export const MODULE_LABELS: Record<string, string> = {
+  sodo: 'Sơ đồ phòng', phancong: 'Phân công', nhiemvu: 'Nhiệm vụ', baocao: 'Daily Report',
+  task: 'Task', maintenance: 'Maintenance', lostfound: 'Lost and Found', noteboard: 'Noted Board', settings: 'Cài đặt',
+};
+export interface BroadcastTaskData {
+  content: string;
+  active: boolean;
+  date: string; // dd/MM/yyyy — chỉ hiệu lực trong đúng ngày gửi
+  completions: string[]; // tên nhân viên đã bấm HOÀN THÀNH
 }
 
 export type TaskStatus = 'Chưa dọn' | 'Đang dọn' | 'Hoàn thành' | 'Refused' | 'DND';
