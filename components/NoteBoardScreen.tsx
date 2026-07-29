@@ -23,7 +23,6 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
   const [supplies, setSupplies] = useState<SupplyBoardItem[]>([]);
   const [linenHistory, setLinenHistory] = useState<LinenChangeHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  void rooms;
 
   const refreshAll = () => {
     Promise.all([getOverdueHistory(), getSuppliesBoard(), getLinenChangeHistory()])
@@ -43,8 +42,25 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
   };
   const overdueByCategory = (cat: string) => overdue.filter((o) => o.category === cat);
 
-  const linenChanged = linenHistory.filter((r) => r.status === 'Có');
-  const linenNotChanged = linenHistory.filter((r) => r.status === 'Không');
+  // Báo cáo lịch thay giường — GỘP cả "hôm qua" (snapshot từ Sheet, ghi lúc Đồng bộ AI) VÀ
+  // "hôm nay" (đang chọn trực tiếp trên phòng ngay lúc này, tính trực tiếp từ rooms, real-time).
+  const todayDMY = () => {
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  };
+  const liveLinenEntries: LinenChangeHistoryRow[] = rooms
+    .filter((r) => r.LinenChange === 'Có' || r.LinenChange === 'Không')
+    .map((r, i) => ({
+      id: -1000 - i, // id âm để không trùng id thật từ Sheet — chỉ dùng làm React key
+      roomNo: r.MaPhong,
+      roomType: r.LoaiPhong,
+      date: todayDMY(),
+      staff: r.NhanVienPhuTrach,
+      status: r.LinenChange as 'Có' | 'Không',
+    }));
+  const allLinenHistory = [...liveLinenEntries, ...linenHistory];
+  const linenChanged = allLinenHistory.filter((r) => r.status === 'Có');
+  const linenNotChanged = allLinenHistory.filter((r) => r.status === 'Không');
 
   const handleSupplyChange = (label: string, value: string) => {
     setSupplies((prev) => prev.map((s) => (s.label === label ? { ...s, value } : s)));
@@ -99,7 +115,7 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h2 className="text-lg font-bold text-slate-800 mb-1">Báo cáo lịch thay ga/giường</h2>
-          <div className="text-[11px] text-slate-400 mb-3">Giữ báo cáo thêm 1 ngày — dữ liệu hôm qua vẫn hiện xuyên suốt hôm nay, chỉ mất ở lần Đồng bộ AI kế tiếp.</div>
+          <div className="text-[11px] text-slate-400 mb-3">Gộp cả hôm nay (đang chọn trực tiếp) và hôm qua (giữ thêm 1 ngày) — chỉ mất dữ liệu hôm qua ở lần Đồng bộ AI kế tiếp.</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="text-[12px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-2">
@@ -123,7 +139,9 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
                         <tr key={r.id} className="border-t border-slate-100">
                           <td className="px-2.5 py-1.5 font-bold text-blue-600 whitespace-nowrap">{r.roomNo}</td>
                           <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.roomType}</td>
-                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{r.date}</td>
+                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">
+                            {r.date}{r.date === todayDMY() && <span className="text-emerald-600 font-semibold ml-1">(hôm nay)</span>}
+                          </td>
                           <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.staff || '-'}</td>
                         </tr>
                       ))}
@@ -154,7 +172,9 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
                         <tr key={r.id} className="border-t border-slate-100">
                           <td className="px-2.5 py-1.5 font-bold text-slate-700 whitespace-nowrap">{r.roomNo}</td>
                           <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.roomType}</td>
-                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{r.date}</td>
+                          <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">
+                            {r.date}{r.date === todayDMY() && <span className="text-emerald-600 font-semibold ml-1">(hôm nay)</span>}
+                          </td>
                           <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{r.staff || '-'}</td>
                         </tr>
                       ))}
