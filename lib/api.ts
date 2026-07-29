@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, WatchlistRoom, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow } from './types';
 import { SAMPLE_ROOMS } from './sampleData';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -338,28 +338,13 @@ export async function deleteLostFoundItem(id: number): Promise<{ success: boolea
 
 /** ===== MODULE NOTE BOARD ===== */
 
-// Bảng 1 — Thông tin phòng theo dõi
-export async function getWatchlistRooms(): Promise<WatchlistRoom[]> {
+// Báo cáo lịch thay ga/giường — tự động ghi khi Đồng bộ AI chạy, giữ đúng 1 ngày (xem Code.gs)
+export async function getLinenChangeHistory(): Promise<LinenChangeHistoryRow[]> {
   if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; rows?: WatchlistRoom[]; error?: string }>('getWatchlistRooms', {});
+  const r = await jsonp<{ success: boolean; rows?: LinenChangeHistoryRow[]; error?: string }>('getLinenChangeHistory', {});
   if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
-  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Bảng theo dõi phòng');
+  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Báo cáo lịch thay giường');
   return r.rows || [];
-}
-export async function addWatchlistRoom(roomNo: string, shiftNote: string): Promise<{ success: boolean; row?: WatchlistRoom }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean; row?: WatchlistRoom }>('addWatchlistRoom', { roomNo, shiftNote });
-  return r || { success: false };
-}
-export async function updateWatchlistNote(id: number, extraNote: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateWatchlistNote', { id: String(id), extraNote });
-  return r || { success: false };
-}
-export async function deleteWatchlistRoom(id: number): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('deleteWatchlistRoom', { id: String(id) });
-  return r || { success: false };
 }
 
 // Bảng 2 — Lịch thay giường & theo dõi Special (tự động ghi khi Đồng bộ AI chạy)
