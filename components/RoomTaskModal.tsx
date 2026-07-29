@@ -109,11 +109,14 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     }
     const end = nowTimeStr();
     const dur = diffMinutes(room.StartTime, end);
+    // Phòng đã dọn xong, trả về "Phòng sạch" — cờ MKR đã hoàn thành nhiệm vụ, tự động xoá khỏi Flags
+    const newFlags = (room.Flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'TrangDiem').join(',');
     onUpdate(room.MaPhong, {
       TaskStatus: 'Hoàn thành',
       EndTime: end,
       Duration: String(dur),
       HkStatus: 'Phòng sạch',
+      Flags: newFlags,
     });
     log('Hoàn thành', `${formatTimeOnly(room.StartTime)} → ${formatTimeOnly(end)} (${dur} phút)`);
   };
