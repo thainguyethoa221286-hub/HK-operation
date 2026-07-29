@@ -80,7 +80,7 @@ export async function fetchRooms(): Promise<Room[]> {
     LinenChange: String(row.LinenChange ?? ''),
     TrolleyCode: String(row.TrolleyCode ?? ''),
     VacuumFloor: String(row.VacuumFloor ?? ''),
-    isInspecting: false,
+    isInspecting: String(row.Flags ?? '').split(',').map((f) => f.trim()).includes('DangKiem'),
   })) as Room[];
 }
 
