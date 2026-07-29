@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Megaphone, Send, Trash2, Shield, Palette, Check } from 'lucide-react';
+import { Megaphone, Send, Trash2, Shield, Palette, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Account, BroadcastTaskData } from '@/lib/types';
 import { ALL_MODULE_KEYS, MODULE_LABELS, getEffectiveModules } from '@/lib/types';
 import { listAccounts, updateAccountModules, setBroadcastTask, clearBroadcastTask, getBroadcastTask } from '@/lib/api';
@@ -25,6 +25,9 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
   const [activeTask, setActiveTask] = useState<BroadcastTaskData | null>(null);
   const [theme, setTheme] = useState('slate');
   const [savingMatrix, setSavingMatrix] = useState<string | null>(null);
+  // Mặc định ĐÓNG — phải bấm nút mới sổ Ma trận phân quyền ra, tránh bấm nhầm làm đổi quyền
+  // của nhân viên khi chỉ đang lướt qua màn Cài đặt.
+  const [matrixOpen, setMatrixOpen] = useState(false);
 
   const refreshAccounts = () => { listAccounts().then(setStaffAccounts).catch(() => {}); };
   const refreshTask = () => { getBroadcastTask().then(setActiveTask).catch(() => {}); };
@@ -89,7 +92,7 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
         {/* ===== 1. Task chỉ đạo đặc biệt ===== */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
-            <Megaphone className="w-5 h-5 text-red-600" /> Task chỉ đạo đặc biệt
+            <Megaphone className="w-5 h-5 text-red-600" /> TASK CHUNG
           </h2>
           {activeTask?.active ? (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 mb-3">
@@ -117,65 +120,83 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
           </button>
         </div>
 
-        {/* ===== 2. Ma trận phân quyền — CHỈ Admin thấy/sửa ===== */}
+        {/* ===== 2. Phân quyền — CHỈ Admin thấy/sửa, mặc định ĐÓNG để tránh bấm nhầm ===== */}
         {isAdmin && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
-              <Shield className="w-5 h-5 text-slate-500" /> Ma trận phân quyền
-            </h2>
-            <div className="text-[11px] text-slate-400 mb-3">
-              Bấm vào nút <span className="font-bold text-emerald-600">🟢 Mở</span> / <span className="font-bold text-slate-500">🔴 Đóng</span> để bật/tắt từng module cho từng nhân viên.
-              Module đang <span className="font-bold text-red-500">🔴 Đóng</span> sẽ <span className="font-bold">ẩn hoàn toàn</span> khỏi thanh menu của nhân viên đó — không chỉ mờ đi.
-              Bấm &quot;Về mặc định&quot; để xoá ghi đè, quay lại đúng quyền chuẩn theo Vai trò.
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-slate-500" /> Phân quyền
+              </h2>
+              <button
+                type="button"
+                onClick={() => setMatrixOpen((v) => !v)}
+                className={`flex items-center gap-1.5 text-xs font-bold rounded-lg px-3 py-1.5 whitespace-nowrap ${
+                  matrixOpen ? 'bg-slate-100 text-slate-600' : 'bg-emerald-600 text-white'
+                }`}
+              >
+                {matrixOpen ? <>Đóng lại <ChevronUp className="w-3.5 h-3.5" /></> : <>Mở phân quyền <ChevronDown className="w-3.5 h-3.5" /></>}
+              </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="text-[12px] border-collapse min-w-[700px]">
-                <thead>
-                  <tr>
-                    <th className="sticky left-0 bg-white px-2 py-2 text-left border-b border-slate-200 font-bold text-slate-700">Nhân viên</th>
-                    {ALL_MODULE_KEYS.map((mk) => (
-                      <th key={mk} className="px-2 py-2 text-center border-b border-slate-200 font-bold text-slate-500 whitespace-nowrap">{MODULE_LABELS[mk]}</th>
-                    ))}
-                    <th className="px-2 py-2 text-center border-b border-slate-200"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staffAccounts.map((acc) => {
-                    const custom = acc.modulesAllowed && acc.modulesAllowed.length > 0;
-                    const effective = getEffectiveModules(acc);
-                    return (
-                      <tr key={acc.id} className="border-b border-slate-100">
-                        <td className="sticky left-0 bg-white px-2 py-2 font-semibold text-slate-700 whitespace-nowrap">
-                          {acc.hoTen} <span className="text-slate-400 font-normal">({acc.vaiTro})</span>
-                        </td>
-                        {ALL_MODULE_KEYS.map((mk) => {
-                          const isOpen = effective.includes(mk);
-                          return (
-                            <td key={mk} className="px-2 py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => toggleModule(acc, mk)}
-                                disabled={savingMatrix === acc.id}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 ${
-                                  isOpen ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 text-slate-500 font-medium'
-                                }`}
-                              >
-                                {isOpen ? '🟢 Mở' : '🔴 Đóng'}
-                              </button>
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-2 text-center whitespace-nowrap">
-                          {custom && (
-                            <button onClick={() => resetToDefault(acc)} className="text-[10px] font-bold text-blue-600 underline">Về mặc định</button>
-                          )}
-                        </td>
+            {!matrixOpen && (
+              <div className="text-[11px] text-slate-400">Bấm &quot;Mở phân quyền&quot; để xem/sửa quyền từng nhân viên.</div>
+            )}
+            {matrixOpen && (
+              <>
+                <div className="text-[11px] text-slate-400 mb-3 mt-1">
+                  Bấm vào nút <span className="font-bold text-emerald-600">🟢 Mở</span> / <span className="font-bold text-slate-500">🔴 Đóng</span> để bật/tắt từng module cho từng nhân viên.
+                  Module đang <span className="font-bold text-red-500">🔴 Đóng</span> sẽ <span className="font-bold">ẩn hoàn toàn</span> khỏi thanh menu của nhân viên đó — không chỉ mờ đi.
+                  Bấm &quot;Về mặc định&quot; để xoá ghi đè, quay lại đúng quyền chuẩn theo Vai trò.
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="text-[12px] border-collapse min-w-[700px]">
+                    <thead>
+                      <tr>
+                        <th className="sticky left-0 bg-white px-2 py-2 text-left border-b border-slate-200 font-bold text-slate-700">Nhân viên</th>
+                        {ALL_MODULE_KEYS.map((mk) => (
+                          <th key={mk} className="px-2 py-2 text-center border-b border-slate-200 font-bold text-slate-500 whitespace-nowrap">{MODULE_LABELS[mk]}</th>
+                        ))}
+                        <th className="px-2 py-2 text-center border-b border-slate-200"></th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {staffAccounts.map((acc) => {
+                        const custom = acc.modulesAllowed && acc.modulesAllowed.length > 0;
+                        const effective = getEffectiveModules(acc);
+                        return (
+                          <tr key={acc.id} className="border-b border-slate-100">
+                            <td className="sticky left-0 bg-white px-2 py-2 font-semibold text-slate-700 whitespace-nowrap">
+                              {acc.hoTen} <span className="text-slate-400 font-normal">({acc.vaiTro})</span>
+                            </td>
+                            {ALL_MODULE_KEYS.map((mk) => {
+                              const isOpen = effective.includes(mk);
+                              return (
+                                <td key={mk} className="px-2 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleModule(acc, mk)}
+                                    disabled={savingMatrix === acc.id}
+                                    className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 ${
+                                      isOpen ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 text-slate-500 font-medium'
+                                    }`}
+                                  >
+                                    {isOpen ? '🟢 Mở' : '🔴 Đóng'}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                            <td className="px-2 py-2 text-center whitespace-nowrap">
+                              {custom && (
+                                <button onClick={() => resetToDefault(acc)} className="text-[10px] font-bold text-blue-600 underline">Về mặc định</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
