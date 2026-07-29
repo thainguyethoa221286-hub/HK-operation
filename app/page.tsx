@@ -185,6 +185,11 @@ export default function HomePage() {
   ];
   const navItems = allNavItems.filter((item) => canAccess(item.key));
 
+  // Nếu màn đang chọn (mặc định 'sodo' lúc mới vào) KHÔNG còn nằm trong quyền hiệu lực —
+  // VD Admin vừa đóng đúng module đó cho tài khoản này ở Ma trận phân quyền — tự động rơi về
+  // module đầu tiên còn được mở, tránh màn chính bị trắng trơn không hiện gì.
+  const effectiveScreen: ScreenKey | undefined = canAccess(screen) ? screen : navItems[0]?.key;
+
   const SidebarContent = (
     <>
       <div className={`flex items-center gap-2 font-bold text-white text-[17px] px-4 pb-4 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
@@ -210,7 +215,7 @@ export default function HomePage() {
             title={sidebarCollapsed ? item.label : undefined}
             onClick={() => { setScreen(item.key); setMobileNavOpen(false); }}
             className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${sidebarCollapsed ? 'justify-center px-0' : ''} ${
-              item.key === screen ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-white/5'
+              item.key === effectiveScreen ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-white/5'
             }`}
           >
             <item.icon className="w-4 h-4 flex-shrink-0" /> {!sidebarCollapsed && item.label}
@@ -253,15 +258,20 @@ export default function HomePage() {
           <div className="text-sm text-slate-400 py-10 text-center">Đang tải dữ liệu phòng...</div>
         ) : (
           <>
-            {screen === 'sodo' && canAccess('sodo') && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
-            {screen === 'phancong' && canAccess('phancong') && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
-            {screen === 'nhiemvu' && canAccess('nhiemvu') && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
-            {screen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} />}
-            {screen === 'task' && canAccess('task') && <TaskChartScreen />}
-            {screen === 'maintenance' && canAccess('maintenance') && <MaintenanceScreen />}
-            {screen === 'lostfound' && canAccess('lostfound') && <LostFoundScreen />}
-            {screen === 'noteboard' && canAccess('noteboard') && <NoteBoardScreen rooms={rooms} />}
-            {screen === 'settings' && canAccess('settings') && <SettingsScreen account={account} />}
+            {effectiveScreen === 'sodo' && canAccess('sodo') && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
+            {effectiveScreen === 'phancong' && canAccess('phancong') && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
+            {effectiveScreen === 'nhiemvu' && canAccess('nhiemvu') && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
+            {effectiveScreen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} />}
+            {effectiveScreen === 'task' && canAccess('task') && <TaskChartScreen />}
+            {effectiveScreen === 'maintenance' && canAccess('maintenance') && <MaintenanceScreen />}
+            {effectiveScreen === 'lostfound' && canAccess('lostfound') && <LostFoundScreen />}
+            {effectiveScreen === 'noteboard' && canAccess('noteboard') && <NoteBoardScreen rooms={rooms} />}
+            {effectiveScreen === 'settings' && canAccess('settings') && <SettingsScreen account={account} />}
+            {!effectiveScreen && (
+              <div className="text-sm text-slate-400 py-10 text-center">
+                Tài khoản chưa được cấp quyền vào module nào — liên hệ Admin để được cấp quyền.
+              </div>
+            )}
           </>
         )}
       </main>
@@ -274,7 +284,7 @@ export default function HomePage() {
               key={item.label}
               onClick={() => setScreen(item.key)}
               className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap flex-shrink-0 ${
-                item.key === screen ? 'bg-emerald-600 text-white' : 'text-slate-300'
+                item.key === effectiveScreen ? 'bg-emerald-600 text-white' : 'text-slate-300'
               }`}
             >
               <item.icon className="w-4 h-4" />
