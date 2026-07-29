@@ -35,6 +35,23 @@ export const MODULE_LABELS: Record<string, string> = {
   sodo: 'Sơ đồ phòng', phancong: 'Phân công', nhiemvu: 'Nhiệm vụ', baocao: 'Daily Report',
   task: 'Task', maintenance: 'Maintenance', lostfound: 'Lost and Found', noteboard: 'Noted Board', settings: 'Cài đặt',
 };
+
+/** Danh sách module MẶC ĐỊNH theo Vai trò — dùng khi tài khoản CHƯA có Ma trận phân quyền tuỳ chỉnh
+ *  (modulesAllowed rỗng/undefined). Admin: toàn quyền. Giám sát: mọi module TRỪ Cài đặt. Nhân viên HK: chỉ Nhiệm vụ. */
+export function getDefaultModulesForRole(role: Role): string[] {
+  if (role === 'Admin') return [...ALL_MODULE_KEYS];
+  if (role === 'GiamSat') return ALL_MODULE_KEYS.filter((m) => m !== 'settings');
+  return ['nhiemvu'];
+}
+
+/** Danh sách module ĐANG THỰC SỰ mở (🟢) cho 1 tài khoản — có tính cả trường hợp tài khoản
+ *  chưa được cấu hình tuỳ chỉnh (rơi về mặc định theo Vai trò). Dùng CHUNG cho cả Menu và Ma trận
+ *  phân quyền để 2 nơi luôn khớp nhau tuyệt đối. */
+export function getEffectiveModules(acc: Account): string[] {
+  if (acc.modulesAllowed && acc.modulesAllowed.length > 0) return acc.modulesAllowed;
+  return getDefaultModulesForRole(acc.vaiTro);
+}
+
 export interface BroadcastTaskData {
   content: string;
   active: boolean;
