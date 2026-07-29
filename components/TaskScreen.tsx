@@ -185,33 +185,36 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
             </select>
           </div>
 
-          {/* Nhận / trả chìa khóa — có thể giữ nhiều bộ cùng lúc */}
-          {myKeys.length > 0 ? (
-            <div className="space-y-1.5 mb-2.5">
-              {myKeys.map((k) => (
-                <div key={k.rowIndex} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
-                  <span className="text-[12px] font-bold text-emerald-700">
-                    🔑 {k.keyLabel} · {formatTimeOnly(k.gioMuon)}
-                  </span>
-                  <button
-                    onClick={() => handleReturnKey(k.rowIndex)}
-                    className="text-[11px] font-bold text-red-600 bg-white border border-red-200 rounded-lg px-2.5 py-1.5"
-                  >
-                    TRẢ CHÌA KHÓA
-                  </button>
-                </div>
-              ))}
-              <div className="text-[11px] text-slate-400 font-semibold pt-0.5">Muốn lấy thêm chìa khác? Chọn tiếp bên dưới rồi bấm Xác nhận.</div>
-              <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrow} onReturn={handleReturnKey} />
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-2.5 text-[12px] font-bold text-red-600">
+          {/* Nhận / trả chìa khóa — có thể giữ nhiều bộ cùng lúc.
+              LƯU Ý: <KeyBoard> đặt DUY NHẤT 1 lần ngoài điều kiện — trước đây từng đặt trong 2 nhánh
+              if/else khác nhau khiến React coi là 2 component khác nhau, unmount/mount lại làm MẤT
+              trạng thái đang tích chọn ngay khi myKeys.length đổi (VD vừa xác nhận 1 chìa xong),
+              khiến người dùng phải bấm lại lần 2 mới ăn. */}
+          <div className="mb-2.5">
+            {myKeys.length > 0 ? (
+              <div className="space-y-1.5">
+                {myKeys.map((k) => (
+                  <div key={k.rowIndex} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+                    <span className="text-[12px] font-bold text-emerald-700">
+                      🔑 {k.keyLabel} · {formatTimeOnly(k.gioMuon)}
+                    </span>
+                    <button
+                      onClick={() => handleReturnKey(k.rowIndex)}
+                      className="text-[11px] font-bold text-red-600 bg-white border border-red-200 rounded-lg px-2.5 py-1.5"
+                    >
+                      TRẢ CHÌA KHÓA
+                    </button>
+                  </div>
+                ))}
+                <div className="text-[11px] text-slate-400 font-semibold pt-0.5">Muốn lấy thêm chìa khác? Chọn tiếp bên dưới rồi bấm Xác nhận.</div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-[12px] font-bold text-red-600">
                 <Lock className="w-3.5 h-3.5" /> Chưa nhận chìa khóa — tích chọn chìa bên dưới rồi bấm Xác nhận để mở khóa nhiệm vụ
               </div>
-              <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrow} onReturn={handleReturnKey} />
-            </div>
-          )}
+            )}
+          </div>
+          <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrow} onReturn={handleReturnKey} />
         </div>
 
         {/* Bảng thống kê tiến độ */}
