@@ -96,6 +96,12 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     onUpdate(room.MaPhong, { LinenChange: next });
     log(next === 'Có' ? 'Thay ga giường' : 'Bỏ đánh dấu thay ga');
   };
+  // "Không thay giường" — LOẠI TRỪ LẪN NHAU với "Thay ga giường": chọn 1 trong 2, không thể chọn cả 2
+  const toggleNoLinenChange = () => {
+    const next = room.LinenChange === 'Không' ? '' : 'Không';
+    onUpdate(room.MaPhong, { LinenChange: next });
+    log(next === 'Không' ? 'Không thay giường' : 'Bỏ đánh dấu không thay ga');
+  };
 
   const startCleaning = () => {
     onUpdate(room.MaPhong, { TaskStatus: 'Đang dọn', StartTime: nowTimeStr(), HkStatus: 'Phòng đang dọn' });
@@ -217,6 +223,15 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
                   className="w-4 h-4 accent-blue-600"
                 />
                 Thay ga giường
+              </label>
+              <label className="flex items-center gap-2.5 text-[13px] font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={room.LinenChange === 'Không'}
+                  onChange={toggleNoLinenChange}
+                  className="w-4 h-4 accent-slate-600"
+                />
+                Không thay giường
               </label>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-semibold text-slate-700">Kiểm tra Két sắt</span>
