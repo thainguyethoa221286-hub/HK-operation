@@ -6,7 +6,8 @@ import { VACUUM_FLOORS } from '@/lib/types';
 import RoomCard from './RoomCard';
 import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
-import { updateRoomFields, getKeyLogs, borrowKey, returnKey } from '@/lib/api';
+import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs } from '@/lib/api';
+import type { InspectionLogRow } from '@/lib/types';
 import { TASK_STATUS_STYLE, formatTimeOnly } from '@/lib/roomStyles';
 import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
@@ -75,6 +76,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   const isStaff = account.vaiTro === 'HKStaff';
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+  const [inspectionLogs, setInspectionLogs] = useState<InspectionLogRow[]>([]);
 
   const refreshKeyLogs = () => { getKeyLogs().then(setKeyLogs); };
   useEffect(() => {
@@ -82,6 +84,15 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     const timer = setInterval(refreshKeyLogs, 15000); // đồng bộ khi người khác mượn/trả chìa
     return () => clearInterval(timer);
   }, []);
+
+  // Lịch sử kiểm phòng của giám sát/admin — CHỈ Admin/Giám sát cần xem, nhân viên không cần
+  useEffect(() => {
+    if (isStaff) return;
+    const refreshLogs = () => { getInspectionLogs().then(setInspectionLogs).catch(() => {}); };
+    refreshLogs();
+    const timer = setInterval(refreshLogs, 15000);
+    return () => clearInterval(timer);
+  }, [isStaff]);
 
   // Mục 3 — mượn NHIỀU chìa cùng lúc khi bấm Xác nhận (chỉ lúc này mới lưu timestamp + mở khóa Nhiệm vụ)
   const handleConfirmBorrow = async (keyLabels: string[]) => {
@@ -323,6 +334,39 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
           })}
         </div>
       )}
+
+      {/* Lịch sử kiểm phòng của Giám sát/Admin — ghi nhận thời gian thực mỗi lần Kiểm phòng/Nhả phòng */}
+      <div className="mt-6">
+        <h2 className="text-[16px] font-bold text-slate-800 mb-3">Lịch sử kiểm phòng</h2>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          {inspectionLogs.length === 0 ? (
+            <div className="text-sm text-slate-400 text-center py-8">Chưa có lượt kiểm phòng nào được ghi nhận.</div>
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-slate-100 text-slate-700 text-[11px] font-bold uppercase whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left">Số phòng</th>
+                  <th className="px-2 py-2.5 text-left">Bắt đầu kiểm</th>
+                  <th className="px-2 py-2.5 text-left">Kiểm xong</th>
+                  <th className="px-2 py-2.5 text-left">Tình trạng sau nhả</th>
+                  <th className="px-2 py-2.5 text-left">Giám sát</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...inspectionLogs].reverse().map((log) => (
+                  <tr key={log.id} className="border-t border-slate-200">
+                    <td className="px-3 py-2.5 font-extrabold text-slate-800 whitespace-nowrap">{log.roomNo}</td>
+                    <td className="px-2 py-2.5 text-slate-600 whitespace-nowrap">{log.startTime || '-'}</td>
+                    <td className="px-2 py-2.5 text-slate-600 whitespace-nowrap">{log.endTime || <span className="text-amber-500 font-semibold">Đang kiểm...</span>}</td>
+                    <td className="px-2 py-2.5 text-slate-600 whitespace-nowrap">{log.status || '-'}</td>
+                    <td className="px-2 py-2.5 text-slate-600 whitespace-nowrap">{log.giamSat}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
