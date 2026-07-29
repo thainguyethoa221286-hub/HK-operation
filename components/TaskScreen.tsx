@@ -107,6 +107,17 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   // Lịch sử kiểm phòng của giám sát/admin — CHỈ Admin/Giám sát cần xem, nhân viên không cần
   useEffect(() => {
     if (isStaff) return;
+    // Nếu vừa có 1 lượt Đồng bộ AI mới kể từ lần màn này áp dụng gần nhất — xoá ngay bảng cục bộ
+    // (không đợi tới vòng polling 15s kế tiếp), vì Code.gs (bulkUpdateFromAI) đã xoá sạch tab
+    // "InspectionLog" trên Sheet ngay khi Đồng bộ AI chạy xong.
+    try {
+      const lastAiSync = localStorage.getItem('hk_last_ai_sync') || '';
+      const lastApplied = localStorage.getItem('hk_inspectlogs_synced_at') || '';
+      if (lastAiSync && lastAiSync !== lastApplied) {
+        setInspectionLogs([]);
+        localStorage.setItem('hk_inspectlogs_synced_at', lastAiSync);
+      }
+    } catch {}
     const refreshLogs = () => { getInspectionLogs().then(setInspectionLogs).catch(() => {}); };
     refreshLogs();
     const timer = setInterval(refreshLogs, 15000);
