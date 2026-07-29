@@ -50,16 +50,20 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
       onUpdate(room.MaPhong, { TaskStatus: 'Chưa dọn', GhiChuNV: removeNoteCode(room.GhiChuNV, 'DND') });
       log('DND Tắt');
     } else {
-      onUpdate(room.MaPhong, { TaskStatus: 'DND', GhiChuNV: addNoteCode(room.GhiChuNV, 'DND') });
+      // Bật DND -> gỡ luôn mã RF nếu có (loại trừ lẫn nhau, tránh cả 2 badge cùng hiện)
+      const cleaned = removeNoteCode(room.GhiChuNV, 'RF');
+      onUpdate(room.MaPhong, { TaskStatus: 'DND', GhiChuNV: addNoteCode(cleaned, 'DND') });
       log('DND Bật');
     }
   };
 
   const markRefused = () => {
+    // Từ chối (RF) -> gỡ luôn mã DND nếu có (loại trừ lẫn nhau, tránh cả 2 badge cùng hiện)
+    const cleaned = removeNoteCode(room.GhiChuNV, 'DND');
     onUpdate(room.MaPhong, {
       TaskStatus: 'Refused',
       StartTime: nowTimeStr(),
-      GhiChuNV: addNoteCode(room.GhiChuNV, 'RF'),
+      GhiChuNV: addNoteCode(cleaned, 'RF'),
     });
     log('Từ chối (RF)');
   };
