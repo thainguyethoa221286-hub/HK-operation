@@ -141,6 +141,12 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
       const freshRooms = await fetchRooms();
       setRooms(freshRooms);
 
+      // Đánh dấu mốc "vừa Đồng bộ AI xong" vào LocalStorage — màn Phân công (AssignScreen) và màn
+      // Nhiệm vụ/Lịch sử kiểm phòng (TaskScreen) đọc mốc này để TỰ ĐỘNG reset state cục bộ của mình
+      // (xoá tên nhân viên khỏi Tag N1/N2/N3..., xoá bảng Lịch sử kiểm phòng cũ) ngay khi mở lại màn đó,
+      // vì phòng/dữ liệu ca cũ vừa bị reset sạch trên Sheet (xem bulkUpdateFromAI ở Code.gs).
+      try { localStorage.setItem('hk_last_ai_sync', String(Date.now())); } catch {}
+
       const notFoundNote = allNotFound.length ? ` (không tìm thấy phòng: ${allNotFound.join(', ')})` : '';
       setAiMessage(`✓ Hoàn tất! Đã cập nhật ${totalUpdated} phòng${notFoundNote}`);
       setTimeout(() => setAiSyncing(false), 1500);
