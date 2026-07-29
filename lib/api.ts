@@ -110,6 +110,15 @@ export async function getTaskHistory(maPhong: string): Promise<HistoryEntry[]> {
   return r?.history || [];
 }
 
+/** Lấy TOÀN BỘ lịch sử thao tác TRONG NGÀY HÔM NAY của TẤT CẢ phòng (không lọc theo 1 phòng) —
+ *  dùng cho Housekeeping Daily Report để liệt kê đủ MỌI lần bấm bật DND/Từ chối (RF) trong ngày,
+ *  vì mỗi lần bấm đã tự ghi 1 dòng riêng (KHÔNG ghi đè) vào tab "LichSuDon" qua logTaskAction. */
+export async function getTodayHistory(): Promise<HistoryEntry[]> {
+  if (!API_URL) return [];
+  const r = await jsonp<{ success: boolean; history?: HistoryEntry[] }>('getTodayHistory', {});
+  return r?.history || [];
+}
+
 /** Lấy toàn bộ lượt giao/nhận chìa TRONG NGÀY HÔM NAY (mọi nhân viên) — dùng để vẽ trạng thái 9 thẻ chìa */
 export async function getKeyLogs(): Promise<KeyLog[]> {
   if (!API_URL) return [];
