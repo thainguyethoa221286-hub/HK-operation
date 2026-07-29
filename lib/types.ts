@@ -53,26 +53,30 @@ export interface InspectionLogRow {
   giamSat: string; // Tên giám sát/admin (từ account)
 }
 
-/** ===== MODULE NOTE BOARD (3 bảng độc lập) ===== */
-export interface WatchlistRoom {
-  id: number;
-  roomNo: string;
-  shiftNote: string; // Nội dung gốc lấy từ Báo cáo lúc đồng bộ — không đổi sau đó
-  extraNote: string; // Ghi chú bổ sung, tự do chỉnh sửa
-}
+/** ===== MODULE NOTE BOARD ===== */
 export interface OverdueHistoryRow {
   id: number;
-  category: 'ThayGiuong' | 'DND' | 'RF';
+  category: 'DND' | 'RF';
   roomNo: string;
   dateNoted: string; // ngày được ghi nhận (thường là "hôm qua" tính từ lúc Đồng bộ AI chạy)
+}
+/** Báo cáo lịch thay ga/giường — snapshot TRƯỚC khi bulkUpdateFromAI reset LinenChange mỗi ngày.
+ *  Giữ đúng 1 ngày (hiện xuyên suốt ngày hôm sau, chỉ mất ở lần Đồng bộ AI kế tiếp — xem Code.gs). */
+export interface LinenChangeHistoryRow {
+  id: number;
+  roomNo: string;
+  roomType: string;
+  date: string; // dd/MM/yyyy — ngày thực hiện (ngày được reset, tức "hôm qua" tính từ lúc sync)
+  staff: string;
+  status: 'Có' | 'Không';
 }
 export interface SupplyBoardItem {
   label: string;
   value: string;
 }
 export const SUPPLY_LABELS = [
-  'Extra Bed', 'Extra Bed sẵn', 'Baby cot', 'Tách giường', 'Ghép giường',
-  'Bathrobe', 'Blanket', 'Memory', 'Latex', 'Noted',
+  'EB', 'EB vào sẵn', 'BABY COT', 'TÁCH', 'GHÉP', 'BATHROBE', 'BLANKET',
+  'RUBBER MAT', 'MEMORY', 'LATEX', 'BBC', 'BODY LOTION', 'NOTED',
 ] as const;
 
 /** ===== MODULE LOST & FOUND (Đồ thất lạc & tìm thấy) ===== */
