@@ -15,18 +15,20 @@ const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
 
 /** Thứ tự ưu tiên cho phòng CHƯA settled — đúng 7 bậc theo yêu cầu:
  *  1. Arrival + Rush  2. Arrival  3. MKR  4. Occupied  5. Vacant  6. Due out/ARR (Back to Back)  7. Due out */
+/** Thứ tự ưu tiên cho phòng CHƯA settled:
+ *  0. RUSH hoặc MKR — BẮT BUỘC lên đầu, KHÔNG phụ thuộc trạng thái khách (Occupied/Vacant/Due out...)
+ *  1. Arrival  2. Occupied  3. Vacant  4. Due out/ARR (Back to Back)  5. Due out */
 function priorityTier(r: Room): number {
   const flags = (r.Flags || '').split(',').map((f) => f.trim());
   const isRush = flags.includes('CayBac');
   const isMkr = flags.includes('TrangDiem');
-  if (r.FoStatus === 'Arrival' && isRush) return 0;
+  if (isRush || isMkr) return 0;
   if (r.FoStatus === 'Arrival') return 1;
-  if (isMkr) return 2;
-  if (r.FoStatus === 'Occupied') return 3;
-  if (r.FoStatus === 'Vacant') return 4;
-  if (r.FoStatus === 'Due out/ARR') return 5;
-  if (r.FoStatus === 'Due out') return 6;
-  return 7;
+  if (r.FoStatus === 'Occupied') return 2;
+  if (r.FoStatus === 'Vacant') return 3;
+  if (r.FoStatus === 'Due out/ARR') return 4;
+  if (r.FoStatus === 'Due out') return 5;
+  return 6;
 }
 
 /** Mục 3 — sắp xếp: phòng chưa xong lên trước (theo tier ưu tiên, rồi số phòng tăng dần),
