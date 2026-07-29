@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Building2, CheckCircle2, Clock3, AlertCircle, Printer, KeyRound, MessageSquareText, MessageSquareWarning, ListChecks } from 'lucide-react';
-import type { Room, KeyLog } from '@/lib/types';
-import { getKeyLogs } from '@/lib/api';
+import type { Room, KeyLog, HistoryEntry } from '@/lib/types';
+import { getKeyLogs, getTodayHistory } from '@/lib/api';
 import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
 
@@ -32,12 +32,44 @@ function StatusBadge({ label, cls }: { label: string; cls: string }) {
 
 export default function ReportScreen({ rooms }: ReportScreenProps) {
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+  // Lịch sử TRONG NGÀY của TẤT CẢ phòng — dùng riêng để liệt kê đủ MỌI lần bấm bật DND/RF
+  // (mỗi lần bấm đã tự ghi 1 dòng mới trong tab "LichSuDon", không ghi đè) cho Daily Report.
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     getKeyLogs().then(setKeyLogs);
     const timer = setInterval(() => getKeyLogs().then(setKeyLogs), 15000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    getTodayHistory().then(setHistory).catch(() => {});
+    const timer = setInterval(() => getTodayHistory().then(setHistory).catch(() => {}), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Mỗi lần nhân viên bấm BẬT DND/Từ chối (RF) trong ngày -> gom hết mốc giờ HH:mm theo từng phòng
+  // (bấm mấy lần thì hiện đủ mấy mốc giờ, theo đúng thứ tự lúc bấm).
+  const dndTimesByRoom = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const h of history) {
+      if (h.hanhDong === 'DND Bật') {
+        const t = formatTimeOnly(h.gio);
+        if (t) (map[h.maPhong] ||= []).push(t);
+      }
+    }
+    return map;
+  }, [history]);
+  const rfTimesByRoom = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const h of history) {
+      if (h.hanhDong === 'Từ chối (RF)') {
+        const t = formatTimeOnly(h.gio);
+        if (t) (map[h.maPhong] ||= []).push(t);
+      }
+    }
+    return map;
+  }, [history]);
 
   // Mục "Ghi chú nhân viên" — CHỈ ở Báo cáo mới kết hợp ghi chú hiện tại + "hôm qua" (giữ đủ 1 ngày),
   // mọi nơi khác trong app (thẻ phòng, Modal...) chỉ dùng GhiChuNV/GhiChuAdmin hiện tại, xoá ngay khi sync.
@@ -243,11 +275,9 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                 const currentBadge = r.isInspecting ? CHECKING_BADGE : (STATUS_BADGE_EN[r.HkStatus] || STATUS_BADGE_EN['Phòng dơ']);
                 const workingTime = r.StartTime ? `${formatTimeOnly(r.StartTime)} - ${r.EndTime ? formatTimeOnly(r.EndTime) : ''}` : '—';
                 const codes = extractNoteCodes(combineNotes(r.GhiChu, r.GhiChuNV, r.GhiChuAdmin));
-                const remarks = [
-                  codes.length > 0 ? codes.join(', ') : '',
-                  r.GhiChuAdmin ? `QL: ${r.GhiChuAdmin}` : '',
-                  stripCodesFromNote(r.GhiChuNV) ? `NV: ${stripCodesFromNote(r.GhiChuNV)}` : '',
-                ].filter(Boolean).join(' / ');
+                const dndTimes = dndTimesByRoom[r.MaPhong] || [];
+                const rfTimes = rfTimesByRoom[r.MaPhong] || [];
+                const staffNote = stripCodesFromNote(r.GhiChuNV);
 
                 return (
                   <tr key={r.MaPhong} className="border-t border-slate-50 align-top">
@@ -263,7 +293,35 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
                         <span className="inline-block bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded text-[10px]">LOCKED</span>
                       ) : '—'}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{remarks || ''}</td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {codes.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mb-1">
+                          {codes.map((code, i) => {
+                            if (code === 'DND') {
+                              return (
+                                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold whitespace-nowrap">
+                                  🌙 DND{dndTimes.length > 0 ? ` - ${dndTimes.join(', ')}` : ''}
+                                </span>
+                              );
+                            }
+                            if (code === 'RF') {
+                              return (
+                                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-bold whitespace-nowrap">
+                                  ⚠️ RF{rfTimes.length > 0 ? ` - ${rfTimes.join(', ')}` : ''}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span key={i} className="inline-block bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded text-[10px]">
+                                {code}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {r.GhiChuAdmin && <div className="text-[11px]">QL: {r.GhiChuAdmin}</div>}
+                      {staffNote && <div className="text-[11px]">NV: {staffNote}</div>}
+                    </td>
                   </tr>
                 );
               })}
