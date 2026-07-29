@@ -70,9 +70,29 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const saved = localStorage.getItem('hkpro_groups');
-    if (saved) {
-      try { setGroups(JSON.parse(saved)); } catch {}
+    let loadedGroups = DEFAULT_GROUPS;
+    try {
+      const saved = localStorage.getItem('hkpro_groups');
+      if (saved) loadedGroups = JSON.parse(saved);
+    } catch {}
+
+    // Đồng bộ AI (màn Sơ đồ phòng) ghi mốc giờ vào 'hk_last_ai_sync' mỗi lần chạy xong. Nếu mốc đó
+    // MỚI HƠN lần gần nhất màn Phân công này đã áp dụng — nghĩa là vừa có 1 lượt Đồng bộ AI mới (phòng
+    // của từng nhân viên đã bị reset về 0 trên Sheet) — tự động xoá sạch tên nhân viên trong các Tag
+    // N1/N2/N3... đưa nhóm về mặc định, để không còn giữ tên cũ (Loan/Hải/Nhân...) khi phòng đã trống.
+    let lastAppliedSync = '';
+    try { lastAppliedSync = localStorage.getItem('hkpro_groups_synced_at') || ''; } catch {}
+    let lastAiSync = '';
+    try { lastAiSync = localStorage.getItem('hk_last_ai_sync') || ''; } catch {}
+
+    if (lastAiSync && lastAiSync !== lastAppliedSync) {
+      setGroups(DEFAULT_GROUPS);
+      try {
+        localStorage.setItem('hkpro_groups', JSON.stringify(DEFAULT_GROUPS));
+        localStorage.setItem('hkpro_groups_synced_at', lastAiSync);
+      } catch {}
+    } else {
+      setGroups(loadedGroups);
     }
   }, []);
   useEffect(() => {
