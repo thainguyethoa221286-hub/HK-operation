@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
-import { formatDateShort } from '@/lib/roomStyles';
+import { formatDateShort, removeNoteCode } from '@/lib/roomStyles';
 import { createMaintenanceIssue } from '@/lib/api';
 
 interface RoomModalProps {
@@ -64,14 +64,25 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     if (isRepairActive && repairNote.trim() && repairNote !== initialRepairNote) {
       createMaintenanceIssue(room.MaPhong, repairNote.trim(), account?.hoTen || 'Giám sát');
     }
-    onSave(room.MaPhong, {
+
+    // Bật cờ MKR — DND/RF đã hết hiệu lực (phòng cần trang điểm/chuẩn bị, không còn từ chối/không làm phiền
+    // nữa), tự động gỡ mã DND/RF khỏi CẢ 3 nguồn ghi chú để hết hẳn badge, không chỉ ẩn ở 1 chỗ.
+    const changes: Partial<Room> = {
       HkStatus: hk,
       FoStatus: fo,
       NhanVienPhuTrach: staff,
       GhiChuAdmin: note,
       GhiChuSuaChua: repairNote,
       Flags: flags.join(','),
-    });
+    };
+    if (flags.includes('TrangDiem')) {
+      const strip = (s: string) => removeNoteCode(removeNoteCode(s, 'DND'), 'RF');
+      changes.GhiChu = strip(room.GhiChu || '');
+      changes.GhiChuNV = strip(room.GhiChuNV || '');
+      changes.GhiChuAdmin = strip(note);
+    }
+
+    onSave(room.MaPhong, changes);
     onClose();
   };
 
