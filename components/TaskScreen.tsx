@@ -80,6 +80,8 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
   const [isKeyGridExpanded, setIsKeyGridExpanded] = useState(false);
+  // Mục 2 — cho phép bỏ qua hẳn bước nhận chìa/máy hút bụi, vào thẳng Worksheet (reset khi tải lại trang)
+  const [skipKeys, setSkipKeys] = useState(false);
   const [inspectionLogs, setInspectionLogs] = useState<InspectionLogRow[]>([]);
   const [broadcastTask, setBroadcastTaskState] = useState<BroadcastTaskData | null>(null);
 
@@ -113,10 +115,27 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
 
   // Mục 3 — mượn NHIỀU chìa cùng lúc khi bấm Xác nhận (chỉ lúc này mới lưu timestamp + mở khóa Nhiệm vụ)
   const handleConfirmBorrow = async (keyLabels: string[]) => {
+    // Optimistic UI — thêm ngay vào state cục bộ (0ms), KHÔNG đợi backend mới cho nhân viên thấy đã nhận chìa.
+    // rowIndex tạm dùng số âm (chưa có dòng thật trên Sheet), sẽ được refreshKeyLogs() ghi đè bằng dữ liệu
+    // thật (kèm rowIndex chính xác) ngay khi backend phản hồi xong ở background.
+    const now = new Date();
+    const nowStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+    setKeyLogs((prev) => [
+      ...prev,
+      ...keyLabels.map((label, i) => ({
+        rowIndex: -(Date.now() + i),
+        ngay: '',
+        nhanVien: account.hoTen,
+        keyLabel: label,
+        gioMuon: nowStr,
+        gioTra: '',
+        trangThai: 'Đang giữ' as const,
+      })),
+    ]);
     const results = await Promise.all(keyLabels.map((label) => borrowKey(account.hoTen, label)));
     const failed = results.filter((r) => !r.success);
     if (failed.length > 0) alert(failed.map((r) => r.error).join('\n'));
-    refreshKeyLogs();
+    refreshKeyLogs(); // đồng bộ lại rowIndex thật + dữ liệu chính xác từ Sheet ở background
   };
   // Sau khi xác nhận mượn chìa thành công, tự động thu gọn lưới lại — gọn giao diện ngay,
   // đúng yêu cầu "ẩn toàn bộ lưới danh sách bộ chìa khóa" sau khi đã chọn xong.
@@ -125,8 +144,14 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     setIsKeyGridExpanded(false);
   };
   const handleReturnKey = async (rowIndex: number) => {
-    await returnKey(rowIndex);
-    refreshKeyLogs();
+    // Optimistic UI — xoá ngay khỏi màn hình (0ms), gửi request lưu về Sheet chạy nền không chặn UI
+    setKeyLogs((prev) => prev.filter((l) => l.rowIndex !== rowIndex));
+    try {
+      await returnKey(rowIndex);
+    } catch (err) {
+      console.error('Lỗi đồng bộ trả chìa:', err);
+    }
+    refreshKeyLogs(); // đồng bộ lại cho chắc chắn khớp Sheet
   };
 
   // Ô Máy hút bụi — ghi VacuumFloor lên TOÀN BỘ phòng đang được giao cho nhân viên này hôm nay
@@ -166,6 +191,8 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     const trolleyCode = myRoomsRaw.find((r) => r.TrolleyCode)?.TrolleyCode || '';
     // Tầng máy hút bụi hiện tại — lấy từ phòng nào đã có giá trị (đồng bộ chung 1 giá trị cho cả ca)
     const vacuumFloor = myRoomsRaw.find((r) => r.VacuumFloor)?.VacuumFloor || '';
+    // Mục 1 — nút TRẢ CHÌA KHÓA chỉ mở khóa khi ĐÃ chọn Máy hút bụi (khác rỗng)
+    const isVacuumSelected = Boolean(vacuumFloor && vacuumFloor !== '');
     const myRoomIds = myRoomsRaw.map((r) => r.MaPhong);
 
     // Đồng bộ với RoomCard đang cần: đảm bảo phòng luôn thể hiện đúng dữ liệu mới nhất trong modal đang mở
@@ -238,13 +265,24 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                       🔑 {k.keyLabel} · {formatTimeOnly(k.gioMuon)}
                     </span>
                     <button
-                      onClick={() => handleReturnKey(k.rowIndex)}
-                      className="text-[11px] font-bold text-red-600 bg-white border border-red-200 rounded-lg px-2.5 py-1.5"
+                      onClick={() => isVacuumSelected && handleReturnKey(k.rowIndex)}
+                      disabled={!isVacuumSelected}
+                      title={!isVacuumSelected ? 'Chọn Máy hút bụi trước khi trả chìa' : undefined}
+                      className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border transition-all ${
+                        isVacuumSelected
+                          ? 'text-red-600 bg-white border-red-200 cursor-pointer hover:bg-red-50'
+                          : 'text-gray-400 bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                      }`}
                     >
                       TRẢ CHÌA KHÓA
                     </button>
                   </div>
                 ))}
+                {!isVacuumSelected && (
+                  <div className="text-[10.5px] font-semibold text-amber-600 px-1">
+                    ⚠ Chọn Máy hút bụi ở trên trước khi trả chìa khóa
+                  </div>
+                )}
                 {/* Thu gọn lưới chọn chìa mặc định khi đã có chìa đang giữ — tránh thao tác nhầm,
                     chỉ xổ ra lại khi bấm nút này */}
                 <button
@@ -254,15 +292,34 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                   {isKeyGridExpanded ? '▲ Thu gọn danh sách chìa' : '🔑 LẤY THÊM CHÌA KHÓA'}
                 </button>
               </div>
+            ) : skipKeys ? (
+              <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <span className="text-[12px] font-bold text-slate-500">🚫 Đã bỏ qua bước nhận chìa khóa</span>
+                <button
+                  onClick={() => setSkipKeys(false)}
+                  className="text-[11px] font-bold text-blue-600 bg-white border border-blue-200 rounded-lg px-2 py-1"
+                >
+                  Quay lại nhận chìa
+                </button>
+              </div>
             ) : (
-              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-[12px] font-bold text-red-600">
-                <Lock className="w-3.5 h-3.5" /> Chưa nhận chìa khóa — tích chọn chìa bên dưới rồi bấm Xác nhận để mở khóa nhiệm vụ
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-[12px] font-bold text-red-600">
+                  <Lock className="w-3.5 h-3.5" /> Chưa nhận chìa khóa — tích chọn chìa bên dưới rồi bấm Xác nhận để mở khóa nhiệm vụ
+                </div>
+                {/* Mục 2 — cho phép bỏ qua hẳn bước nhận chìa/máy hút bụi, vào thẳng Worksheet */}
+                <button
+                  onClick={() => setSkipKeys(true)}
+                  className="w-full flex items-center justify-center gap-1.5 text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-xl py-2"
+                >
+                  🚫 KHÔNG NHẬN CHÌA — Xem Worksheet không lấy chìa
+                </button>
               </div>
             )}
           </div>
-          {/* Lưới chọn chìa — hiện mặc định khi CHƯA có chìa nào, hoặc khi bấm "LẤY THÊM CHÌA KHÓA" */}
-          {(myKeys.length === 0 || isKeyGridExpanded) && (
-            <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrowAndCollapse} onReturn={handleReturnKey} />
+          {/* Lưới chọn chìa — hiện mặc định khi CHƯA có chìa nào và chưa bấm bỏ qua, hoặc khi bấm "LẤY THÊM CHÌA KHÓA" */}
+          {((myKeys.length === 0 && !skipKeys) || isKeyGridExpanded) && (
+            <KeyBoard keyLogs={keyLogs} myName={account.hoTen} onConfirmBorrow={handleConfirmBorrowAndCollapse} onReturn={handleReturnKey} canReturn={isVacuumSelected} />
           )}
         </div>
 
@@ -309,8 +366,8 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
           </div>
         )}
 
-        {/* Danh sách phòng — BỊ KHÓA cho tới khi nhận chìa khóa */}
-        {myKeys.length === 0 ? (
+        {/* Danh sách phòng — BỊ KHÓA cho tới khi nhận chìa khóa, TRỪ KHI đã bấm "Không nhận chìa" */}
+        {myKeys.length === 0 && !skipKeys ? (
           <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-10 text-center">
             <Lock className="w-6 h-6 text-slate-300 mx-auto mb-2" />
             <div className="text-[13px] font-bold text-slate-400">Danh sách phòng đang khóa</div>
