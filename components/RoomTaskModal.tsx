@@ -292,28 +292,48 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           {/* Đồng hồ tác vụ & thao tác trạng thái */}
           {!isRefused && (
             <div>
-              {!isCleaning && !isDone && (
-                room.FoStatus === 'Due out' || room.FoStatus === 'Due out/ARR' ? (
-                  <div>
-                    <button
-                      disabled
-                      className="w-full flex items-center justify-center gap-2 bg-slate-200 text-slate-400 rounded-xl py-3.5 text-sm font-bold cursor-not-allowed"
-                    >
-                      <Play className="w-4 h-4" /> BẮT ĐẦU DỌN PHÒNG
-                    </button>
-                    <div className="text-[11px] text-slate-400 text-center mt-1.5">
-                      Chỉ dọn khi khách đã trả phòng — chờ chuyển sang Vacant/Arrival/Occupied
+              {!isCleaning && !isDone && (() => {
+                const isBlockedByDndOrRf = isDnd || isRefused;
+                const isDueOutGate = room.FoStatus === 'Due out' || room.FoStatus === 'Due out/ARR';
+                if (isBlockedByDndOrRf) {
+                  return (
+                    <div>
+                      <button
+                        disabled
+                        className="w-full flex items-center justify-center gap-2 bg-slate-200 text-slate-400 rounded-xl py-3.5 text-sm font-bold cursor-not-allowed opacity-70"
+                      >
+                        🔒 KHÔNG THỂ DỌN (PHÒNG {isDnd ? 'DND' : 'RF'})
+                      </button>
+                      <p className="text-center text-[11px] text-amber-600 font-semibold mt-1.5">
+                        ⚠️ Bỏ chọn {isDnd ? 'DND' : 'Từ chối (RF)'} phía trên để mở khóa nút dọn phòng.
+                      </p>
                     </div>
-                  </div>
-                ) : (
+                  );
+                }
+                if (isDueOutGate) {
+                  return (
+                    <div>
+                      <button
+                        disabled
+                        className="w-full flex items-center justify-center gap-2 bg-slate-200 text-slate-400 rounded-xl py-3.5 text-sm font-bold cursor-not-allowed"
+                      >
+                        <Play className="w-4 h-4" /> BẮT ĐẦU DỌN PHÒNG
+                      </button>
+                      <div className="text-[11px] text-slate-400 text-center mt-1.5">
+                        Chỉ dọn khi khách đã trả phòng — chờ chuyển sang Vacant/Arrival/Occupied
+                      </div>
+                    </div>
+                  );
+                }
+                return (
                   <button
                     onClick={startCleaning}
                     className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-3.5 text-sm font-bold"
                   >
                     <Play className="w-4 h-4" /> BẮT ĐẦU DỌN PHÒNG
                   </button>
-                )
-              )}
+                );
+              })()}
               {isCleaning && (
                 <button
                   onClick={finishCleaning}
