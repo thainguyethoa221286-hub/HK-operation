@@ -167,19 +167,6 @@ export interface KeyLog {
   trangThai: 'Đang giữ' | 'Đã trả';
 }
 
-/** 1 lượt giao/nhận chìa khóa — lưu ở tab riêng "GiaoNhanChia".
- *  rowIndex dùng để gọi returnKey() cập nhật đúng dòng khi trả chìa. */
-export interface KeyLog {
-  rowIndex: number;
-  ngay: string;
-  nhanVien: string;
-  soPhong: string;
-  soLuong: string;
-  gioMuon: string;
-  gioTra: string;
-  trangThai: 'Đang giữ' | 'Đã trả';
-}
-
 export interface Room {
   MaPhong: string;
   Tang: string;
