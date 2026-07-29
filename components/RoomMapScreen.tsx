@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import RoomCard from '@/components/RoomCard';
 import RoomModal from '@/components/RoomModal';
-import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms } from '@/lib/api';
+import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms, startInspectionLog, endInspectionLog } from '@/lib/api';
 
 const LEGEND = [
   { label: 'Phòng dơ', dot: 'bg-red-500' },
@@ -58,20 +58,42 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
   const NHA_PHONG_TARGET_STATUSES = ['Phòng dơ', 'Phòng sạch', 'Phòng sửa chữa (OOO)'];
   const handleToggleInspecting = (maPhong: string, value: boolean) => {
     let newHkStatus: string | null = null;
+    let newFlags: string | null = null;
     setRooms((prev) =>
       prev.map((r) => {
         if (r.MaPhong !== maPhong) return r;
         const hk = !value && NHA_PHONG_TARGET_STATUSES.includes(r.HkStatus) ? 'Đã kiểm tra' : r.HkStatus;
         if (hk !== r.HkStatus) newHkStatus = hk;
-        return { ...r, HkStatus: hk, isInspecting: value };
+        // Nhả phòng (value=false) — cờ RUSH đã hoàn thành nhiệm vụ, tự động xoá khỏi Flags
+        let flags = r.Flags;
+        if (!value) {
+          const stripped = (r.Flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'CayBac').join(',');
+          if (stripped !== r.Flags) { flags = stripped; newFlags = stripped; }
+        }
+        return { ...r, HkStatus: hk, Flags: flags, isInspecting: value };
       })
     );
     setActiveRoom((prev) => {
       if (!prev || prev.MaPhong !== maPhong) return prev;
       const hk = !value && NHA_PHONG_TARGET_STATUSES.includes(prev.HkStatus) ? 'Đã kiểm tra' : prev.HkStatus;
-      return { ...prev, HkStatus: hk, isInspecting: value };
+      let flags = prev.Flags;
+      if (!value) {
+        flags = (prev.Flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'CayBac').join(',');
+      }
+      return { ...prev, HkStatus: hk, Flags: flags, isInspecting: value };
     });
     if (newHkStatus) updateRoomField(maPhong, 'HkStatus', newHkStatus);
+    if (newFlags !== null) updateRoomField(maPhong, 'Flags', newFlags);
+
+    // Ghi Lịch sử kiểm phòng của giám sát/admin — bấm KIỂM PHÒNG mở dòng mới (StartTime),
+    // bấm NHẢ PHÒNG tìm đúng dòng đang mở của phòng đó và điền EndTime + tình trạng sau khi nhả.
+    const giamSat = account?.hoTen || 'Giám sát';
+    if (value) {
+      startInspectionLog(maPhong, giamSat);
+    } else {
+      const finalStatus = newHkStatus || 'Đã kiểm tra';
+      endInspectionLog(maPhong, finalStatus);
+    }
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
