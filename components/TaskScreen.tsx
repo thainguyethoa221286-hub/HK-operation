@@ -12,6 +12,9 @@ import { TASK_STATUS_STYLE, formatTimeOnly } from '@/lib/roomStyles';
 import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
 const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
+// DND/Refused luôn phải nằm DƯỚI CÙNG danh sách, SAU CẢ nhóm "Đã dọn" (Hoàn thành) — đúng yêu cầu
+// "phòng DND và RF bôi xám, đẩy xuống dưới cùng, sau phòng đã dọn".
+const GRAYED_LAST_STATUSES = ['DND', 'Refused'];
 
 /** Thứ tự ưu tiên cho phòng CHƯA settled — đúng 7 bậc theo yêu cầu:
  *  1. Arrival + Rush  2. Arrival  3. MKR  4. Occupied  5. Vacant  6. Due out/ARR (Back to Back)  7. Due out */
@@ -19,14 +22,17 @@ const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
  *  0. RUSH hoặc MKR — BẮT BUỘC lên đầu, KHÔNG phụ thuộc trạng thái khách (Occupied/Vacant/Due out...)
  *  1. Arrival  2. Occupied  3. Vacant  4. Due out/ARR (Back to Back)  5. Due out */
 /** Hàm tính ĐIỂM ƯU TIÊN tuyệt đối cho 1 phòng — MỘT bước duy nhất, không so sánh lồng nhau.
- *  Điểm càng cao càng đứng đầu danh sách. */
+ *  Điểm càng cao càng đứng đầu danh sách.
+ *  LƯU Ý: kiểm tra DND/Refused TRƯỚC CẢ RUSH/MKR — phòng DND/RF luôn xuống cuối tuyệt đối, kể cả khi
+ *  Flags vẫn còn sót cờ RUSH/MKR từ dữ liệu cũ (bình thường RoomTaskModal đã tự gỡ 2 cờ này khi bật DND/RF). */
 function getRoomPriority(r: Room): number {
+  if (GRAYED_LAST_STATUSES.includes(r.TaskStatus)) return 5;   // DND / Refused — xuống CUỐI CÙNG, sau cả Đã dọn
+  if (r.TaskStatus === 'Hoàn thành') return 10;                // Đã dọn — xuống cuối, nhưng TRƯỚC DND/RF
   const flags = (r.Flags || '').split(',').map((f) => f.trim());
   const isMkr = flags.includes('TrangDiem');
   const isRush = flags.includes('CayBac');
   const isOut = flags.includes('DaOut');
   if (isMkr || isRush) return 1000;                          // MKR / RUSH — LUÔN đứng đầu tuyệt đối
-  if (SETTLED_STATUSES.includes(r.TaskStatus)) return 10;    // Hoàn thành / Refused / DND — luôn xuống cuối
   if (isOut) return 500;                                     // Đã out — đứng nhì
   if (r.FoStatus === 'Arrival') return 190;
   if (r.FoStatus === 'Occupied') return 180;
