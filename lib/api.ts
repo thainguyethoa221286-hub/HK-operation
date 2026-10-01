@@ -1,11 +1,14 @@
 import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
-// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng) đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
-// Các module khác (Giao nhận chìa, Task Chart, Maintenance, Lost&Found, Note Board...) vẫn
+// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng) VÀ GIAI ĐOẠN 2 (Giao nhận chìa + Task Chart)
+// đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
+// Các module còn lại (Maintenance, Lost&Found, Note Board, Kiểm phòng, Task khẩn...) vẫn
 // chạy Google Sheets/Apps Script (JSONP) bên dưới cho tới khi tới lượt giai đoạn của chúng.
 import {
   sbFetchRooms, sbUpdateRoomField, sbUpdateRoomFields, sbBulkUpdateRoomsFromAI,
   sbLogin, sbLoginByPassword, sbListAccounts, sbUpdateAccountModules,
   sbLogTaskAction, sbGetTaskHistory, sbGetTodayHistory,
+  sbGetKeyLogs, sbBorrowKey, sbReturnKey, sbCloseAllOpenKeys,
+  sbGetTaskCharts, sbCreateTaskChart, sbDeleteTaskChart, sbUpdateTaskChartMeta, sbUpdateTaskCell,
 } from './supabaseHkpro';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -82,23 +85,17 @@ export async function getTodayHistory(): Promise<HistoryEntry[]> {
 
 /** Lấy toàn bộ lượt giao/nhận chìa TRONG NGÀY HÔM NAY (mọi nhân viên) — dùng để vẽ trạng thái 9 thẻ chìa */
 export async function getKeyLogs(): Promise<KeyLog[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; logs?: KeyLog[] }>('getKeyLogs', {});
-  return r?.logs || [];
+  return sbGetKeyLogs();
 }
 
 /** Mượn 1 bộ chìa — ghi 1 dòng mới, trạng thái "Đang giữ" */
 export async function borrowKey(nhanVien: string, keyLabel: string): Promise<{ success: boolean; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; error?: string }>('borrowKey', { nhanVien, keyLabel });
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbBorrowKey(nhanVien, keyLabel);
 }
 
 /** Trả chìa — cập nhật đúng dòng (theo rowIndex) sang trạng thái "Đã trả" */
 export async function returnKey(rowIndex: number): Promise<{ success: boolean; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; error?: string }>('returnKey', { rowIndex: String(rowIndex) });
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbReturnKey(rowIndex);
 }
 
 /** Đăng nhập bằng ID + mật khẩu — đối chiếu bảng hkpro_accounts trên Supabase qua RPC (bảo mật) */
@@ -123,18 +120,23 @@ export async function updateAccountModules(id: string, modules: string[]): Promi
   return sbUpdateAccountModules(id, modules);
 }
 
-/** Đồng bộ AI đọc PDF — áp trạng thái phòng mới lên bảng Phòng (Supabase, Giai đoạn 1).
- *  Đồng thời GIỮ NGUYÊN lệnh gọi Apps Script cũ (chạy nền, không chặn UI) để các module CHƯA
- *  migrate (Giao nhận chìa, Lịch sử kiểm phòng, Note Board...) vẫn được reset/ghi nhận như trước
+/** Đồng bộ AI đọc PDF — áp trạng thái phòng mới lên bảng Phòng + đóng các lượt chìa còn "Đang giữ"
+ *  (Supabase, Giai đoạn 1 + 2). Đồng thời GIỮ NGUYÊN lệnh gọi Apps Script cũ (chạy nền, không chặn UI)
+ *  để các module CHƯA migrate (Lịch sử kiểm phòng, Note Board...) vẫn được reset/ghi nhận như trước
  *  cho tới khi các module đó cũng chuyển sang Supabase ở giai đoạn sau. */
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
   if (API_URL) {
     jsonp('bulkUpdateFromAI', { data: JSON.stringify(chunk) }).catch((err) => {
-      console.warn('[HK PRO] Đồng bộ phụ (Giao nhận chìa/Kiểm phòng/Note Board) qua Apps Script lỗi:', err);
+      console.warn('[HK PRO] Đồng bộ phụ (Kiểm phòng/Note Board) qua Apps Script lỗi:', err);
     });
   }
   try {
     const { updated, notFound } = await sbBulkUpdateRoomsFromAI(chunk);
+    try {
+      await sbCloseAllOpenKeys();
+    } catch (err) {
+      console.warn('[HK PRO] Đóng lượt chìa cũ (Đồng bộ AI) lỗi:', err);
+    }
     return { success: true, updated, notFound };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Lỗi không xác định' };
@@ -204,37 +206,27 @@ export async function readPdfWithAI(file: File): Promise<any[]> {
 
 /** Lấy toàn bộ bảng Task Chart + toàn bộ ô dữ liệu (mọi bảng) trong 1 lần gọi */
 export async function getTaskCharts(): Promise<{ charts: TaskChart[]; cells: TaskChartCell[] }> {
-  if (!API_URL) return { charts: [], cells: [] };
-  const r = await jsonp<{ success: boolean; charts?: TaskChart[]; cells?: TaskChartCell[] }>('getTaskCharts', {});
-  return { charts: r?.charts || [], cells: r?.cells || [] };
+  return sbGetTaskCharts();
 }
 
 /** Tạo 1 bảng Task Chart mới */
 export async function createTaskChart(title: string): Promise<{ success: boolean; chart?: TaskChart; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; chart?: TaskChart; error?: string }>('createTaskChart', { title });
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbCreateTaskChart(title);
 }
 
 /** Xoá 1 bảng Task Chart (và toàn bộ ô dữ liệu của bảng đó) */
 export async function deleteTaskChart(chartId: string): Promise<{ success: boolean; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; error?: string }>('deleteTaskChart', { chartId });
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbDeleteTaskChart(chartId);
 }
 
 /** Đổi tên / đổi bảng màu của 1 Task Chart */
 export async function updateTaskChartMeta(chartId: string, title: string, palette: number): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateTaskChartMeta', { chartId, title, palette: String(palette) });
-  return r || { success: false };
+  return sbUpdateTaskChartMeta(chartId, title, palette);
 }
 
 /** Ghi 1 ô (checkbox + ghi chú) của 1 phòng trong 1 Task Chart — auto-save */
 export async function updateTaskCell(chartId: string, maPhong: string, checked: boolean, note: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateTaskCell', { chartId, maPhong, checked: checked ? '1' : '', note });
-  return r || { success: false };
+  return sbUpdateTaskCell(chartId, maPhong, checked, note);
 }
 
 /** ===== MODULE MAINTENANCE ===== */
