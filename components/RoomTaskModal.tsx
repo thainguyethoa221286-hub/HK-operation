@@ -45,25 +45,33 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
     if (merged !== room.GhiChuNV) onUpdate(room.MaPhong, { GhiChuNV: merged });
   };
 
+  // Gỡ cờ RUSH (CayBac) + MKR (TrangDiem) khỏi Flags — dùng khi phòng chuyển sang DND/RF,
+  // vì phòng không làm được nữa thì 2 cờ ưu tiên này không còn ý nghĩa, tự động biến mất khỏi thẻ phòng.
+  const clearRushMkrFlags = (flags: string) =>
+    (flags || '').split(',').map((f) => f.trim()).filter((f) => f && f !== 'CayBac' && f !== 'TrangDiem').join(',');
+
   const toggleDnd = () => {
     if (room.TaskStatus === 'DND') {
       onUpdate(room.MaPhong, { TaskStatus: 'Chưa dọn', GhiChuNV: removeNoteCode(room.GhiChuNV, 'DND') });
       log('DND Tắt');
     } else {
       // Bật DND -> gỡ luôn mã RF nếu có (loại trừ lẫn nhau, tránh cả 2 badge cùng hiện)
+      // + tự động gỡ RUSH/MKR (phòng không làm được nữa thì không cần nhắc ưu tiên nữa)
       const cleaned = removeNoteCode(room.GhiChuNV, 'RF');
-      onUpdate(room.MaPhong, { TaskStatus: 'DND', GhiChuNV: addNoteCode(cleaned, 'DND') });
+      onUpdate(room.MaPhong, { TaskStatus: 'DND', GhiChuNV: addNoteCode(cleaned, 'DND'), Flags: clearRushMkrFlags(room.Flags) });
       log('DND Bật');
     }
   };
 
   const markRefused = () => {
     // Từ chối (RF) -> gỡ luôn mã DND nếu có (loại trừ lẫn nhau, tránh cả 2 badge cùng hiện)
+    // + tự động gỡ RUSH/MKR (phòng không làm được nữa thì không cần nhắc ưu tiên nữa)
     const cleaned = removeNoteCode(room.GhiChuNV, 'DND');
     onUpdate(room.MaPhong, {
       TaskStatus: 'Refused',
       StartTime: nowTimeStr(),
       GhiChuNV: addNoteCode(cleaned, 'RF'),
+      Flags: clearRushMkrFlags(room.Flags),
     });
     log('Từ chối (RF)');
   };
