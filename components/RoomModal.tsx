@@ -58,11 +58,16 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
 
   const isRepairActive = flags.includes('SuaChua');
 
-  const handleClose = () => {
+  const handleClose = async () => {
     // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: cờ Sửa chữa đang bật + có nội dung
     // MỚI (khác lúc mở modal) trong ô Ghi chú sửa chữa riêng -> tự tạo 1 ticket mới.
+    // LƯU Ý: await + báo lỗi rõ ràng nếu ghi thất bại (trước đây gọi "bắn rồi quên", lỗi mạng/ghi
+    // dữ liệu bị mất ÂM THẦM, không ai biết ticket không được tạo cho tới khi kiểm tra lại Maintenance).
     if (isRepairActive && repairNote.trim() && repairNote !== initialRepairNote) {
-      createMaintenanceIssue(room.MaPhong, repairNote.trim(), account?.hoTen || 'Giám sát');
+      const res = await createMaintenanceIssue(room.MaPhong, repairNote.trim(), account?.hoTen || 'Giám sát');
+      if (!res.success) {
+        window.alert(`⚠ Không ghi được sự cố "Sửa chữa" cho phòng ${room.MaPhong} vào Maintenance:\n${res.error || 'Lỗi không rõ nguyên nhân'}\n\nCác thay đổi khác của phòng vẫn được lưu — chị vào module Maintenance thêm thủ công ticket này giúp mình.`);
+      }
     }
 
     // Bật cờ MKR — DND/RF đã hết hiệu lực (phòng cần trang điểm/chuẩn bị, không còn từ chối/không làm phiền
