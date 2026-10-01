@@ -13,7 +13,7 @@
  * ============================================================
  */
 import { supabase } from './supabaseClient';
-import type { Room, Account, HistoryEntry } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell } from './types';
 
 // Chuyển mọi giá trị input (kể cả '', null, undefined) thành chuỗi rỗng an
 // toàn để hiển thị — tránh hiện chữ "null"/"undefined" ngoài màn hình.
@@ -213,4 +213,127 @@ export async function sbGetTodayHistory(): Promise<HistoryEntry[]> {
   const { data, error } = await supabase.from('hkpro_lich_su_don').select('*').eq('ngay', today).order('id', { ascending: true });
   if (error) throw new Error('Supabase getTodayHistory lỗi: ' + error.message);
   return (data || []).map(historyRowToEntry);
+}
+
+/** ============================================================
+ *  GIAI ĐOẠN 2 — Giao nhận chìa khóa + Task Chart
+ * ============================================================ */
+
+/** ===== Giao nhận chìa khóa (hkpro_key_logs) ===== */
+
+function keyLogRowToLog(row: any): KeyLog {
+  return {
+    rowIndex: Number(row.id),
+    ngay: str(row.ngay),
+    nhanVien: str(row.nhan_vien),
+    keyLabel: str(row.key_label),
+    gioMuon: str(row.gio_muon),
+    gioTra: str(row.gio_tra),
+    trangThai: (str(row.trang_thai) || 'Đang giữ') as any,
+  };
+}
+
+/** Lấy toàn bộ lượt giao/nhận chìa TRONG NGÀY HÔM NAY (mọi nhân viên) */
+export async function sbGetKeyLogs(): Promise<KeyLog[]> {
+  const today = fmtDdMm(new Date());
+  const { data, error } = await supabase.from('hkpro_key_logs').select('*').eq('ngay', today).order('id', { ascending: true });
+  if (error) throw new Error('Supabase getKeyLogs lỗi: ' + error.message);
+  return (data || []).map(keyLogRowToLog);
+}
+
+/** Mượn 1 bộ chìa — chặn mượn nếu bộ chìa đó ĐANG có người khác giữ (trạng thái "Đang giữ" trong hôm nay) */
+export async function sbBorrowKey(nhanVien: string, keyLabel: string): Promise<{ success: boolean; error?: string }> {
+  if (!nhanVien || !keyLabel) return { success: false, error: 'Thiếu tên nhân viên hoặc mã chìa' };
+  const today = fmtDdMm(new Date());
+  const { data: existing, error: selErr } = await supabase
+    .from('hkpro_key_logs')
+    .select('id')
+    .eq('ngay', today)
+    .eq('key_label', keyLabel)
+    .eq('trang_thai', 'Đang giữ')
+    .limit(1);
+  if (selErr) return { success: false, error: 'Supabase borrowKey lỗi: ' + selErr.message };
+  if (existing && existing.length > 0) return { success: false, error: 'Bộ chìa này đang có người khác giữ' };
+
+  const gio = fmtHhMmSs(new Date());
+  const { error: insErr } = await supabase.from('hkpro_key_logs').insert({
+    ngay: today, nhan_vien: nhanVien, key_label: keyLabel, gio_muon: gio, gio_tra: '', trang_thai: 'Đang giữ',
+  });
+  if (insErr) return { success: false, error: 'Supabase borrowKey lỗi: ' + insErr.message };
+  return { success: true };
+}
+
+/** Trả chìa — cập nhật đúng dòng (theo rowIndex = id) sang trạng thái "Đã trả" */
+export async function sbReturnKey(rowIndex: number): Promise<{ success: boolean; error?: string }> {
+  if (!rowIndex) return { success: false, error: 'Thiếu rowIndex' };
+  const gio = fmtHhMmSs(new Date());
+  const { error } = await supabase.from('hkpro_key_logs').update({ gio_tra: gio, trang_thai: 'Đã trả' }).eq('id', rowIndex);
+  if (error) return { success: false, error: 'Supabase returnKey lỗi: ' + error.message };
+  return { success: true };
+}
+
+/** Đồng bộ AI (bắt đầu ca mới) — đóng (trả) toàn bộ lượt chìa còn "Đang giữ" dở của ca cũ.
+ *  Tương đương bước reset Bảng Quản Lý Chìa Khóa trong bulkUpdateFromAI cũ (Code.gs), nay
+ *  bảng chìa đã chuyển sang Supabase nên bước reset này cũng thực hiện ở đây. */
+export async function sbCloseAllOpenKeys(): Promise<void> {
+  const gio = fmtHhMmSs(new Date());
+  const { error } = await supabase
+    .from('hkpro_key_logs')
+    .update({ gio_tra: gio, trang_thai: 'Đã trả' })
+    .eq('trang_thai', 'Đang giữ');
+  if (error) throw new Error('Supabase reset Giao nhận chìa (Đồng bộ AI) lỗi: ' + error.message);
+}
+
+/** ===== Task Chart (hkpro_task_charts + hkpro_task_chart_cells) ===== */
+
+/** Lấy toàn bộ bảng Task Chart + toàn bộ ô dữ liệu (mọi bảng) trong 1 lần gọi */
+export async function sbGetTaskCharts(): Promise<{ charts: TaskChart[]; cells: TaskChartCell[] }> {
+  const [chartsRes, cellsRes] = await Promise.all([
+    supabase.from('hkpro_task_charts').select('*').order('created_at', { ascending: true }),
+    supabase.from('hkpro_task_chart_cells').select('*'),
+  ]);
+  if (chartsRes.error) throw new Error('Supabase getTaskCharts lỗi: ' + chartsRes.error.message);
+  if (cellsRes.error) throw new Error('Supabase getTaskCharts (cells) lỗi: ' + cellsRes.error.message);
+  const charts: TaskChart[] = (chartsRes.data || []).map((row: any) => ({
+    id: str(row.chart_id), title: str(row.title), palette: (Number(row.palette) || 1) as any,
+  }));
+  const cells: TaskChartCell[] = (cellsRes.data || []).map((row: any) => ({
+    chartId: str(row.chart_id), maPhong: str(row.ma_phong), checked: !!row.checked, note: str(row.note),
+  }));
+  return { charts, cells };
+}
+
+/** Tạo 1 bảng Task Chart mới — mặc định bảng màu 1, tiêu đề do người dùng đặt */
+export async function sbCreateTaskChart(title: string): Promise<{ success: boolean; chart?: TaskChart; error?: string }> {
+  const id = 'TC' + Date.now();
+  const { error } = await supabase.from('hkpro_task_charts').insert({ chart_id: id, title: title || '', palette: 1 });
+  if (error) return { success: false, error: 'Supabase createTaskChart lỗi: ' + error.message };
+  return { success: true, chart: { id, title: title || '', palette: 1 } };
+}
+
+/** Xoá 1 bảng Task Chart — xoá cả hkpro_task_charts LẪN toàn bộ ô dữ liệu liên quan (ON DELETE CASCADE) */
+export async function sbDeleteTaskChart(chartId: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.from('hkpro_task_charts').delete().eq('chart_id', chartId);
+  if (error) return { success: false, error: 'Supabase deleteTaskChart lỗi: ' + error.message };
+  return { success: true };
+}
+
+/** Đổi tên / đổi bảng màu của 1 Task Chart */
+export async function sbUpdateTaskChartMeta(chartId: string, title: string, palette: number): Promise<{ success: boolean }> {
+  const row: Record<string, any> = {};
+  if (title !== undefined && title !== null) row.title = title;
+  if (palette) row.palette = palette;
+  const { error } = await supabase.from('hkpro_task_charts').update(row).eq('chart_id', chartId);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** Ghi 1 ô (checkbox + ghi chú) — UPSERT theo khoá (chartId, maPhong) */
+export async function sbUpdateTaskCell(chartId: string, maPhong: string, checked: boolean, note: string): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_task_chart_cells').upsert(
+    { chart_id: chartId, ma_phong: maPhong, checked: !!checked, note: note || '', updated_at: new Date().toISOString() },
+    { onConflict: 'chart_id,ma_phong' }
+  );
+  if (error) return { success: false };
+  return { success: true };
 }
