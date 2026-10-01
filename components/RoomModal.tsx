@@ -27,6 +27,10 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   // Ghi chú Sửa chữa — TÁCH RIÊNG hoàn toàn khỏi ghi chú nhân viên/giám sát, chỉ hiện khi cờ Sửa chữa bật
   const [repairNote, setRepairNote] = useState('');
   const [initialRepairNote, setInitialRepairNote] = useState('');
+  // Cờ Sửa chữa lúc VỪA MỞ modal (trước khi người dùng bấm gì) — dùng để phát hiện đúng thời điểm
+  // BẬT MỚI (TẮT -> BẬT) trong phiên này, tránh tạo ticket trùng mỗi lần đóng modal khi phòng đã
+  // đang Sửa chữa từ trước.
+  const [initialFlags, setInitialFlags] = useState<string[]>([]);
 
   useEffect(() => {
     if (!room) return;
@@ -36,7 +40,9 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     setNote(room.GhiChuAdmin || '');
     setRepairNote(room.GhiChuSuaChua || '');
     setInitialRepairNote(room.GhiChuSuaChua || '');
-    setFlags((room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean));
+    const f = (room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean);
+    setFlags(f);
+    setInitialFlags(f);
   }, [room]);
 
   if (!room) return null;
@@ -59,12 +65,19 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   const isRepairActive = flags.includes('SuaChua');
 
   const handleClose = async () => {
-    // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: cờ Sửa chữa đang bật + có nội dung
-    // MỚI (khác lúc mở modal) trong ô Ghi chú sửa chữa riêng -> tự tạo 1 ticket mới.
+    // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: CHỈ CẦN bấm BẬT tag "Sửa chữa"
+    // (TẮT -> BẬT trong phiên này) là tự tạo 1 ticket mới sang Maintenance, CÓ GÕ GHI CHÚ HAY KHÔNG
+    // cũng được — nếu không gõ gì thì dùng mô tả mặc định, giám sát vào Module Bảo trì sửa trực
+    // tiếp sau (ô mô tả bên đó đã cho sửa inline). Trước đây BẮT BUỘC phải gõ nội dung mới tạo
+    // ticket -> nếu chỉ bấm bật tag mà không gõ gì thì KHÔNG có ticket nào được tạo, im lặng không
+    // báo gì (đúng lỗi chị báo: "bấm sửa chữa trên tag thì dữ liệu kg trả về report maintenance").
+    //
     // LƯU Ý: await + báo lỗi rõ ràng nếu ghi thất bại (trước đây gọi "bắn rồi quên", lỗi mạng/ghi
     // dữ liệu bị mất ÂM THẦM, không ai biết ticket không được tạo cho tới khi kiểm tra lại Maintenance).
-    if (isRepairActive && repairNote.trim() && repairNote !== initialRepairNote) {
-      const res = await createMaintenanceIssue(room.MaPhong, repairNote.trim(), account?.hoTen || 'Giám sát');
+    const wasRepairActive = initialFlags.includes('SuaChua');
+    if (isRepairActive && !wasRepairActive) {
+      const desc = repairNote.trim() || 'Chưa có mô tả — cập nhật tại Module Bảo trì';
+      const res = await createMaintenanceIssue(room.MaPhong, desc, account?.hoTen || 'Giám sát');
       if (!res.success) {
         window.alert(`⚠ Không ghi được sự cố "Sửa chữa" cho phòng ${room.MaPhong} vào Maintenance:\n${res.error || 'Lỗi không rõ nguyên nhân'}\n\nCác thay đổi khác của phòng vẫn được lưu — chị vào module Maintenance thêm thủ công ticket này giúp mình.`);
       }
