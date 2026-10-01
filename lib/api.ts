@@ -1,5 +1,12 @@
 import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
-import { SAMPLE_ROOMS } from './sampleData';
+// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng) đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
+// Các module khác (Giao nhận chìa, Task Chart, Maintenance, Lost&Found, Note Board...) vẫn
+// chạy Google Sheets/Apps Script (JSONP) bên dưới cho tới khi tới lượt giai đoạn của chúng.
+import {
+  sbFetchRooms, sbUpdateRoomField, sbUpdateRoomFields, sbBulkUpdateRoomsFromAI,
+  sbLogin, sbLoginByPassword, sbListAccounts, sbUpdateAccountModules,
+  sbLogTaskAction, sbGetTaskHistory, sbGetTodayHistory,
+} from './supabaseHkpro';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
 export const API_URL = 'https://script.google.com/macros/s/AKfycbzl3d32rhwekoEpknl3PdcsFXvcZ38ftARDDMjAiSf-MVbLBhqYFf-Vi4AMJLMFy5hkKQ/exec';
@@ -44,79 +51,33 @@ function jsonp<T = any>(action: string, params: Record<string, string>, timeoutM
 }
 
 export async function fetchRooms(): Promise<Room[]> {
-  if (!API_URL) return SAMPLE_ROOMS;
-  const r = await jsonp<{ success: boolean; rooms?: any[]; error?: string }>('getRooms', {});
-  console.log('[HK PRO] Phản hồi getRooms từ Apps Script:', r);
-  if (!r) {
-    throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
-  }
-  if (!r.success || !r.rooms) {
-    throw new Error('Apps Script báo lỗi: ' + (r.error || 'không có trường "rooms" trong phản hồi'));
-  }
-  // Ép toàn bộ trường về dạng chữ — Google Sheets có thể tự lưu ô toàn số (vd MaPhong)
-  // thành kiểu Number, phá vỡ mọi hàm xử lý chuỗi (.includes, .toUpperCase...) ở phía sau.
-  return r.rooms.map((row) => ({
-    ...row,
-    MaPhong: String(row.MaPhong ?? ''),
-    Tang: String(row.Tang ?? ''),
-    LoaiPhong: String(row.LoaiPhong ?? ''),
-    HkStatus: String(row.HkStatus ?? ''),
-    MorningStatus: String(row.MorningStatus ?? '') || String(row.HkStatus ?? ''),
-    FoStatus: String(row.FoStatus ?? ''),
-    NgayO: String(row.NgayO ?? ''),
-    NhanVienPhuTrach: String(row.NhanVienPhuTrach ?? ''),
-    GhiChu: String(row.GhiChu ?? ''),
-    GhiChuNV: String(row.GhiChuNV ?? ''),
-    GhiChuAdmin: String(row.GhiChuAdmin ?? ''),
-    GhiChuSuaChua: String(row.GhiChuSuaChua ?? ''),
-    GhiChuNVHomQua: String(row.GhiChuNVHomQua ?? ''),
-    GhiChuAdminHomQua: String(row.GhiChuAdminHomQua ?? ''),
-    Flags: String(row.Flags ?? ''),
-    StartTime: String(row.StartTime ?? ''),
-    EndTime: String(row.EndTime ?? ''),
-    Duration: String(row.Duration ?? ''),
-    TaskStatus: String(row.TaskStatus ?? '') || 'Chưa dọn',
-    SafeStatus: String(row.SafeStatus ?? '') || 'Chưa kiểm',
-    LinenChange: String(row.LinenChange ?? ''),
-    TrolleyCode: String(row.TrolleyCode ?? ''),
-    VacuumFloor: String(row.VacuumFloor ?? ''),
-    isInspecting: String(row.Flags ?? '').split(',').map((f) => f.trim()).includes('DangKiem'),
-  })) as Room[];
+  return sbFetchRooms();
 }
 
 export async function updateRoomField(maPhong: string, field: string, value: string) {
-  if (!API_URL) return;
-  await jsonp('updateRoom', { maPhong, field, value });
+  await sbUpdateRoomField(maPhong, field, value);
 }
 
-/** Ghi nhiều field cùng lúc cho 1 phòng (VD: bấm "Hoàn thành" cần ghi EndTime+Duration+TaskStatus+HkStatus).
- *  Gọi song song nhiều request updateRoom thay vì thêm action mới bên Code.gs — giữ backend đơn giản. */
+/** Ghi nhiều field cùng lúc cho 1 phòng (VD: bấm "Hoàn thành" cần ghi EndTime+Duration+TaskStatus+HkStatus). */
 export async function updateRoomFields(maPhong: string, fields: Record<string, string>) {
-  if (!API_URL) return;
-  await Promise.all(Object.entries(fields).map(([field, value]) => jsonp('updateRoom', { maPhong, field, value })));
+  await sbUpdateRoomFields(maPhong, fields);
 }
 
-/** Ghi 1 dòng lịch sử mới (KHÔNG ghi đè) vào tab "LichSuDon" — dùng mỗi khi nhân viên bấm
+/** Ghi 1 dòng lịch sử mới (KHÔNG ghi đè) — dùng mỗi khi nhân viên bấm
  *  Bắt đầu/Hoàn thành/Báo dơ lại/DND/Từ chối/Làm lại phòng, để có nhật ký nhiều lần trong ngày. */
 export async function logTaskAction(maPhong: string, nhanVien: string, hanhDong: string, chiTiet: string = '') {
-  if (!API_URL) return;
-  await jsonp('logTaskAction', { maPhong, nhanVien, hanhDong, chiTiet });
+  await sbLogTaskAction(maPhong, nhanVien, hanhDong, chiTiet);
 }
 
 /** Lấy lịch sử thao tác TRONG NGÀY của 1 phòng, mới nhất lên đầu */
 export async function getTaskHistory(maPhong: string): Promise<HistoryEntry[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; history?: HistoryEntry[] }>('getTaskHistory', { maPhong });
-  return r?.history || [];
+  return sbGetTaskHistory(maPhong);
 }
 
 /** Lấy TOÀN BỘ lịch sử thao tác TRONG NGÀY HÔM NAY của TẤT CẢ phòng (không lọc theo 1 phòng) —
- *  dùng cho Housekeeping Daily Report để liệt kê đủ MỌI lần bấm bật DND/Từ chối (RF) trong ngày,
- *  vì mỗi lần bấm đã tự ghi 1 dòng riêng (KHÔNG ghi đè) vào tab "LichSuDon" qua logTaskAction. */
+ *  dùng cho Housekeeping Daily Report để liệt kê đủ MỌI lần bấm bật DND/Từ chối (RF) trong ngày. */
 export async function getTodayHistory(): Promise<HistoryEntry[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; history?: HistoryEntry[] }>('getTodayHistory', {});
-  return r?.history || [];
+  return sbGetTodayHistory();
 }
 
 /** Lấy toàn bộ lượt giao/nhận chìa TRONG NGÀY HÔM NAY (mọi nhân viên) — dùng để vẽ trạng thái 9 thẻ chìa */
@@ -140,45 +101,44 @@ export async function returnKey(rowIndex: number): Promise<{ success: boolean; e
   return r || { success: false, error: 'Không nhận được phản hồi' };
 }
 
-/** Đăng nhập bằng ID + mật khẩu, đối chiếu tab "TaiKhoan" trên Google Sheet qua Code.gs */
+/** Đăng nhập bằng ID + mật khẩu — đối chiếu bảng hkpro_accounts trên Supabase qua RPC (bảo mật) */
 export async function login(id: string, password: string): Promise<{ success: boolean; account?: Account; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; account?: Account; error?: string }>('login', { id, password });
-  if (!r) return { success: false, error: 'Không nhận được phản hồi từ Apps Script' };
-  return r;
+  return sbLogin(id, password);
 }
 
 /** Đăng nhập CHỈ bằng mật khẩu (không cần nhập tên đăng nhập) — hệ thống tự dò đúng tài khoản khớp mật khẩu */
 export async function loginByPassword(password: string): Promise<{ success: boolean; account?: Account; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; account?: Account; error?: string }>('loginByPassword', { password });
-  if (!r) return { success: false, error: 'Không nhận được phản hồi từ Apps Script' };
-  return r;
+  return sbLoginByPassword(password);
 }
 
 /** Lấy danh sách tài khoản (chỉ id + hoTen + vaiTro, KHÔNG có mật khẩu) — dùng để lấy danh sách
  *  nhân viên ĐỘNG cho màn Phân công, thay vì hardcode cứng trong code. */
 export async function listAccounts(): Promise<Account[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; accounts?: Account[] }>('listAccounts', {});
-  return r?.accounts || [];
+  return sbListAccounts();
 }
 
 /** Cập nhật danh sách module 1 tài khoản được phép vào — dùng cho Ma trận phân quyền ở Cài đặt.
  *  Truyền mảng RỖNG = xoá tuỳ chỉnh, quay về đúng mặc định theo Role. */
 export async function updateAccountModules(id: string, modules: string[]): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateAccountModules', { id, modules: modules.join(',') });
-  return r || { success: false };
+  return sbUpdateAccountModules(id, modules);
 }
 
+/** Đồng bộ AI đọc PDF — áp trạng thái phòng mới lên bảng Phòng (Supabase, Giai đoạn 1).
+ *  Đồng thời GIỮ NGUYÊN lệnh gọi Apps Script cũ (chạy nền, không chặn UI) để các module CHƯA
+ *  migrate (Giao nhận chìa, Lịch sử kiểm phòng, Note Board...) vẫn được reset/ghi nhận như trước
+ *  cho tới khi các module đó cũng chuyển sang Supabase ở giai đoạn sau. */
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
-  if (!API_URL) return { success: true, updated: chunk.length };
-  const result = await jsonp<{ success: boolean; updated?: number; notFound?: string[]; error?: string }>(
-    'bulkUpdateFromAI',
-    { data: JSON.stringify(chunk) }
-  );
-  return result;
+  if (API_URL) {
+    jsonp('bulkUpdateFromAI', { data: JSON.stringify(chunk) }).catch((err) => {
+      console.warn('[HK PRO] Đồng bộ phụ (Giao nhận chìa/Kiểm phòng/Note Board) qua Apps Script lỗi:', err);
+    });
+  }
+  try {
+    const { updated, notFound } = await sbBulkUpdateRoomsFromAI(chunk);
+    return { success: true, updated, notFound };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Lỗi không xác định' };
+  }
 }
 
 export const AI_SYSTEM_PROMPT = `Bạn là một trợ lý AI chuyên phân tích dữ liệu khách sạn cho hệ thống HK PRO.
