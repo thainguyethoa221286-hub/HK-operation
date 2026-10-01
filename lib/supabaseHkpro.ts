@@ -13,7 +13,7 @@
  * ============================================================
  */
 import { supabase } from './supabaseClient';
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem } from './types';
 
 // Chuyển mọi giá trị input (kể cả '', null, undefined) thành chuỗi rỗng an
 // toàn để hiển thị — tránh hiện chữ "null"/"undefined" ngoài màn hình.
@@ -183,6 +183,9 @@ export async function sbUpdateAccountModules(id: string, modules: string[]): Pro
 function fmtDdMm(d: Date): string {
   return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
 }
+function fmtDdMmYyyy(d: Date): string {
+  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+}
 function fmtHhMmSs(d: Date): string {
   return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
 }
@@ -334,6 +337,127 @@ export async function sbUpdateTaskCell(chartId: string, maPhong: string, checked
     { chart_id: chartId, ma_phong: maPhong, checked: !!checked, note: note || '', updated_at: new Date().toISOString() },
     { onConflict: 'chart_id,ma_phong' }
   );
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ============================================================
+ *  GIAI ĐOẠN 3 — Bảo trì (Maintenance) + Lost & Found
+ * ============================================================ */
+
+/** ===== Bảo trì (hkpro_maintenance_issues) ===== */
+
+function maintenanceRowToIssue(row: any): MaintenanceIssue {
+  return {
+    id: Number(row.id),
+    roomNo: str(row.room_no),
+    issueDescription: str(row.issue_description),
+    reportedBy: str(row.reported_by),
+    reportedDate: str(row.reported_date),
+    status: (str(row.status) || 'Đang xử lý') as any,
+    dueDate: str(row.due_date),
+  };
+}
+
+/** Lấy toàn bộ ticket Bảo trì — đồng thời tự dọn (xoá hẳn) ticket ĐÃ XONG quá 180 ngày,
+ *  giống hệt hành vi getMaintenanceIssues() cũ bên Apps Script. */
+export async function sbGetMaintenanceIssues(): Promise<MaintenanceIssue[]> {
+  const { data, error } = await supabase.from('hkpro_maintenance_issues').select('*').order('id', { ascending: false });
+  if (error) throw new Error('Supabase getMaintenanceIssues lỗi: ' + error.message);
+  const rows = data || [];
+
+  const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const expiredIds: number[] = [];
+  const kept = rows.filter((row: any) => {
+    if (str(row.status) !== 'Đã xong') return true;
+    const parts = str(row.reported_date).split('/'); // dd/MM/yyyy
+    if (parts.length !== 3) return true;
+    const reportedTime = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
+    if (now - reportedTime > SIX_MONTHS_MS) { expiredIds.push(Number(row.id)); return false; }
+    return true;
+  });
+  if (expiredIds.length > 0) {
+    supabase.from('hkpro_maintenance_issues').delete().in('id', expiredIds).then(({ error: delErr }) => {
+      if (delErr) console.warn('[HK PRO] Dọn ticket Bảo trì quá hạn lỗi:', delErr.message);
+    });
+  }
+  return kept.map(maintenanceRowToIssue);
+}
+
+export async function sbCreateMaintenanceIssue(roomNo: string, issueDescription: string, reportedBy: string): Promise<{ success: boolean; issue?: MaintenanceIssue; error?: string }> {
+  const today = fmtDdMmYyyy(new Date());
+  const { data, error } = await supabase.from('hkpro_maintenance_issues').insert({
+    room_no: roomNo || '', issue_description: issueDescription || '', reported_by: reportedBy || '',
+    reported_date: today, status: 'Đang xử lý', due_date: '',
+  }).select().single();
+  if (error) return { success: false, error: 'Supabase createMaintenanceIssue lỗi: ' + error.message };
+  return { success: true, issue: maintenanceRowToIssue(data) };
+}
+
+/** Cập nhật 1 phần (issueDescription/status/dueDate) — field nào không truyền thì giữ nguyên */
+export async function sbUpdateMaintenanceIssue(id: number, changes: { issueDescription?: string; status?: string; dueDate?: string }): Promise<{ success: boolean }> {
+  const row: Record<string, any> = {};
+  if (changes.issueDescription !== undefined) row.issue_description = changes.issueDescription;
+  if (changes.status !== undefined) row.status = changes.status;
+  if (changes.dueDate !== undefined) row.due_date = changes.dueDate;
+  const { error } = await supabase.from('hkpro_maintenance_issues').update(row).eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbDeleteMaintenanceIssue(id: number): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_maintenance_issues').delete().eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ===== Lost & Found (hkpro_lost_found_items) ===== */
+
+function lostFoundRowToItem(row: any): LostFoundItem {
+  return {
+    id: Number(row.id),
+    dateFound: str(row.date_found),
+    roomNo: str(row.room_no),
+    itemDescription: str(row.item_description),
+    foundBy: str(row.found_by),
+    status: (str(row.status) || 'Lưu kho') as any,
+    notes: str(row.notes),
+  };
+}
+
+export async function sbGetLostFoundItems(): Promise<LostFoundItem[]> {
+  const { data, error } = await supabase.from('hkpro_lost_found_items').select('*').order('id', { ascending: false });
+  if (error) throw new Error('Supabase getLostFoundItems lỗi: ' + error.message);
+  return (data || []).map(lostFoundRowToItem);
+}
+
+export async function sbCreateLostFoundItem(item: {
+  dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string;
+}): Promise<{ success: boolean; item?: LostFoundItem; error?: string }> {
+  const dateFound = item.dateFound || fmtDdMmYyyy(new Date());
+  const { data, error } = await supabase.from('hkpro_lost_found_items').insert({
+    date_found: dateFound, room_no: item.roomNo || '', item_description: item.itemDescription || '',
+    found_by: item.foundBy || '', status: item.status || 'Lưu kho', notes: item.notes || '',
+  }).select().single();
+  if (error) return { success: false, error: 'Supabase createLostFoundItem lỗi: ' + error.message };
+  return { success: true, item: lostFoundRowToItem(data) };
+}
+
+export async function sbUpdateLostFoundItem(
+  id: number,
+  item: { dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string }
+): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_lost_found_items').update({
+    date_found: item.dateFound || '', room_no: item.roomNo || '', item_description: item.itemDescription || '',
+    found_by: item.foundBy || '', status: item.status || 'Lưu kho', notes: item.notes || '',
+  }).eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbDeleteLostFoundItem(id: number): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_lost_found_items').delete().eq('id', id);
   if (error) return { success: false };
   return { success: true };
 }
