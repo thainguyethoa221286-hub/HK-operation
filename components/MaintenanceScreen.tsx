@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, Fragment } from 'react';
-import { Wrench, Printer, Plus, Edit3, CalendarClock, Trash2, ChevronDown } from 'lucide-react';
+import { Wrench, Printer, Plus, CalendarClock, Trash2, ChevronDown } from 'lucide-react';
 import type { MaintenanceIssue } from '@/lib/types';
 import { getMaintenanceIssues, createMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue } from '@/lib/api';
 
@@ -39,8 +39,6 @@ export default function MaintenanceScreen() {
   const [showRangePicker, setShowRangePicker] = useState(false);
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState('');
   const [schedulingId, setSchedulingId] = useState<number | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState('');
 
@@ -108,10 +106,12 @@ export default function MaintenanceScreen() {
     await updateMaintenanceIssue(issue.id, { status: newStatus });
   };
 
-  const saveEdit = async (id: number) => {
-    setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, issueDescription: editDraft } : i)));
-    setEditingId(null);
-    await updateMaintenanceIssue(id, { issueDescription: editDraft });
+  // Sửa trực tiếp trên bảng — gõ ngay vào ô "Lỗi của phòng", lưu khi rời khỏi ô (onBlur), không cần nút Sửa riêng
+  const handleDescriptionChange = (id: number, value: string) => {
+    setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, issueDescription: value } : i)));
+  };
+  const handleDescriptionBlur = async (id: number, value: string) => {
+    await updateMaintenanceIssue(id, { issueDescription: value });
   };
 
   const confirmSchedule = async (id: number) => {
@@ -249,12 +249,26 @@ export default function MaintenanceScreen() {
             <tbody>
               {filteredIssues.map((issue) => {
                 const isDone = issue.status === 'Đã xong';
-                const rowExpanded = expandedId === issue.id || editingId === issue.id || schedulingId === issue.id;
+                const rowExpanded = expandedId === issue.id || schedulingId === issue.id;
                 return (
                   <Fragment key={issue.id}>
                     <tr className="border-t border-slate-200 align-top">
-                      <td className="px-3 py-2.5 font-extrabold text-slate-800 whitespace-nowrap">{issue.roomNo}</td>
-                      <td className="px-2 py-2.5 text-slate-700 min-w-[160px]">{issue.issueDescription}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <div className="font-extrabold text-slate-800">{issue.roomNo}</div>
+                        {/* Hẹn + ngày hiện gọn ngay dưới số phòng, chỉ khi đã hẹn lịch sửa */}
+                        {issue.dueDate && (
+                          <div className="text-[10px] text-blue-600 font-semibold mt-0.5">📅 Hẹn: {formatReportedDate(issue.dueDate)}</div>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5 min-w-[160px]">
+                        {/* Sửa trực tiếp — gõ ngay vào ô, lưu khi rời khỏi ô, không cần bấm nút Sửa riêng */}
+                        <input
+                          value={issue.issueDescription}
+                          onChange={(e) => handleDescriptionChange(issue.id, e.target.value)}
+                          onBlur={(e) => handleDescriptionBlur(issue.id, e.target.value)}
+                          className="w-full border border-transparent hover:border-slate-200 focus:border-blue-300 rounded-lg px-2 py-1.5 -ml-2 text-[13px] text-slate-700 bg-transparent focus:bg-white outline-none transition-colors"
+                        />
+                      </td>
                       <td className="px-2 py-2.5 text-slate-500 whitespace-nowrap">
                         <div>{formatReportedDate(issue.reportedDate)}</div>
                         <div className="text-[10px] text-slate-400">👤 {issue.reportedBy}</div>
@@ -282,19 +296,13 @@ export default function MaintenanceScreen() {
                     {rowExpanded && (
                       <tr className="bg-slate-50/60 border-t border-slate-100">
                         <td colSpan={6} className="px-3 py-3">
-                          {expandedId === issue.id && editingId !== issue.id && schedulingId !== issue.id && (
+                          {expandedId === issue.id && schedulingId !== issue.id && (
                             <div className="flex gap-2">
-                              <button
-                                onClick={() => { setEditingId(issue.id); setEditDraft(issue.issueDescription); }}
-                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-blue-700 bg-white border border-slate-200 rounded-lg py-2"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" /> Sửa
-                              </button>
                               <button
                                 onClick={() => { setSchedulingId(issue.id); setScheduleDraft(''); }}
                                 className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange-600 bg-white border border-slate-200 rounded-lg py-2"
                               >
-                                <CalendarClock className="w-3.5 h-3.5" /> Hẹn
+                                <CalendarClock className="w-3.5 h-3.5" /> {issue.dueDate ? 'Đổi lịch hẹn' : 'Hẹn'}
                               </button>
                               <button
                                 onClick={() => handleDelete(issue.id)}
@@ -302,16 +310,6 @@ export default function MaintenanceScreen() {
                               >
                                 <Trash2 className="w-3.5 h-3.5" /> Xóa
                               </button>
-                            </div>
-                          )}
-
-                          {editingId === issue.id && (
-                            <div>
-                              <textarea value={editDraft} onChange={(e) => setEditDraft(e.target.value)} rows={2} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[13px] bg-white" />
-                              <div className="flex gap-2 mt-1.5">
-                                <button onClick={() => saveEdit(issue.id)} className="text-[12px] font-bold text-white bg-blue-600 rounded-lg px-3 py-1.5">Lưu</button>
-                                <button onClick={() => setEditingId(null)} className="text-[12px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-1.5">Huỷ</button>
-                              </div>
                             </div>
                           )}
 
@@ -324,10 +322,6 @@ export default function MaintenanceScreen() {
                                 <button onClick={() => cancelSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-slate-600 bg-slate-200 rounded-lg py-2">BỎ HẸN</button>
                               </div>
                             </div>
-                          )}
-
-                          {issue.dueDate && !schedulingId && (
-                            <div className="text-[11px] text-blue-600 font-semibold mt-1">📅 Hẹn: {formatReportedDate(issue.dueDate)}</div>
                           )}
                         </td>
                       </tr>
