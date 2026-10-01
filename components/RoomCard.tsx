@@ -30,9 +30,9 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   const { dnd, rf } = hasDndOrRf(combinedNote);
 
   const flagList = (room.Flags || '').split(',').map((f) => f.trim());
-  const hasMkr = flagList.includes('TrangDiem');
-  // MKR luôn phải hiện RÕ cho nhân viên thấy — không bị làm mờ dù TaskStatus đang là DND/Refused/Hoàn thành
-  const isSettled = dimSettled && !hasMkr && SETTLED_BG[room.TaskStatus];
+  // RUSH/MKR tự động bị gỡ khỏi Flags ngay khi phòng chuyển DND/Refused (xem RoomTaskModal),
+  // nên phòng DND/RF/Hoàn thành luôn được làm mờ bình thường, không còn ngoại lệ giữ RÕ cho MKR nữa.
+  const isSettled = dimSettled && SETTLED_BG[room.TaskStatus];
   // Cờ "Đã out" (DaOut) — nền ĐỎ NHẠT chỉ khi phòng CÒN CHƯA BẮT ĐẦU DỌN ("Phòng dơ").
   // Ngay khi nhân viên bấm "Bắt đầu dọn phòng" (HkStatus -> "Phòng đang dọn"), nền phải chuyển
   // XANH DƯƠNG NHẠT theo đúng viền (không còn giữ đỏ nữa) để phản ánh đúng đang xử lý.
