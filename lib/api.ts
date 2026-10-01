@@ -1,14 +1,16 @@
 import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
-// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng) VÀ GIAI ĐOẠN 2 (Giao nhận chìa + Task Chart)
-// đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
-// Các module còn lại (Maintenance, Lost&Found, Note Board, Kiểm phòng, Task khẩn...) vẫn
-// chạy Google Sheets/Apps Script (JSONP) bên dưới cho tới khi tới lượt giai đoạn của chúng.
+// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng), GIAI ĐOẠN 2 (Giao nhận chìa + Task Chart) VÀ
+// GIAI ĐOẠN 3 (Bảo trì + Lost & Found) đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
+// Các module còn lại (Note Board, Kiểm phòng, Task khẩn...) vẫn chạy Google Sheets/Apps Script
+// (JSONP) bên dưới cho tới khi tới lượt giai đoạn của chúng.
 import {
   sbFetchRooms, sbUpdateRoomField, sbUpdateRoomFields, sbBulkUpdateRoomsFromAI,
   sbLogin, sbLoginByPassword, sbListAccounts, sbUpdateAccountModules,
   sbLogTaskAction, sbGetTaskHistory, sbGetTodayHistory,
   sbGetKeyLogs, sbBorrowKey, sbReturnKey, sbCloseAllOpenKeys,
   sbGetTaskCharts, sbCreateTaskChart, sbDeleteTaskChart, sbUpdateTaskChartMeta, sbUpdateTaskCell,
+  sbGetMaintenanceIssues, sbCreateMaintenanceIssue, sbUpdateMaintenanceIssue, sbDeleteMaintenanceIssue,
+  sbGetLostFoundItems, sbCreateLostFoundItem, sbUpdateLostFoundItem, sbDeleteLostFoundItem,
 } from './supabaseHkpro';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -232,12 +234,7 @@ export async function updateTaskCell(chartId: string, maPhong: string, checked: 
 /** ===== MODULE MAINTENANCE ===== */
 
 export async function getMaintenanceIssues(): Promise<MaintenanceIssue[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; issues?: MaintenanceIssue[]; error?: string }>('getMaintenanceIssues', {});
-  console.log('[HK PRO] Phản hồi getMaintenanceIssues từ Apps Script:', r);
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
-  if (!r.success) throw new Error(r.error || 'Apps Script báo lỗi không rõ nguyên nhân khi lấy danh sách Maintenance');
-  return r.issues || [];
+  return sbGetMaintenanceIssues();
 }
 
 export async function createMaintenanceIssue(
@@ -245,64 +242,41 @@ export async function createMaintenanceIssue(
   issueDescription: string,
   reportedBy: string
 ): Promise<{ success: boolean; issue?: MaintenanceIssue; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; issue?: MaintenanceIssue; error?: string }>('createMaintenanceIssue', {
-    roomNo, issueDescription, reportedBy,
-  });
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbCreateMaintenanceIssue(roomNo, issueDescription, reportedBy);
 }
 
 export async function updateMaintenanceIssue(
   id: number,
   changes: { issueDescription?: string; status?: string; dueDate?: string }
 ): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateMaintenanceIssue', {
-    id: String(id),
-    issueDescription: changes.issueDescription ?? '__skip__',
-    status: changes.status ?? '__skip__',
-    dueDate: changes.dueDate ?? '__skip__',
-  });
-  return r || { success: false };
+  return sbUpdateMaintenanceIssue(id, changes);
 }
 
 export async function deleteMaintenanceIssue(id: number): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('deleteMaintenanceIssue', { id: String(id) });
-  return r || { success: false };
+  return sbDeleteMaintenanceIssue(id);
 }
 
 /** ===== MODULE LOST & FOUND ===== */
 
 export async function getLostFoundItems(): Promise<LostFoundItem[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; items?: LostFoundItem[]; error?: string }>('getLostFoundItems', {});
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script (r = null)');
-  if (!r.success) throw new Error(r.error || 'Apps Script báo lỗi không rõ nguyên nhân khi lấy danh sách Lost & Found');
-  return r.items || [];
+  return sbGetLostFoundItems();
 }
 
 export async function createLostFoundItem(item: {
   dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string;
 }): Promise<{ success: boolean; item?: LostFoundItem; error?: string }> {
-  if (!API_URL) return { success: false, error: 'Chưa cấu hình API_URL' };
-  const r = await jsonp<{ success: boolean; item?: LostFoundItem; error?: string }>('createLostFoundItem', item);
-  return r || { success: false, error: 'Không nhận được phản hồi' };
+  return sbCreateLostFoundItem(item);
 }
 
 export async function updateLostFoundItem(
   id: number,
   item: { dateFound: string; roomNo: string; itemDescription: string; foundBy: string; status: string; notes: string }
 ): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateLostFoundItem', { id: String(id), ...item });
-  return r || { success: false };
+  return sbUpdateLostFoundItem(id, item);
 }
 
 export async function deleteLostFoundItem(id: number): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('deleteLostFoundItem', { id: String(id) });
-  return r || { success: false };
+  return sbDeleteLostFoundItem(id);
 }
 
 /** ===== MODULE NOTE BOARD ===== */
