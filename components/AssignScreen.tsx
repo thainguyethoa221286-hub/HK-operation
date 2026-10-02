@@ -5,8 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
-import { NoteIcons, hasDndOrRf, combineNotes, stripCodesFromNote } from '@/lib/roomStyles';
-import { MessageSquareWarning, MessageSquareText } from 'lucide-react';
+import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
 import { updateRoomField } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -17,11 +16,13 @@ const HK_DOT: Record<string, string> = {
   'Phòng sửa chữa (OOO)': 'bg-slate-400',
 };
 
-/* Mục 2 — badge viết tắt theo FO Status */
+/* Mục 2 — badge viết tắt theo FO Status.
+ * Theo yêu cầu UI mới: VD (Vacant) và DO (Due out) đổi sang nền đỏ ĐẬM, nổi bật, dễ quan sát;
+ * ARR (Arrival) GIỮ NGUYÊN màu xanh dương như cũ. */
 const FO_BADGE: Record<string, { text: string; cls: string }> = {
   Occupied: { text: 'OD', cls: 'bg-red-50 text-red-600 border border-red-300' },
-  'Due out': { text: 'DO', cls: 'bg-orange-50 text-orange-600 border border-orange-300' },
-  Vacant: { text: 'VD', cls: 'bg-slate-100 text-slate-500 border border-slate-300' },
+  'Due out': { text: 'DO', cls: 'bg-red-700 text-white border border-red-800' },
+  Vacant: { text: 'VD', cls: 'bg-red-700 text-white border border-red-800' },
   'Due out/ARR': { text: 'DO/Arr', cls: 'bg-purple-50 text-purple-600 border border-purple-300' },
   Arrival: { text: 'ARR', cls: 'bg-sky-50 text-sky-600 border border-sky-300' },
 };
@@ -223,44 +224,39 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
   }) => {
     const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
-    const hasAdminNote = !!room.GhiChuAdmin;
-    const hasStaffNote = !!stripCodesFromNote(room.GhiChuNV);
+    const fo = FO_BADGE[room.FoStatus];
     return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
-      className={`flex items-center justify-between bg-white border rounded-lg px-2.5 py-2 text-[12px] shadow-sm transition-all ${
+      className={`group relative flex items-center justify-between gap-2 bg-white border rounded-lg pl-2.5 pr-2 py-2 text-[12px] shadow-sm transition-all ${
         selectable ? 'cursor-pointer' : ''
       } ${selected ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-300' : 'border-slate-200 hover:border-slate-300'}`}
     >
-      {/* Mục 2 — trái: chấm status + badge DND/RF + số phòng */}
+      {/* Nút xoá — góc trên-phải thẻ, tinh tế (chỉ hiện rõ khi hover), không đè lên tên phòng/badge */}
+      {removable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove?.(); }}
+          title="Bỏ phân công"
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-slate-300 text-slate-400 shadow-sm flex items-center justify-center text-[9px] font-bold leading-none opacity-0 group-hover:opacity-100 hover:text-red-600 hover:border-red-300 transition-opacity z-10"
+        >
+          ✕
+        </button>
+      )}
+
+      {/* Trái: chấm status + badge DND/RF + số phòng + icon EB/BBC/HON (CHỈ 3 mã này, ẩn mọi ghi chú khác) */}
       <span className="flex items-center gap-1.5 font-semibold min-w-0">
         <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
         {getLeftBadge(combinedNote)}
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
-        {FO_BADGE[room.FoStatus] && (
-          <span className={`text-[8px] font-bold px-1 rounded flex-shrink-0 ${FO_BADGE[room.FoStatus].cls}`}>
-            {FO_BADGE[room.FoStatus].text}
-          </span>
-        )}
+        <NoteIcons note={combinedNote} />
       </span>
 
-      {/* Mục 3 — phải: icon ghi chú Admin/Nhân viên + icon EB/BBC/HON + nút xoá */}
-      <span className="flex items-center gap-1 flex-shrink-0">
-        {hasAdminNote && (
-          <span title={`Giám sát ghi: ${room.GhiChuAdmin}`}>
-            <MessageSquareWarning className="w-3.5 h-3.5 text-amber-600" />
-          </span>
-        )}
-        {hasStaffNote && (
-          <span title={`Nhân viên ghi: ${stripCodesFromNote(room.GhiChuNV)}`}>
-            <MessageSquareText className="w-3.5 h-3.5 text-blue-500" />
-          </span>
-        )}
-        <NoteIcons note={combinedNote} />
-        {removable && (
-          <button onClick={(e) => { e.stopPropagation(); onRemove?.(); }} className="text-slate-400 hover:text-red-500 font-bold px-1">✕</button>
-        )}
-      </span>
+      {/* Phải: badge trạng thái FO (OD/DO/VD/ARR/DO-Arr) — đẩy sát mép phải, căn đều trên mọi thẻ */}
+      {fo && (
+        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-auto whitespace-nowrap ${fo.cls}`}>
+          {fo.text}
+        </span>
+      )}
     </div>
     );
   };
