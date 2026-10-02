@@ -60,7 +60,7 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
           <FlagBadgeIcons flags={room.Flags} />
           {dnd && <DoorHangerTag label="DND" colorCls="bg-red-600" />}
           {rf && <DoorHangerTag label="RF" colorCls="bg-purple-800" />}
-          <NoteIcons note={combinedNote} />
+          <NoteIcons note={combinedNote} ngayO={room.NgayO} />
           {hasStaffNote && <MessageSquareText className="w-3.5 h-3.5 text-blue-500" aria-label="Có ghi chú nhân viên" />}
         </div>
       </div>
