@@ -1,4 +1,5 @@
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -231,13 +232,86 @@ export function isLongStay(note: string, ngayO?: string | null): boolean {
   return nights !== null && nights > 6;
 }
 
-export function NoteIcons({ note, ngayO }: { note: string; ngayO?: string | null }) {
+/** Lấy ngày Check-in (vế đầu của NgayO, dạng "DD/MM") ra Date thật — dùng làm mốc tính "số ngày đã
+ *  ở" và "ngày thay ga kế tiếp". Nếu ngày tính ra ở quá xa trong TƯƠNG LAI (>60 ngày, do vắt qua
+ *  năm cũ/mới) thì tự lùi về năm trước. */
+function parseArrivalDate(ngayO?: string | null): Date | null {
+  if (!ngayO) return null;
+  const first = String(ngayO).trim().split('-')[0].trim();
+  const m = first.match(/^(\d{2})\/(\d{2})$/);
+  if (!m) return null;
+  const now = new Date();
+  const date = new Date(now.getFullYear(), Number(m[2]) - 1, Number(m[1]));
+  if (date.getTime() - now.getTime() > 60 * 86400000) date.setFullYear(date.getFullYear() - 1);
+  return date;
+}
+
+/** Số ngày khách ĐÃ Ở tính tới hôm nay (không tính theo giờ, chỉ tính theo ngày lịch) — dùng hiện
+ *  trong Tooltip badge LSG. Trả về null nếu không đọc được ngày Check-in từ NgayO. */
+export function calcDaysStayed(ngayO?: string | null): number | null {
+  const arr = parseArrivalDate(ngayO);
+  if (!arr) return null;
+  const now = new Date();
+  const a = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate()).getTime();
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((t - a) / 86400000);
+  return days >= 0 ? days : 0;
+}
+
+/** Mục LSG — Lịch thay ga giường kế tiếp theo QUY TẮC CHẴN/LẺ: khách Check-in ngày CHẴN -> chỉ
+ *  thay ga vào các ngày CHẴN trong tháng; Check-in ngày LẺ -> chỉ thay ga vào các ngày LẺ. Trả về
+ *  ngày GẦN NHẤT (có thể là hôm nay) khớp đúng chẵn/lẻ đó, dạng "DD/MM". null nếu không tính được. */
+export function calcNextLinenChangeDate(ngayO?: string | null): string | null {
+  const arr = parseArrivalDate(ngayO);
+  if (!arr) return null;
+  const arrivalIsEven = arr.getDate() % 2 === 0;
+  const today = new Date();
+  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  for (let i = 0; i < 31; i++) {
+    const check = new Date(cursor.getTime());
+    check.setDate(check.getDate() + i);
+    if ((check.getDate() % 2 === 0) === arrivalIsEven) {
+      return `${String(check.getDate()).padStart(2, '0')}/${String(check.getMonth() + 1).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+/** Tooltip nổi khi hover — dùng chung cho ghim Ghi chú đặc biệt (Pin) và badge LSG trên Thẻ phòng. */
+export function HoverTip({ tip, children }: { tip: string; children: ReactNode }) {
+  return (
+    <span className="relative inline-flex group/tip flex-shrink-0">
+      {children}
+      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-30 w-max max-w-[200px] rounded-lg bg-slate-800 text-white text-[10px] font-semibold px-2.5 py-1.5 opacity-0 group-hover/tip:opacity-100 transition-opacity shadow-lg text-center leading-snug">
+        {tip}
+      </span>
+    </span>
+  );
+}
+
+/** Badge NỔI BẬT riêng cho LSG (Long Stay Guest) trên Thẻ phòng — tách khỏi NoteIcons (icon nhỏ
+ *  EB/BBC/HON) vì cần to, có chữ "LSG" và Tooltip chi tiết số ngày đã ở + lịch thay ga kế tiếp. */
+export function LsgBadge({ note, ngayO }: { note: string; ngayO?: string | null }) {
+  if (!isLongStay(note, ngayO)) return null;
+  const daysStayed = calcDaysStayed(ngayO);
+  const nextLinen = calcNextLinenChangeDate(ngayO);
+  const tip = `Khách Long Stay - Số ngày đã ở: ${daysStayed ?? '—'} ngày | Lịch thay ga giường tiếp theo: ${nextLinen || '—'}`;
+  return (
+    <HoverTip tip={tip}>
+      <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 cursor-default whitespace-nowrap">
+        <CalendarHeart className="w-3 h-3" /> LSG
+      </span>
+    </HoverTip>
+  );
+}
+
+export function NoteIcons({ note, ngayO, hideLsg }: { note: string; ngayO?: string | null; hideLsg?: boolean }) {
   const codes = cleanNote(note);
   const cls = 'w-3.5 h-3.5';
   const hasEB = /\bEB\b/i.test(codes);
   const hasBBC = /\bBBC\b/i.test(codes);
   const hasHON = /\bHON\b/i.test(codes);
-  const hasLSG = isLongStay(note, ngayO);
+  const hasLSG = !hideLsg && isLongStay(note, ngayO);
   if (!hasEB && !hasBBC && !hasHON && !hasLSG) return null;
   return (
     <div className="flex items-center gap-1">
