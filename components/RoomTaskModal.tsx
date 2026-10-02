@@ -23,6 +23,12 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   const [noteDraft, setNoteDraft] = useState(stripCodesFromNote(room.GhiChuNV || ''));
   const [tick, setTick] = useState(0);
   const [safeWarning, setSafeWarning] = useState(false);
+  // "Hẹn quay lại" — TRƯỚC ĐÂY dùng window.prompt() của trình duyệt, luôn kèm theo dòng chữ mặc
+  // định "The page at ... says:" do CHÍNH TRÌNH DUYỆT vẽ ra (không phải web page), nên không thể
+  // ẩn/sửa bằng code được. Nay thay bằng 1 khung popup tự thiết kế trong app -> chỉ còn đúng dòng
+  // "Hẹn quay lại lúc mấy giờ?" như chị yêu cầu.
+  const [scheduleReturnOpen, setScheduleReturnOpen] = useState(false);
+  const [scheduleReturnTime, setScheduleReturnTime] = useState('');
 
   useEffect(() => setNoteDraft(stripCodesFromNote(room.GhiChuNV || '')), [room.GhiChuNV]);
 
@@ -89,9 +95,14 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   // Chỉ ghi lại mốc giờ hẹn vào lịch sử (Section 4), không đổi trạng thái phòng — vẫn giữ nguyên "Refused"
   // cho tới khi nhân viên chủ động bấm "Làm lại" khi thực sự quay lại dọn.
   const scheduleReturn = () => {
-    const time = window.prompt('Hẹn quay lại lúc mấy giờ? (VD: 14:30)', '');
+    setScheduleReturnTime('');
+    setScheduleReturnOpen(true);
+  };
+  const confirmScheduleReturn = () => {
+    const time = scheduleReturnTime.trim();
     if (!time) return;
     log('Hẹn quay lại', `Dự kiến quay lại lúc ${time}`);
+    setScheduleReturnOpen(false);
   };
 
   // "Gửi thông báo DND" — ghi nhận đã báo cho lễ tân/giám sát biết phòng đang bật DND,
@@ -398,6 +409,45 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           )}
         </div>
       </div>
+
+      {/* Khung "Hẹn quay lại" tự thiết kế — thay cho window.prompt() của trình duyệt (luôn kèm dòng
+          "The page at ... says:" không thể ẩn được vì do chính trình duyệt vẽ ra, không phải web). */}
+      {scheduleReturnOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setScheduleReturnOpen(false)}
+        >
+          <div
+            className="bg-white w-full max-w-xs rounded-2xl shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[15px] font-bold text-slate-800 mb-3">Hẹn quay lại lúc mấy giờ?</div>
+            <input
+              autoFocus
+              type="text"
+              value={scheduleReturnTime}
+              onChange={(e) => setScheduleReturnTime(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmScheduleReturn(); }}
+              placeholder="VD: 14:30"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setScheduleReturnOpen(false)}
+                className="flex-1 rounded-xl py-2.5 text-[13px] font-bold bg-gray-100 text-gray-700"
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={confirmScheduleReturn}
+                className="flex-1 rounded-xl py-2.5 text-[13px] font-bold bg-purple-600 text-white"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
