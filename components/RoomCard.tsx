@@ -4,7 +4,7 @@ import { memo } from 'react';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, PriorityFlagBadges, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
-  FO_STATUS_LABEL, DoorHangerTag, stripCodesFromNote, HoverTip, LsgBadge,
+  FO_STATUS_LABEL, DoorHangerTag, stripCodesFromNote,
 } from '@/lib/roomStyles';
 import { Pin } from 'lucide-react';
 
@@ -51,26 +51,20 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
         isSettled ? 'opacity-60' : ''
       } ${special ? 'p-4' : 'p-3'}`}
     >
-      {/* Hàng trên: góc trái = loại phòng (chip xám) + badge LSG (nếu có); góc phải = ghim ghi chú
-          đặc biệt + thẻ treo DND/RF + icon EB/BBC/HON */}
+      {/* Hàng trên: góc trái = loại phòng (chip xám); góc phải = ghim ghi chú đặc biệt (chỉ icon,
+          KHÔNG tooltip — xem Chi tiết phòng để đọc nội dung) + thẻ treo DND/RF + icon EB/BBC/HON/LSG
+          nhỏ gọn (chỉ để nhận biết nhanh ngoài sơ đồ, không hiện chữ đè lên thẻ) */}
       <div className="flex items-start justify-between gap-1.5 mb-1">
-        <div className="flex items-center gap-1 min-w-0">
-          <span className={`bg-slate-100 text-slate-500 font-bold rounded-md px-1.5 py-0.5 whitespace-nowrap flex-shrink-0 ${special ? 'text-[11px]' : 'text-[9px]'}`}>
-            {room.LoaiPhong}
-          </span>
-          <LsgBadge note={combinedNote} ngayO={room.NgayO} />
-        </div>
+        <span className={`bg-slate-100 text-slate-500 font-bold rounded-md px-1.5 py-0.5 whitespace-nowrap flex-shrink-0 ${special ? 'text-[11px]' : 'text-[9px]'}`}>
+          {room.LoaiPhong}
+        </span>
         <div className="flex flex-wrap items-start justify-end gap-1 min-w-0">
-          {specialNoteText && (
-            <HoverTip tip={specialNoteText}>
-              <Pin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" aria-label="Ghi chú đặc biệt" />
-            </HoverTip>
-          )}
+          {specialNoteText && <Pin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" aria-label="Ghi chú đặc biệt" />}
           <PriorityFlagBadges flags={room.Flags} />
           <FlagBadgeIcons flags={room.Flags} />
           {dnd && <DoorHangerTag label="DND" colorCls="bg-red-600" />}
           {rf && <DoorHangerTag label="RF" colorCls="bg-purple-800" />}
-          <NoteIcons note={combinedNote} ngayO={room.NgayO} hideLsg />
+          <NoteIcons note={combinedNote} ngayO={room.NgayO} />
         </div>
       </div>
 
