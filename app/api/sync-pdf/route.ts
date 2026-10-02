@@ -21,18 +21,20 @@ QUAN TRỌNG: foStatus và hkStatus là 2 trục ĐỘC LẬP với nhau:
 
 Lưu ý khi đọc cột I/O: do PDF trích xuất văn bản đôi khi bị chèn khoảng trắng thừa, chữ "AD" có thể hiện thành "A D" (có dấu cách ở giữa) — hãy coi "A D" và "AD" là MỘT (cùng nghĩa "AD").
 
-Xác định foStatus theo đúng thứ tự các trường hợp sau (chỉ chọn 1 trong 5 giá trị: "Occupied", "Due out", "Arrival", "Due out/ARR", "Vacant"):
+Xác định foStatus theo đúng thứ tự các trường hợp sau — BẮT BUỘC kiểm tra LẦN LƯỢT từ 1 đến 5, hễ trường hợp nào khớp trước thì DỪNG LẠI NGAY, không xét tiếp các trường hợp sau (chỉ chọn 1 trong 5 giá trị: "Arrival", "Due out/ARR", "Due out", "Occupied", "Vacant"):
 
 1. Nếu cột I/O có chữ "A" (và KHÔNG phải "AD"/"A D"), Est Time Arrival = "***ARR***"
    -> foStatus = "Arrival" (phòng chờ khách mới đến hôm nay)
 2. Nếu cột I/O có chữ "AD" (hoặc "A D"), Est Time Arrival = "***ARR***"
    -> foStatus = "Due out/ARR" (khách cũ trả phòng và khách mới nhận phòng trong cùng ngày)
-3. Nếu cột I/O trống, có đầy đủ ngày Arrival & Departure cụ thể (VD: 24/7/26 đến 26/7/26, đang ở giữa khoảng đó, KHÔNG phải "***ARR***")
+3. Nếu cột I/O trống (không phải A/AD), và ngày ở cột "Est Time Departure" TRÙNG CHÍNH XÁC với ngày hôm nay (xem ngày hôm nay ở tin nhắn kèm theo)
+   -> foStatus = "Due out" (CHỈ khi Departure = hôm nay, KHÔNG áp dụng cho ngày mai hay các ngày sau đó)
+4. Nếu cột I/O trống, có đầy đủ ngày Arrival & Departure cụ thể, nhưng Departure KHÔNG PHẢI hôm nay (VD: hôm nay 02/10, Departure 03/10 hoặc xa hơn -> đây vẫn là "Occupied", TUYỆT ĐỐI KHÔNG gán "Due out" cho ngày mai/ngày kia)
    -> foStatus = "Occupied"
-4. Nếu cột I/O trống, cả Est Time Arrival và Est Time Departure đều trống/rỗng
+5. Nếu cột I/O trống, cả Est Time Arrival và Est Time Departure đều trống/rỗng
    -> foStatus = "Vacant"
-5. Nếu ngày ở cột "Est Time Departure" TRÙNG với ngày hôm nay (xem ngày hôm nay ở tin nhắn kèm theo), và cột I/O KHÔNG có chữ "A" hoặc "AD"
-   -> foStatus = "Due out"
+
+LƯU Ý QUAN TRỌNG: "Due out" CHỈ dùng khi khách trả phòng ĐÚNG HÔM NAY. Nếu ngày trả phòng là ngày mai hoặc bất kỳ ngày nào sau hôm nay, dù chỉ cách 1 ngày, vẫn phải gán "Occupied", không được gán "Due out". Đây là lỗi hay gặp nhất, cần đặc biệt cẩn thận so sánh đúng ngày Departure với ngày hôm nay được cho trong tin nhắn.
 
 Quy đổi hkStatus theo giá trị thực tế của cột "Room Status" (chỉ chọn 1 trong 5 giá trị sau):
    - "Dirty" -> "Phòng dơ"
