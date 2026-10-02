@@ -163,17 +163,22 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
         className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-white z-10 border-b border-slate-100">
-          <div className="flex items-baseline gap-1.5">
-            <h2 className="text-2xl font-extrabold text-indigo-600">Phòng {room.MaPhong}</h2>
-            {showLsg && (
-              <span className="bg-red-600 text-white font-bold px-2 py-0.5 rounded-md text-xs shadow-sm">
-                LSG
-              </span>
-            )}
-            <LinenChangeBadge room={room} />
-            <span className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1 rounded-md">{room.LoaiPhong}</span>
+        {/* Header — bớt dồn icon/badge trên 1 dòng: số phòng + LSG + sao thay ga ở dòng trên,
+            hạng phòng (LoaiPhong) dời xuống dòng riêng bên dưới cho thoáng. */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-3 sticky top-0 bg-white z-10 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-2xl font-extrabold text-indigo-600">Phòng {room.MaPhong}</h2>
+              {showLsg && (
+                <span className="bg-red-600 text-white font-bold px-2 py-0.5 rounded-md text-xs shadow-sm">
+                  LSG
+                </span>
+              )}
+              <LinenChangeBadge room={room} />
+            </div>
+            <span className="inline-block mt-1 bg-slate-100 text-slate-600 text-[11px] font-bold px-2 py-1 rounded-md">
+              {room.LoaiPhong}
+            </span>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
@@ -181,8 +186,8 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
         </div>
 
         <div className="px-5 pb-6 pt-4 space-y-4">
-          {/* Dải trạng thái khách + ngày lưu trú */}
-          <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 flex items-center justify-between text-[12px] font-semibold">
+          {/* Dải trạng thái khách + ngày lưu trú — đổi nền ĐEN sang nền SÁNG (xanh dương nhạt) để dễ nhìn hơn */}
+          <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-[12px] font-semibold">
             <span>{FO_STATUS_LABEL[room.FoStatus]}</span>
             <span>{formatDateShort(room.NgayO)}</span>
           </div>
