@@ -9,6 +9,7 @@ import type { Room } from '@/lib/types';
 import {
   formatDateShort, formatTimeOnly, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
   addNoteCode, removeNoteCode, stripCodesFromNote, extractNoteCodes, FO_STATUS_LABEL, LinenChangeBadge,
+  combineNotes, isLongStay,
 } from '@/lib/roomStyles';
 import { logTaskAction } from '@/lib/api';
 
@@ -32,6 +33,9 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   }, [room.TaskStatus]);
 
   const staffName = room.NhanVienPhuTrach || '';
+  // Mục mới — hiện badge LSG (Long Stay Guest) ngay trên thẻ Nhiệm vụ của nhân viên, giống hệt
+  // Khung Pop-up Chi tiết bên Admin, để nhân viên cũng biết phòng này khách ở dài ngày.
+  const showLsg = isLongStay(combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin), room.NgayO);
 
   // Ghi log + refresh lại danh sách để hiện ngay lập tức (không cần đợi polling 15s)
   // Ghi log ngầm (dùng cho Báo cáo sau này) — Section 4 "Lịch sử dọn hôm nay" đã ẩn khỏi Nhiệm vụ
@@ -161,8 +165,13 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-white z-10 border-b border-slate-100">
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-1.5">
             <h2 className="text-2xl font-extrabold text-indigo-600">Phòng {room.MaPhong}</h2>
+            {showLsg && (
+              <span className="bg-red-600 text-white font-bold px-2 py-0.5 rounded-md text-xs shadow-sm">
+                LSG
+              </span>
+            )}
             <LinenChangeBadge room={room} />
             <span className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1 rounded-md">{room.LoaiPhong}</span>
           </div>
