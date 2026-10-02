@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
-import { formatDateShort, removeNoteCode } from '@/lib/roomStyles';
+import { formatDateShort, removeNoteCode, combineNotes, isLongStay } from '@/lib/roomStyles';
 import { createMaintenanceIssue } from '@/lib/api';
 
 interface RoomModalProps {
@@ -46,6 +46,10 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   }, [room]);
 
   if (!room) return null;
+
+  // Badge LSG (Long Stay Guest) — hiện ngay kế bên số phòng trong popup Chi tiết phòng khi phòng
+  // được tính là khách lưu trú dài hạn (tự động >6 đêm, hoặc nhân viên đã gõ tay mã "LSG").
+  const showLsg = isLongStay(combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin), room.NgayO);
 
   const toggleFlag = (key: string) => {
     setFlags((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
@@ -110,7 +114,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
         <div className="p-5 pb-0 overflow-y-auto scrollbar-none h-auto">
           <div className="flex justify-between items-start mb-2.5 border-b border-slate-200 pb-3">
             <div>
-              <h4 className="text-[17px] font-bold">Phòng {room.MaPhong}</h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-[17px] font-bold">Phòng {room.MaPhong}</h4>
+                {showLsg && (
+                  <span className="bg-red-600 text-white font-bold px-2 py-0.5 rounded-md text-xs shadow-sm">
+                    LSG
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-slate-500 mt-0.5">
                 {room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}
               </div>
