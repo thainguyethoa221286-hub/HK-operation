@@ -15,8 +15,9 @@
 import { supabase } from './supabaseClient';
 import type {
   Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem,
-  OverdueHistoryRow, LinenChangeHistoryRow, SupplyBoardItem, InspectionLogRow, BroadcastTaskData,
+  OverdueHistoryRow, LinenChangeHistoryRow, SupplyBoardItem, InspectionLogRow, BroadcastTaskData, Group,
 } from './types';
+import { DEFAULT_ASSIGN_GROUPS } from './types';
 
 // Chuyển mọi giá trị input (kể cả '', null, undefined) thành chuỗi rỗng an
 // toàn để hiển thị — tránh hiện chữ "null"/"undefined" ngoài màn hình.
@@ -128,6 +129,18 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
     await supabase.from('hkpro_inspection_logs').delete().gte('id', 0);
   } catch (err: any) {
     console.warn('[HK PRO] Xoá Lịch sử kiểm phòng (Đồng bộ AI) lỗi:', err?.message);
+  }
+  // Reset Nhóm phân công (tên nhân viên gán ở màn Phân công) về mặc định (N1-N5, rỗng) NGAY TRÊN
+  // SERVER — để MỌI thiết bị/trình duyệt đang mở màn Phân công đều thấy trống ngay khi họ tải lại
+  // (polling), không còn phụ thuộc localStorage của riêng từng máy như trước (đây chính là lý do
+  // trước đây reset không ăn khi Đồng bộ AI chạy ở máy khác với máy đang xem Phân công).
+  try {
+    await supabase.from('hkpro_assign_groups').upsert(
+      { id: 1, groups_json: DEFAULT_ASSIGN_GROUPS, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    );
+  } catch (err: any) {
+    console.warn('[HK PRO] Reset Nhóm phân công (Đồng bộ AI) lỗi:', err?.message);
   }
 
   // Bước 1 — reset toàn bộ phòng đã biết (snapshot GhiChuNV/GhiChuAdmin sang "HomQua" trước khi xoá)
@@ -635,6 +648,27 @@ export async function sbCompleteBroadcastTask(staff: string): Promise<{ success:
   const { error } = await supabase.from('hkpro_broadcast_task')
     .update({ completions, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ===== NHÓM PHÂN CÔNG (màn Phân công dọn phòng) — 1 dòng duy nhất id=1, DÙNG CHUNG mọi thiết bị.
+ *  Thay cho localStorage trước đây (chỉ lưu riêng từng trình duyệt, không ai khác thấy được khi
+ *  Đồng bộ AI reset). Đọc/ghi TOÀN BỘ mảng Group 1 lần (dữ liệu nhỏ, không cần tách bảng riêng). ===== */
+
+export async function sbGetAssignGroups(): Promise<Group[]> {
+  const { data, error } = await supabase.from('hkpro_assign_groups').select('groups_json').eq('id', 1).maybeSingle();
+  if (error || !data || !Array.isArray(data.groups_json) || data.groups_json.length === 0) {
+    return DEFAULT_ASSIGN_GROUPS;
+  }
+  return data.groups_json as Group[];
+}
+
+export async function sbSaveAssignGroups(groups: Group[]): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_assign_groups').upsert(
+    { id: 1, groups_json: groups, updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
   if (error) return { success: false };
   return { success: true };
 }
