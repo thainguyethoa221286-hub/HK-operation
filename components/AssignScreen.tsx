@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, X, Printer, ChevronDown, Users, RotateCcw, User, LogIn, Repeat, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, LogIn, Repeat, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
-import { updateRoomField, getAssignGroups, saveAssignGroups } from '@/lib/api';
+import { updateRoomField, getAssignGroups, saveAssignGroups, fetchRooms } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
   'Phòng dơ': 'bg-red-500',
@@ -152,11 +152,29 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     await Promise.all(affected.map((id) => updateRoomField(id, 'NhanVienPhuTrach', newLabel)));
   };
 
-  // RESET — xoá TOÀN BỘ phân công phòng (mọi phòng quay về kho chờ) LẪN các nhóm/tên
-  // nhân viên đã tạo (quay về danh sách nhóm mặc định). Có xác nhận vì không thể hoàn tác.
-  const resetAll = async () => {
+  // LÀM MỚI — CHỈ tải lại dữ liệu mới nhất từ Supabase (phòng + Nhóm) để đồng bộ giao diện,
+  // KHÔNG xoá/sửa bất kỳ dữ liệu nào. An toàn bấm bất cứ lúc nào, không cần xác nhận.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      const [freshRooms, freshGroups] = await Promise.all([fetchRooms(), getAssignGroups()]);
+      setRooms(freshRooms);
+      setGroups(freshGroups);
+    } catch {
+      // Lỗi mạng khi làm mới thì bỏ qua âm thầm, giữ nguyên dữ liệu đang hiện trên màn hình
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // XÓA DỮ LIỆU — xoá TOÀN BỘ phân công phòng (mọi phòng quay về kho chờ) LẪN các nhóm/tên
+  // nhân viên đã tạo (quay về danh sách nhóm mặc định). Đây là thao tác PHÁ HUỶ DỮ LIỆU, tách
+  // RIÊNG hẳn khỏi nút "Làm mới" — chỉ chạy khi bấm ĐÚNG nút này VÀ xác nhận, không còn tự động
+  // xảy ra khi làm mới/tải lại trang nữa (tránh mất sạch phân công ngoài ý muốn).
+  const clearAllAssignments = async () => {
     const confirmed = window.confirm(
-      'Xoá TOÀN BỘ phân công phòng và các nhóm/tên nhân viên đã tạo, quay về mặc định ban đầu?\n\nHành động này KHÔNG THỂ hoàn tác.'
+      'XOÁ DỮ LIỆU: xoá TOÀN BỘ phân công phòng và các nhóm/tên nhân viên đã tạo, quay về mặc định ban đầu?\n\nHành động này KHÔNG THỂ hoàn tác.'
     );
     if (!confirmed) return;
     const assignedIds = rooms.filter((r) => r.NhanVienPhuTrach).map((r) => r.MaPhong);
@@ -173,9 +191,24 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
   // Mọi thay đổi Nhóm đều cập nhật state cục bộ NGAY (phản hồi tức thì) + lưu lên Supabase ngay sau
   // đó (dùng chung mọi thiết bị, không còn localStorage riêng từng máy).
-  const updateGroups = (next: Group[]) => {
+  //
+  // FIX LỖI "F5/Ctrl+R làm mất tên nhân viên trên Nhóm" — trước đây gọi saveAssignGroups kiểu
+  // "bắn rồi quên" (không await, không kiểm tra kết quả). Nếu lần ghi đó âm thầm lỗi (mất mạng,
+  // lỗi Supabase...), giao diện vẫn hiện ĐÚNG tạm thời vì đang đọc state cục bộ — nhưng dữ liệu
+  // THỰC TẾ CHƯA được lưu lên server. Tới khi tải lại trang, màn Phân công đọc lại từ server và lộ
+  // ra dữ liệu cũ/rỗng — trong khi tên nhân viên ở Sơ đồ phòng (field NhanVienPhuTrach riêng, lưu ở
+  // bảng khác và LUÔN được await khi ghi) vẫn còn, gây cảm giác "data bị xoá sạch không đều nhau".
+  // Nay BẮT BUỘC chờ kết quả ghi + báo lỗi rõ ràng ngay khi thất bại, không còn im lặng mất dữ liệu.
+  const updateGroups = async (next: Group[]) => {
     setGroups(next);
-    saveAssignGroups(next);
+    const res = await saveAssignGroups(next);
+    if (!res.success) {
+      window.alert(
+        '⚠ KHÔNG lưu được thay đổi Nhóm phân công lên hệ thống (lỗi mạng hoặc server).\n\n' +
+        'Thay đổi vừa rồi CHỈ đang hiện tạm trên máy này — nếu tải lại trang (F5) bây giờ sẽ bị mất. ' +
+        'Chị kiểm tra lại mạng rồi thử thao tác lại, hoặc báo kỹ thuật nếu lỗi lặp lại nhiều lần.'
+      );
+    }
   };
 
   const addGroup = () => {
@@ -302,11 +335,20 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           >
             <Printer className="w-3.5 h-3.5" /> IN TỔNG HỢP
           </button>
+          {/* LÀM MỚI — chỉ tải lại dữ liệu mới nhất, KHÔNG xoá gì cả, bấm thoải mái không lo mất phân công */}
           <button
-            onClick={resetAll}
+            onClick={refreshData}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} /> LÀM MỚI
+          </button>
+          {/* XÓA DỮ LIỆU — thao tác phá huỷ, tách riêng khỏi Làm mới, luôn có xác nhận trước khi xoá */}
+          <button
+            onClick={clearAllAssignments}
             className="flex items-center gap-1.5 text-xs font-bold text-red-600 border border-red-200 bg-red-50 rounded-lg px-3 py-2"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> RESET
+            <Trash2 className="w-3.5 h-3.5" /> XÓA DỮ LIỆU
           </button>
         </div>
       </div>
