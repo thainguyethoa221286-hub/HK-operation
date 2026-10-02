@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
-import { formatDateShort, removeNoteCode, combineNotes, isLongStay } from '@/lib/roomStyles';
+import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge } from '@/lib/roomStyles';
 import { createMaintenanceIssue } from '@/lib/api';
 
 interface RoomModalProps {
@@ -121,6 +121,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                     LSG
                   </span>
                 )}
+                <LinenChangeBadge room={room} />
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
                 {room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}
