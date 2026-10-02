@@ -1,4 +1,4 @@
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -112,7 +112,7 @@ export function combineNotes(ghiChu?: string | null, ghiChuNV?: string | null, g
   return [ghiChu, ghiChuNV, ghiChuAdmin].filter(Boolean).join(' ');
 }
 
-export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF'] as const;
+export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF', 'LSG'] as const;
 
 export function cleanNote(rawNote?: string | null): string {
   if (!rawNote) return '';
@@ -195,19 +195,56 @@ export function DndRfBadge({ note }: { note: string }) {
   );
 }
 
-export function NoteIcons({ note }: { note: string }) {
+/* =========================================================
+   MỤC 5 — LSG (LONG STAY GUEST): khách lưu trú dài hạn.
+   Nhân viên có thể TỰ gõ mã "LSG" vào ghi chú (giống EB/BBC/HON) để gắn icon ngay.
+   NGOÀI RA, hệ thống TỰ ĐỘNG tính LSG khi số đêm lưu trú (từ NgayO, dạng "DD/MM-DD/MM")
+   LỚN HƠN 6 đêm — không cần nhân viên tự gõ, dù ghi chú đang trống.
+   ========================================================= */
+/** Tính số đêm lưu trú từ NgayO (dạng "DD/MM-DD/MM"). Trả về null nếu NgayO chỉ có 1 mốc ngày
+ *  (chưa biết ngày trả phòng) hoặc rỗng/không đọc được — khi đó KHÔNG thể tự động tính LSG. */
+export function calcStayNights(ngayO?: string | null): number | null {
+  if (!ngayO) return null;
+  const parts = String(ngayO).trim().split('-').map((p) => p.trim());
+  if (parts.length !== 2) return null;
+  const parseDDMM = (s: string): { d: number; m: number } | null => {
+    const m = s.match(/^(\d{2})\/(\d{2})$/);
+    return m ? { d: Number(m[1]), m: Number(m[2]) } : null;
+  };
+  const arr = parseDDMM(parts[0]);
+  const dep = parseDDMM(parts[1]);
+  if (!arr || !dep) return null;
+  const year = new Date().getFullYear();
+  const arrDate = new Date(year, arr.m - 1, arr.d);
+  let depDate = new Date(year, dep.m - 1, dep.d);
+  // Vắt qua năm mới (VD Arrival 28/12, Departure 03/01) -> cộng thêm 1 năm cho Departure
+  if (depDate.getTime() < arrDate.getTime()) depDate = new Date(year + 1, dep.m - 1, dep.d);
+  const nights = Math.round((depDate.getTime() - arrDate.getTime()) / 86400000);
+  return nights >= 0 ? nights : null;
+}
+
+/** true nếu phòng được tính là LSG — do nhân viên tự gõ mã "LSG" trong ghi chú, HOẶC tự động
+ *  (mặc định) khi số đêm lưu trú tính từ NgayO lớn hơn 6 đêm. */
+export function isLongStay(note: string, ngayO?: string | null): boolean {
+  if (/\bLSG\b/i.test(cleanNote(note))) return true;
+  const nights = calcStayNights(ngayO);
+  return nights !== null && nights > 6;
+}
+
+export function NoteIcons({ note, ngayO }: { note: string; ngayO?: string | null }) {
   const codes = cleanNote(note);
-  if (!codes) return null;
   const cls = 'w-3.5 h-3.5';
   const hasEB = /\bEB\b/i.test(codes);
   const hasBBC = /\bBBC\b/i.test(codes);
   const hasHON = /\bHON\b/i.test(codes);
-  if (!hasEB && !hasBBC && !hasHON) return null;
+  const hasLSG = isLongStay(note, ngayO);
+  if (!hasEB && !hasBBC && !hasHON && !hasLSG) return null;
   return (
     <div className="flex items-center gap-1">
       {hasEB && <BedSingle className={`${cls} text-indigo-600`} aria-label="Extra Bed" />}
       {hasBBC && <Baby className={`${cls} text-pink-500`} aria-label="Baby Cot" />}
       {hasHON && <Wine className={`${cls} text-rose-600`} aria-label="Honeymoon" />}
+      {hasLSG && <CalendarRange className={`${cls} text-teal-600`} aria-label="Long Stay Guest" />}
     </div>
   );
 }
