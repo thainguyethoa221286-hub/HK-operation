@@ -1,8 +1,8 @@
 import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
-// GIAI ĐOẠN 1 (Đăng nhập + Bảng phòng/dọn phòng), GIAI ĐOẠN 2 (Giao nhận chìa + Task Chart) VÀ
-// GIAI ĐOẠN 3 (Bảo trì + Lost & Found) đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
-// Các module còn lại (Note Board, Kiểm phòng, Task khẩn...) vẫn chạy Google Sheets/Apps Script
-// (JSONP) bên dưới cho tới khi tới lượt giai đoạn của chúng.
+// TOÀN BỘ 4 GIAI ĐOẠN đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
+// GIAI ĐOẠN 1: Đăng nhập + Bảng phòng/dọn phòng. GIAI ĐOẠN 2: Giao nhận chìa + Task Chart.
+// GIAI ĐOẠN 3: Bảo trì + Lost & Found. GIAI ĐOẠN 4: Note Board + Lịch sử kiểm phòng + Task khẩn.
+// Google Sheets/Apps Script (JSONP) KHÔNG còn được dùng nữa (chỉ còn hàm jsonp() giữ lại phòng khi cần).
 import {
   sbFetchRooms, sbUpdateRoomField, sbUpdateRoomFields, sbBulkUpdateRoomsFromAI,
   sbLogin, sbLoginByPassword, sbListAccounts, sbUpdateAccountModules,
@@ -11,6 +11,10 @@ import {
   sbGetTaskCharts, sbCreateTaskChart, sbDeleteTaskChart, sbUpdateTaskChartMeta, sbUpdateTaskCell,
   sbGetMaintenanceIssues, sbCreateMaintenanceIssue, sbUpdateMaintenanceIssue, sbDeleteMaintenanceIssue,
   sbGetLostFoundItems, sbCreateLostFoundItem, sbUpdateLostFoundItem, sbDeleteLostFoundItem,
+  sbGetOverdueHistory, sbDeleteOverdueHistoryRow, sbClearOverdueHistory, sbGetLinenChangeHistory,
+  sbGetSuppliesBoard, sbUpdateSupplyItem,
+  sbStartInspectionLog, sbEndInspectionLog, sbGetInspectionLogs,
+  sbSetBroadcastTask, sbClearBroadcastTask, sbGetBroadcastTask, sbCompleteBroadcastTask,
 } from './supabaseHkpro';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -123,15 +127,10 @@ export async function updateAccountModules(id: string, modules: string[]): Promi
 }
 
 /** Đồng bộ AI đọc PDF — áp trạng thái phòng mới lên bảng Phòng + đóng các lượt chìa còn "Đang giữ"
- *  (Supabase, Giai đoạn 1 + 2). Đồng thời GIỮ NGUYÊN lệnh gọi Apps Script cũ (chạy nền, không chặn UI)
- *  để các module CHƯA migrate (Lịch sử kiểm phòng, Note Board...) vẫn được reset/ghi nhận như trước
- *  cho tới khi các module đó cũng chuyển sang Supabase ở giai đoạn sau. */
+ *  + snapshot DND/RF và Báo cáo thay ga sang lịch sử "hôm qua" + xoá sạch Lịch sử kiểm phòng trong
+ *  ngày (TOÀN BỘ đã chuyển sang Supabase từ Giai đoạn 4 — xem sbBulkUpdateRoomsFromAI). KHÔNG còn
+ *  gọi Apps Script phụ nữa. */
 export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
-  if (API_URL) {
-    jsonp('bulkUpdateFromAI', { data: JSON.stringify(chunk) }).catch((err) => {
-      console.warn('[HK PRO] Đồng bộ phụ (Kiểm phòng/Note Board) qua Apps Script lỗi:', err);
-    });
-  }
   try {
     const { updated, notFound } = await sbBulkUpdateRoomsFromAI(chunk);
     try {
@@ -279,97 +278,63 @@ export async function deleteLostFoundItem(id: number): Promise<{ success: boolea
   return sbDeleteLostFoundItem(id);
 }
 
-/** ===== MODULE NOTE BOARD ===== */
+/** ===== MODULE NOTE BOARD (Giai đoạn 4 — Supabase) ===== */
 
-// Báo cáo lịch thay ga/giường — tự động ghi khi Đồng bộ AI chạy, giữ đúng 1 ngày (xem Code.gs)
+// Báo cáo lịch thay ga/giường "hôm qua" — tự động ghi khi Đồng bộ AI chạy, giữ đúng 1 ngày
 export async function getLinenChangeHistory(): Promise<LinenChangeHistoryRow[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; rows?: LinenChangeHistoryRow[]; error?: string }>('getLinenChangeHistory', {});
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
-  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Báo cáo lịch thay giường');
-  return r.rows || [];
+  return sbGetLinenChangeHistory();
 }
 
-// Bảng 2 — Lịch thay giường & theo dõi Special (tự động ghi khi Đồng bộ AI chạy)
+// Bảng 1 — Lịch DND/RF "hôm qua" (tự động ghi khi Đồng bộ AI chạy)
 export async function getOverdueHistory(): Promise<OverdueHistoryRow[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; rows?: OverdueHistoryRow[]; error?: string }>('getOverdueHistory', {});
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
-  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Lịch sử thay giường/Special');
-  return r.rows || [];
+  return sbGetOverdueHistory();
 }
 export async function deleteOverdueHistoryRow(id: number): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('deleteOverdueHistoryRow', { id: String(id) });
-  return r || { success: false };
+  return sbDeleteOverdueHistoryRow(id);
 }
 export async function clearOverdueHistory(): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('clearOverdueHistory', {});
-  return r || { success: false };
+  return sbClearOverdueHistory();
 }
 
-// Bảng 3 — Dụng cụ & vật tư đặc biệt (10 mục cố định)
+// Bảng 3 — Dụng cụ & vật tư đặc biệt (13 mục cố định)
 export async function getSuppliesBoard(): Promise<SupplyBoardItem[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; items?: SupplyBoardItem[]; error?: string }>('getSuppliesBoard', {});
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
-  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Bảng dụng cụ & vật tư');
-  return r.items || [];
+  return sbGetSuppliesBoard();
 }
 export async function updateSupplyItem(label: string, value: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('updateSupplyItem', { label, value });
-  return r || { success: false };
+  return sbUpdateSupplyItem(label, value);
 }
 
-/** ===== LỊCH SỬ KIỂM PHÒNG CỦA GIÁM SÁT/ADMIN ===== */
+/** ===== LỊCH SỬ KIỂM PHÒNG CỦA GIÁM SÁT/ADMIN (Giai đoạn 4 — Supabase, chỉ trong ngày) ===== */
 
 export async function startInspectionLog(roomNo: string, giamSat: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('startInspectionLog', { roomNo, giamSat });
-  return r || { success: false };
+  return sbStartInspectionLog(roomNo, giamSat);
 }
 
 export async function endInspectionLog(roomNo: string, status: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('endInspectionLog', { roomNo, status });
-  return r || { success: false };
+  return sbEndInspectionLog(roomNo, status);
 }
 
 export async function getInspectionLogs(): Promise<InspectionLogRow[]> {
-  if (!API_URL) return [];
-  const r = await jsonp<{ success: boolean; rows?: InspectionLogRow[]; error?: string }>('getInspectionLogs', {});
-  if (!r) throw new Error('Không nhận được phản hồi từ Apps Script');
-  if (!r.success) throw new Error(r.error || 'Lỗi khi lấy Lịch sử kiểm phòng');
-  return r.rows || [];
+  return sbGetInspectionLogs();
 }
 
-/** ===== TASK CHỈ ĐẠO ĐẶC BIỆT CỦA GIÁM SÁT (Broadcast) ===== */
+/** ===== TASK CHỈ ĐẠO ĐẶC BIỆT CỦA GIÁM SÁT (Broadcast — Giai đoạn 4, Supabase) ===== */
 
 // Giám sát/Admin gửi 1 task khẩn — tự động thay thế task đang active trước đó (nếu có)
 export async function setBroadcastTask(content: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('setBroadcastTask', { content });
-  return r || { success: false };
+  return sbSetBroadcastTask(content);
 }
 
 // Huỷ task đang active (VD gửi nhầm) — mọi nhân viên sẽ hết thấy bảng đỏ ngay
 export async function clearBroadcastTask(): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('clearBroadcastTask', {});
-  return r || { success: false };
+  return sbClearBroadcastTask();
 }
 
 export async function getBroadcastTask(): Promise<BroadcastTaskData | null> {
-  if (!API_URL) return null;
-  const r = await jsonp<{ success: boolean; task?: BroadcastTaskData }>('getBroadcastTask', {});
-  return r?.task || null;
+  return sbGetBroadcastTask();
 }
 
 // Nhân viên bấm HOÀN THÀNH — ghi nhận đã xong, hiện lên "Tiến độ dọn phòng" cho Giám sát theo dõi
 export async function completeBroadcastTask(staff: string): Promise<{ success: boolean }> {
-  if (!API_URL) return { success: false };
-  const r = await jsonp<{ success: boolean }>('completeBroadcastTask', { staff });
-  return r || { success: false };
+  return sbCompleteBroadcastTask(staff);
 }
