@@ -91,11 +91,20 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
 
   // Mục 5 — Thanh tổng hợp trạng thái phòng (đặt cạnh nút IN TỔNG HỢP), tính trên TOÀN BỘ phòng
-  // (không chỉ phòng chưa gán). Theo yêu cầu mới: chỉ 4 chỉ số theo chuẩn thuật ngữ buồng phòng
-  // OD (Occupied) / VD+DO gộp chung (Vacant Dirty + Due out — đều là phòng cần dọn/trả) / OOO
-  // (Phòng sửa chữa) / VC (Vacant Clean — phòng trống đã sạch, sẵn sàng bán).
+  // (không chỉ phòng chưa gán). 4 chỉ số theo chuẩn thuật ngữ buồng phòng:
+  // OD (Occupied) / VD-DO gộp chung — "phòng khách trả" = TẤT CẢ các trạng thái Vacant, Due out,
+  // Due out/ARR, Arrival mà CHƯA SẠCH (chưa dọn xong) đều tính vào đây, không chỉ riêng Vacant+Due
+  // out như trước (trước đây bị thiếu DO/Arr và Arrival) / OOO (Phòng sửa chữa) / VC (Vacant Clean
+  // — phòng trống ĐÃ sạch, sẵn sàng bán, không trùng với VD-DO).
   const statOD = rooms.filter((r) => r.FoStatus === 'Occupied').length;
-  const statVD_DO = rooms.filter((r) => r.FoStatus === 'Vacant' || r.FoStatus === 'Due out').length;
+  const NEEDS_TURNOVER_FO = ['Vacant', 'Due out', 'Due out/ARR', 'Arrival'];
+  const statVD_DO = rooms.filter(
+    (r) =>
+      NEEDS_TURNOVER_FO.includes(r.FoStatus) &&
+      r.HkStatus !== 'Phòng sạch' &&
+      r.HkStatus !== 'Đã kiểm tra' &&
+      r.HkStatus !== 'Phòng sửa chữa (OOO)'
+  ).length;
   const statOOO = rooms.filter((r) => r.HkStatus === 'Phòng sửa chữa (OOO)').length;
   const statVC = rooms.filter(
     (r) => r.FoStatus === 'Vacant' && (r.HkStatus === 'Phòng sạch' || r.HkStatus === 'Đã kiểm tra')
