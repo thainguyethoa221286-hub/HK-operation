@@ -4,7 +4,7 @@ import { memo } from 'react';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, PriorityFlagBadges, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
-  FO_STATUS_LABEL, DoorHangerTag, stripCodesFromNote,
+  FO_STATUS_LABEL, DoorHangerTag, stripCodesFromNote, LinenChangeIcon,
 } from '@/lib/roomStyles';
 import { Pin } from 'lucide-react';
 
@@ -68,10 +68,14 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
         </div>
       </div>
 
-      {/* Trung tâm: số phòng in đậm lớn + ngày check-in/check-out ngay bên dưới (thay cho tên khách) */}
+      {/* Trung tâm: số phòng in đậm lớn (kèm icon gối nếu hôm nay đúng lịch thay ga, chỉ phòng
+          Occupied) + ngày check-in/check-out ngay bên dưới (thay cho tên khách) */}
       <div className="text-center py-1.5">
-        <div className={`font-extrabold leading-none text-slate-800 ${special ? 'text-[38px]' : 'text-[27px]'}`}>
-          {room.MaPhong}
+        <div className="flex items-center justify-center gap-1.5">
+          <span className={`font-extrabold leading-none text-slate-800 ${special ? 'text-[38px]' : 'text-[27px]'}`}>
+            {room.MaPhong}
+          </span>
+          <LinenChangeIcon room={room} />
         </div>
         <div className={`text-slate-400 font-semibold mt-0.5 ${special ? 'text-[12px]' : 'text-[10px]'}`}>
           {formatDateShort(room.NgayO)}
