@@ -253,7 +253,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
         {getLeftBadge(combinedNote)}
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
-        <NoteIcons note={combinedNote} />
+        <NoteIcons note={combinedNote} ngayO={room.NgayO} />
       </span>
 
       {/* Phải: badge trạng thái FO (OD/DO/VD/ARR/DO-Arr) — đẩy sát mép phải, căn đều trên mọi thẻ */}
