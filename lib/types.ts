@@ -264,6 +264,17 @@ export interface Group {
   extraTasks: string[];
 }
 
+/** 5 nhóm mặc định (N1-N5, chưa gán ai) — dùng khi khởi tạo lần đầu VÀ khi reset (bấm nút RESET
+ *  hoặc tự động reset mỗi khi Đồng bộ AI chạy). Giữ 1 nguồn DUY NHẤT để FE (AssignScreen) và
+ *  BE (supabaseHkpro.ts, lúc reset trong sbBulkUpdateRoomsFromAI) luôn khớp nhau tuyệt đối. */
+export const DEFAULT_ASSIGN_GROUPS: Group[] = [
+  { id: 'N1', staffs: [], extraTasks: [] },
+  { id: 'N2', staffs: [], extraTasks: [] },
+  { id: 'N3', staffs: [], extraTasks: [] },
+  { id: 'N4', staffs: [], extraTasks: [] },
+  { id: 'N5', staffs: [], extraTasks: [] },
+];
+
 export const MASTER_STAFF_LIST = ['Nhân', 'Tiến', 'Tâm', 'Hải', 'Hồng', 'Nghị', 'Trúc', 'HK', 'Tôi', 'Đầu'];
 
 export const STAFF_LIST = ['Nhân', 'Tiến', 'Nghị', 'Tâm', 'Hài', 'Hồng', 'Trúc', 'HK'];
