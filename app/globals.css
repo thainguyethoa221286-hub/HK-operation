@@ -39,3 +39,13 @@ body {
     display: block !important;
   }
 }
+
+/* .scrollbar-none — ẩn thanh cuộn (vẫn cuộn được bằng chuột/trackpad) cho các khung Modal gọn gàng,
+   VD khung "Chi tiết phòng" — dùng chung mọi nơi cần dáng gọn, không có thanh cuộn xấu lộ ra. */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge cũ */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge mới */
+}
