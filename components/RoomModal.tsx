@@ -232,6 +232,17 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
             </button>
           </div>
 
+          {/* Ghi chú GỐC do AI tự đồng bộ từ dữ liệu đặt phòng (room.GhiChu) — TRƯỚC ĐÂY trường này
+              không hiện ở đâu trong popup, khiến các mã EB/BBC/HON/LSG tự nhận diện từ đây (xem
+              NoteIcons/LsgBadge) bị "ẩn nguồn gốc", giám sát không biết vì sao icon hiện ra. Nay hiện
+              CÔNG KHAI, chỉ đọc, để đối chiếu khi thấy badge lạ. */}
+          {room.GhiChu && (
+            <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 mb-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase flex-shrink-0 mt-0.5">Dữ liệu gốc (AI):</span>
+              <span className="text-[13px] font-semibold text-slate-700">{room.GhiChu}</span>
+            </div>
+          )}
+
           {/* Ghi chú nhân viên tự gõ (VD khách yêu cầu riêng) — chỉ đọc, giám sát cần thấy được */}
           {room.GhiChuNV && (
             <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-2 mb-2.5">
