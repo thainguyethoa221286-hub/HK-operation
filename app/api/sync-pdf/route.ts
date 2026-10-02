@@ -21,20 +21,25 @@ QUAN TRỌNG: foStatus và hkStatus là 2 trục ĐỘC LẬP với nhau:
 
 Lưu ý khi đọc cột I/O: do PDF trích xuất văn bản đôi khi bị chèn khoảng trắng thừa, chữ "AD" có thể hiện thành "A D" (có dấu cách ở giữa) — hãy coi "A D" và "AD" là MỘT (cùng nghĩa "AD").
 
+QUY TẮC VÀNG — TUYỆT ĐỐI KHÔNG TỰ TÍNH TOÁN/SO SÁNH NGÀY THÁNG:
+Báo cáo này KHÔNG BAO GIỜ ghi một ngày tháng cụ thể (dạng DD/MM/YYYY) vào đúng ô mà sự kiện đó xảy ra HÔM NAY — thay vào đó ô "Est Time Arrival" sẽ ghi chữ "***ARR***" nếu khách ĐẾN hôm nay, và ô "Est Time Departure" sẽ ghi chữ "***DPT***" nếu khách TRẢ PHÒNG hôm nay. Vì vậy bạn CHỈ CẦN nhận diện có xuất hiện đúng chữ "***ARR***" / "***DPT***" hay không — TUYỆT ĐỐI KHÔNG được tự suy luận "ngày này gần hôm nay nên chắc là Due out/Arrival". Nếu một ô ghi NGÀY THÁNG CỤ THỂ (VD "03/10/2026") thay vì "***ARR***"/"***DPT***", thì dù ngày đó là ngày mai hay chỉ còn vài giờ nữa, nó VẪN KHÔNG PHẢI là sự kiện hôm nay — không được gán Due out/Arrival cho trường hợp này, bất kể ngày đó gần hôm nay thế nào.
+
 Xác định foStatus theo đúng thứ tự các trường hợp sau — BẮT BUỘC kiểm tra LẦN LƯỢT từ 1 đến 5, hễ trường hợp nào khớp trước thì DỪNG LẠI NGAY, không xét tiếp các trường hợp sau (chỉ chọn 1 trong 5 giá trị: "Arrival", "Due out/ARR", "Due out", "Occupied", "Vacant"):
 
-1. Nếu cột I/O có chữ "A" (và KHÔNG phải "AD"/"A D"), Est Time Arrival = "***ARR***"
-   -> foStatus = "Arrival" (phòng chờ khách mới đến hôm nay)
-2. Nếu cột I/O có chữ "AD" (hoặc "A D"), Est Time Arrival = "***ARR***"
-   -> foStatus = "Due out/ARR" (khách cũ trả phòng và khách mới nhận phòng trong cùng ngày)
-3. Nếu cột I/O trống (không phải A/AD), và ngày ở cột "Est Time Departure" TRÙNG CHÍNH XÁC với ngày hôm nay (xem ngày hôm nay ở tin nhắn kèm theo)
-   -> foStatus = "Due out" (CHỈ khi Departure = hôm nay, KHÔNG áp dụng cho ngày mai hay các ngày sau đó)
-4. Nếu cột I/O trống, có đầy đủ ngày Arrival & Departure cụ thể, nhưng Departure KHÔNG PHẢI hôm nay (VD: hôm nay 02/10, Departure 03/10 hoặc xa hơn -> đây vẫn là "Occupied", TUYỆT ĐỐI KHÔNG gán "Due out" cho ngày mai/ngày kia)
-   -> foStatus = "Occupied"
-5. Nếu cột I/O trống, cả Est Time Arrival và Est Time Departure đều trống/rỗng
+1. Nếu Est Time Arrival = đúng chữ "***ARR***", VÀ cột I/O KHÔNG có "D" (I/O rỗng hoặc chỉ có "A")
+   -> foStatus = "Arrival" (khách mới đến hôm nay)
+   VD thật trong báo cáo: phòng 202 — I/O "A", Arrival "***ARR***", Departure "04/10/2026" -> Arrival.
+2. Nếu Est Time Arrival = đúng chữ "***ARR***", VÀ cột I/O có "AD" (hoặc "A D")
+   -> foStatus = "Due out/ARR" (khách cũ trả phòng và khách mới nhận phòng trong cùng ngày — dù ô Departure lúc này lại hiện ngày cụ thể của KHÁCH MỚI, VD "05/10/2026", đó là ngày trả phòng tương lai của khách mới, không phải mốc hôm nay — cứ thấy I/O có "AD" + Arrival "***ARR***" là chốt luôn Due out/ARR)
+   VD thật: phòng 302 — I/O "A D", Arrival "***ARR***", Departure "04/10/2026" -> Due out/ARR.
+3. Nếu Est Time Departure = đúng chữ "***DPT***" (và KHÔNG rơi vào trường hợp 1, 2 ở trên)
+   -> foStatus = "Due out" (khách trả phòng hôm nay, không có khách mới nhận ngay)
+   VD thật: phòng 777 — I/O "D", Arrival "25/09/2026" (ngày nhận phòng cũ), Departure "***DPT***" -> Due out.
+4. Nếu CẢ Arrival và Departure đều là NGÀY THÁNG CỤ THỂ (không phải "***ARR***"/"***DPT***")
+   -> foStatus = "Occupied" — ÁP DỤNG DÙ ngày Departure là ngày mai hay bất kỳ ngày nào sắp tới, miễn KHÔNG phải chữ "***DPT***" thì luôn luôn là Occupied, không bao giờ là Due out.
+   VD thật: phòng 206 — Arrival "30/09/2026", Departure "03/10/2026" (ngày cụ thể, không phải ***DPT***) -> Occupied, dù hôm nay có là 02/10 đi nữa.
+5. Nếu cả Est Time Arrival và Est Time Departure đều trống/rỗng (không có cả ngày lẫn marker)
    -> foStatus = "Vacant"
-
-LƯU Ý QUAN TRỌNG: "Due out" CHỈ dùng khi khách trả phòng ĐÚNG HÔM NAY. Nếu ngày trả phòng là ngày mai hoặc bất kỳ ngày nào sau hôm nay, dù chỉ cách 1 ngày, vẫn phải gán "Occupied", không được gán "Due out". Đây là lỗi hay gặp nhất, cần đặc biệt cẩn thận so sánh đúng ngày Departure với ngày hôm nay được cho trong tin nhắn.
 
 Quy đổi hkStatus theo giá trị thực tế của cột "Room Status" (chỉ chọn 1 trong 5 giá trị sau):
    - "Dirty" -> "Phòng dơ"
