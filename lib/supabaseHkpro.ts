@@ -13,7 +13,10 @@
  * ============================================================
  */
 import { supabase } from './supabaseClient';
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem } from './types';
+import type {
+  Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem,
+  OverdueHistoryRow, LinenChangeHistoryRow, SupplyBoardItem, InspectionLogRow, BroadcastTaskData,
+} from './types';
 
 // Chuyển mọi giá trị input (kể cả '', null, undefined) thành chuỗi rỗng an
 // toàn để hiển thị — tránh hiện chữ "null"/"undefined" ngoài màn hình.
@@ -85,13 +88,47 @@ export async function sbUpdateRoomFields(maPhong: string, fields: Record<string,
   if (error) throw new Error('Supabase updateRoomFields lỗi: ' + error.message);
 }
 
-/** Áp dữ liệu PDF (Đồng bộ AI) lên hkpro_rooms — CHỈ phần đọc/ghi bảng Phòng của Giai đoạn 1.
- *  Việc reset Giao Nhận Chìa / Lịch Sử Kiểm Phòng / Note Board (các bảng CHƯA migrate) vẫn
- *  chạy qua Apps Script cũ, được gọi riêng ở lib/api.ts để không phá vỡ các module đó. */
+/** Áp dữ liệu PDF (Đồng bộ AI) lên hkpro_rooms — bao gồm CẢ Giai đoạn 1 (bảng Phòng) VÀ
+ *  Giai đoạn 4 (snapshot DND/RF + Báo cáo thay ga sang lịch sử "hôm qua" + xoá sạch Lịch sử
+ *  kiểm phòng trong ngày) — TRƯỚC KHI xoá các field đó cho ngày mới, y hệt hành vi cũ của
+ *  Code.gs (Apps Script) trên Google Sheet. */
 export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: number; notFound: string[] }> {
-  const { data: existing, error: selErr } = await supabase.from('hkpro_rooms').select('ma_phong, ghi_chu_nv, ghi_chu_admin');
+  const { data: existing, error: selErr } = await supabase
+    .from('hkpro_rooms')
+    .select('ma_phong, ghi_chu_nv, ghi_chu_admin, loai_phong, nhan_vien_phu_trach, task_status, linen_change');
   if (selErr) throw new Error('Supabase bulkUpdateFromAI (đọc) lỗi: ' + selErr.message);
   const knownRooms = new Set((existing || []).map((r: any) => r.ma_phong));
+
+  // Bước 0 (Giai đoạn 4) — snapshot DND/RF đang bật (TaskStatus = 'DND'/'Refused') VÀ LinenChange
+  // đã chọn sang 2 bảng lịch sử "hôm qua", TRƯỚC KHI bước 1 xoá sạch các field này cho ngày mới.
+  // Đồng thời xoá sạch Lịch sử kiểm phòng (chỉ có giá trị trong ngày, y hệt Code.gs cũ xoá tab
+  // "InspectionLog" mỗi lần sync).
+  const todayDMY = fmtDdMmYyyy(new Date());
+  const overdueRows: any[] = [];
+  const linenRows: any[] = [];
+  (existing || []).forEach((r: any) => {
+    if (r.task_status === 'DND') overdueRows.push({ category: 'DND', room_no: r.ma_phong, date_noted: todayDMY });
+    if (r.task_status === 'Refused') overdueRows.push({ category: 'RF', room_no: r.ma_phong, date_noted: todayDMY });
+    if (r.linen_change === 'Có' || r.linen_change === 'Không') {
+      linenRows.push({
+        room_no: r.ma_phong, room_type: r.loai_phong || '', date: todayDMY,
+        staff: r.nhan_vien_phu_trach || '', status: r.linen_change,
+      });
+    }
+  });
+  if (overdueRows.length > 0) {
+    const { error: ovErr } = await supabase.from('hkpro_overdue_history').insert(overdueRows);
+    if (ovErr) console.warn('[HK PRO] Snapshot Lịch DND/RF (Đồng bộ AI) lỗi:', ovErr.message);
+  }
+  if (linenRows.length > 0) {
+    const { error: linErr } = await supabase.from('hkpro_linen_change_history').insert(linenRows);
+    if (linErr) console.warn('[HK PRO] Snapshot Báo cáo thay ga (Đồng bộ AI) lỗi:', linErr.message);
+  }
+  try {
+    await supabase.from('hkpro_inspection_logs').delete().gte('id', 0);
+  } catch (err: any) {
+    console.warn('[HK PRO] Xoá Lịch sử kiểm phòng (Đồng bộ AI) lỗi:', err?.message);
+  }
 
   // Bước 1 — reset toàn bộ phòng đã biết (snapshot GhiChuNV/GhiChuAdmin sang "HomQua" trước khi xoá)
   const resets = (existing || []).map((r: any) => ({
@@ -458,6 +495,146 @@ export async function sbUpdateLostFoundItem(
 
 export async function sbDeleteLostFoundItem(id: number): Promise<{ success: boolean }> {
   const { error } = await supabase.from('hkpro_lost_found_items').delete().eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ===== GIAI ĐOẠN 4 — NOTE BOARD (Bảng 1: Lịch DND/RF "hôm qua") ===== */
+
+function overdueRowFromDb(row: any): OverdueHistoryRow {
+  return { id: Number(row.id), category: row.category === 'RF' ? 'RF' : 'DND', roomNo: str(row.room_no), dateNoted: str(row.date_noted) };
+}
+
+export async function sbGetOverdueHistory(): Promise<OverdueHistoryRow[]> {
+  const { data, error } = await supabase.from('hkpro_overdue_history').select('*').order('id', { ascending: false });
+  if (error) throw new Error('Supabase getOverdueHistory lỗi: ' + error.message);
+  return (data || []).map(overdueRowFromDb);
+}
+export async function sbDeleteOverdueHistoryRow(id: number): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_overdue_history').delete().eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+export async function sbClearOverdueHistory(): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_overdue_history').delete().gte('id', 0);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ===== GIAI ĐOẠN 4 — NOTE BOARD (Bảng 2: Báo cáo lịch thay ga "hôm qua") ===== */
+
+function linenRowFromDb(row: any): LinenChangeHistoryRow {
+  return {
+    id: Number(row.id), roomNo: str(row.room_no), roomType: str(row.room_type),
+    date: str(row.date), staff: str(row.staff), status: row.status === 'Có' ? 'Có' : 'Không',
+  };
+}
+
+export async function sbGetLinenChangeHistory(): Promise<LinenChangeHistoryRow[]> {
+  const { data, error } = await supabase.from('hkpro_linen_change_history').select('*').order('id', { ascending: false });
+  if (error) throw new Error('Supabase getLinenChangeHistory lỗi: ' + error.message);
+  return (data || []).map(linenRowFromDb);
+}
+
+/** ===== GIAI ĐOẠN 4 — NOTE BOARD (Bảng 3: Dụng cụ & vật tư đặc biệt) ===== */
+
+export async function sbGetSuppliesBoard(): Promise<SupplyBoardItem[]> {
+  const { data, error } = await supabase.from('hkpro_supply_board').select('*');
+  if (error) throw new Error('Supabase getSuppliesBoard lỗi: ' + error.message);
+  return (data || []).map((row: any) => ({ label: str(row.label), value: str(row.value) }));
+}
+export async function sbUpdateSupplyItem(label: string, value: string): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_supply_board').upsert(
+    { label, value, updated_at: new Date().toISOString() },
+    { onConflict: 'label' }
+  );
+  if (error) return { success: false };
+  return { success: true };
+}
+
+/** ===== GIAI ĐOẠN 4 — LỊCH SỬ KIỂM PHÒNG CỦA GIÁM SÁT/ADMIN (chỉ trong ngày) ===== */
+
+function inspectionRowFromDb(row: any): InspectionLogRow {
+  return {
+    id: Number(row.id), roomNo: str(row.room_no), startTime: str(row.start_time),
+    endTime: str(row.end_time), status: str(row.status), giamSat: str(row.giam_sat),
+  };
+}
+
+export async function sbStartInspectionLog(roomNo: string, giamSat: string): Promise<{ success: boolean }> {
+  const now = new Date();
+  const hhmmss = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+  const { error } = await supabase.from('hkpro_inspection_logs').insert({
+    room_no: roomNo, start_time: hhmmss, end_time: '', status: '', giam_sat: giamSat,
+  });
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbEndInspectionLog(roomNo: string, status: string): Promise<{ success: boolean }> {
+  // Tìm đúng dòng đang MỞ (end_time rỗng) mới nhất của phòng này để điền EndTime + tình trạng sau khi nhả.
+  const { data, error: selErr } = await supabase
+    .from('hkpro_inspection_logs')
+    .select('id')
+    .eq('room_no', roomNo)
+    .eq('end_time', '')
+    .order('id', { ascending: false })
+    .limit(1);
+  if (selErr || !data || data.length === 0) return { success: false };
+  const now = new Date();
+  const hhmmss = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+  const { error } = await supabase.from('hkpro_inspection_logs').update({ end_time: hhmmss, status }).eq('id', data[0].id);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbGetInspectionLogs(): Promise<InspectionLogRow[]> {
+  const { data, error } = await supabase.from('hkpro_inspection_logs').select('*').order('id', { ascending: false });
+  if (error) throw new Error('Supabase getInspectionLogs lỗi: ' + error.message);
+  return (data || []).map(inspectionRowFromDb);
+}
+
+/** ===== GIAI ĐOẠN 4 — TASK CHỈ ĐẠO ĐẶC BIỆT CỦA GIÁM SÁT (Broadcast, 1 dòng duy nhất id=1) ===== */
+
+function broadcastFromDb(row: any): BroadcastTaskData {
+  let completions: string[] = [];
+  try { completions = Array.isArray(row.completions) ? row.completions : JSON.parse(row.completions || '[]'); } catch { completions = []; }
+  return { content: str(row.content), active: Boolean(row.active), date: str(row.task_date), completions };
+}
+
+export async function sbSetBroadcastTask(content: string): Promise<{ success: boolean }> {
+  const todayDMY = fmtDdMmYyyy(new Date());
+  const { error } = await supabase.from('hkpro_broadcast_task').upsert(
+    { id: 1, content, active: true, task_date: todayDMY, completions: [], updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbClearBroadcastTask(): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_broadcast_task')
+    .update({ active: false, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  if (error) return { success: false };
+  return { success: true };
+}
+
+export async function sbGetBroadcastTask(): Promise<BroadcastTaskData | null> {
+  const { data, error } = await supabase.from('hkpro_broadcast_task').select('*').eq('id', 1).maybeSingle();
+  if (error || !data) return null;
+  return broadcastFromDb(data);
+}
+
+export async function sbCompleteBroadcastTask(staff: string): Promise<{ success: boolean }> {
+  const { data, error: selErr } = await supabase.from('hkpro_broadcast_task').select('completions').eq('id', 1).maybeSingle();
+  if (selErr || !data) return { success: false };
+  let completions: string[] = [];
+  try { completions = Array.isArray(data.completions) ? data.completions : JSON.parse(data.completions || '[]'); } catch { completions = []; }
+  if (!completions.includes(staff)) completions.push(staff);
+  const { error } = await supabase.from('hkpro_broadcast_task')
+    .update({ completions, updated_at: new Date().toISOString() })
+    .eq('id', 1);
   if (error) return { success: false };
   return { success: true };
 }
