@@ -149,12 +149,17 @@ export function stripCodesFromNote(note: string): string {
     .join(', ');
 }
 
-/** Lấy riêng các mã hệ thống (EB/BBC/HON/DND/RF) đang có trong ghi chú, dạng mảng chuỗi hoa */
+/** Lấy riêng các mã hệ thống (EB/BBC/HON/DND/RF/LSG) đang có trong ghi chú, dạng mảng chuỗi hoa.
+ *  SỬA LỖI: trước đây chỉ split(',') rồi so khớp CHÍNH XÁC từng mảnh — nên khi ReportScreen gọi
+ *  combineNotes(GhiChu, GhiChuNV, GhiChuAdmin) (nối 3 trường bằng DẤU CÁCH, không phải dấu phẩy),
+ *  một chuỗi như "RF LSG" (RF từ GhiChuNV + LSG từ GhiChuAdmin ghép lại) không khớp "RF" hay "LSG"
+ *  chính xác nữa -> badge RF biến mất khỏi Báo cáo dù nhân viên đã bấm RF (trường hợp phòng 206: có
+ *  thêm ghi chú Giám sát "LSG" khiến chuỗi gộp không còn tách rời bằng dấu phẩy). Nay dùng regex
+ *  \b...\b (giống cleanNote) để nhận diện từng mã ĐỘC LẬP VỊ TRÍ trong toàn chuỗi, không phụ thuộc
+ *  dấu phân cách. */
 export function extractNoteCodes(note: string): string[] {
-  return (note || '')
-    .split(',')
-    .map((s) => s.trim().toUpperCase())
-    .filter((s) => (ALLOWED_NOTE_CODES as readonly string[]).includes(s));
+  if (!note) return [];
+  return ALLOWED_NOTE_CODES.filter((code) => new RegExp(`\\b${code}\\b`, 'i').test(note));
 }
 
 /* =========================================================
