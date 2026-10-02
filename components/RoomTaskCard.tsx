@@ -5,7 +5,7 @@ import { Play, Square, Ban, Hand, RotateCcw, Lock, Unlock, BedDouble } from 'luc
 import type { Room } from '@/lib/types';
 import {
   formatDateShort, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
-  addNoteCode, removeNoteCode,
+  addNoteCode, removeNoteCode, LinenChangeBadge,
 } from '@/lib/roomStyles';
 
 const FO_BADGE: Record<string, { text: string; cls: string }> = {
@@ -109,6 +109,7 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
       <div className="flex items-center justify-between px-3.5 pt-3 pb-2.5 border-b border-slate-100 bg-slate-50">
         <div className="flex items-baseline gap-2">
           <span className="text-[26px] font-extrabold text-slate-800 leading-none">{room.MaPhong}</span>
+          <LinenChangeBadge room={room} />
           {FO_BADGE[room.FoStatus] && (
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FO_BADGE[room.FoStatus].cls}`}>
               {FO_BADGE[room.FoStatus].text}
