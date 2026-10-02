@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, LogIn, Repeat, CheckCircle2, AlertCircle, Wrench, Star } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
@@ -91,13 +91,15 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
 
   // Mục 5 — Thanh tổng hợp trạng thái phòng (đặt cạnh nút IN TỔNG HỢP), tính trên TOÀN BỘ phòng
-  // (không chỉ phòng chưa gán), theo mẫu ảnh tham khảo. Không hiển thị "Công suất phòng" (%).
-  const statOccupied = rooms.filter((r) => r.FoStatus === 'Occupied').length;
-  const statArrival = rooms.filter((r) => r.FoStatus === 'Arrival').length;
-  const statB2B = rooms.filter((r) => r.FoStatus === 'Due out/ARR').length;
-  const statClean = rooms.filter((r) => r.HkStatus === 'Phòng sạch' || r.HkStatus === 'Đã kiểm tra').length;
-  const statDirty = rooms.filter((r) => r.HkStatus === 'Phòng dơ').length;
+  // (không chỉ phòng chưa gán). Theo yêu cầu mới: chỉ 4 chỉ số theo chuẩn thuật ngữ buồng phòng
+  // OD (Occupied) / VD+DO gộp chung (Vacant Dirty + Due out — đều là phòng cần dọn/trả) / OOO
+  // (Phòng sửa chữa) / VC (Vacant Clean — phòng trống đã sạch, sẵn sàng bán).
+  const statOD = rooms.filter((r) => r.FoStatus === 'Occupied').length;
+  const statVD_DO = rooms.filter((r) => r.FoStatus === 'Vacant' || r.FoStatus === 'Due out').length;
   const statOOO = rooms.filter((r) => r.HkStatus === 'Phòng sửa chữa (OOO)').length;
+  const statVC = rooms.filter(
+    (r) => r.FoStatus === 'Vacant' && (r.HkStatus === 'Phòng sạch' || r.HkStatus === 'Đã kiểm tra')
+  ).length;
 
   const toggleSelect = (maPhong: string) => {
     setSelectedIds((prev) => {
@@ -310,30 +312,21 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         <h1 className="text-[19px] font-bold">Phân công dọn phòng</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Mục 5 — thanh tổng hợp trạng thái phòng, đặt cạnh nút IN TỔNG HỢP.
-              Nền SÁNG (trước đây nền đen bị chìm chữ/icon, khó đọc) + mỗi chỉ số có màu riêng nổi bật. */}
-          <div className="flex flex-col gap-1 bg-white/95 text-slate-800 border border-slate-200 shadow-md rounded-2xl p-3 text-[11px] font-semibold leading-none backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 whitespace-nowrap text-blue-600">
-                <User className="w-3 h-3" />{statOccupied} Đang ở
-              </span>
-              <span className="flex items-center gap-1 whitespace-nowrap text-emerald-600">
-                <LogIn className="w-3 h-3" />{statArrival} Khách đến
-              </span>
-              <span className="flex items-center gap-1 whitespace-nowrap text-orange-500">
-                <Repeat className="w-3 h-3" />{statB2B} B2B
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 whitespace-nowrap text-emerald-600">
-                <CheckCircle2 className="w-3 h-3" />{statClean} Sạch
-              </span>
-              <span className="flex items-center gap-1 whitespace-nowrap text-red-600">
-                <AlertCircle className="w-3 h-3" />{statDirty} Cần dọn
-              </span>
-              <span className="flex items-center gap-1 whitespace-nowrap text-slate-500">
-                <Wrench className="w-3 h-3" />{statOOO} OOO
-              </span>
-            </div>
+              Nền SÁNG + mỗi chỉ số có màu riêng nổi bật. Theo yêu cầu mới: chỉ 4 chỉ số chuẩn
+              thuật ngữ buồng phòng — OD / VD-DO (gộp) / OOO / VC — xếp 1 dòng duy nhất. */}
+          <div className="flex items-center gap-3 bg-white/95 text-slate-800 border border-slate-200 shadow-md rounded-2xl p-3 text-[11px] font-semibold leading-none backdrop-blur-sm">
+            <span className="flex items-center gap-1 whitespace-nowrap text-red-600">
+              <User className="w-3 h-3" />{statOD} OD
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-orange-500">
+              <AlertCircle className="w-3 h-3" />{statVD_DO} VD/DO
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-slate-500">
+              <Wrench className="w-3 h-3" />{statOOO} OOO
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-emerald-600">
+              <CheckCircle2 className="w-3 h-3" />{statVC} VC
+            </span>
           </div>
           <button
             onClick={handlePrintAll}
