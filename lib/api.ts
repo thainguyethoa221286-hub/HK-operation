@@ -1,4 +1,4 @@
-import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData } from './types';
+import type { Room, Account, HistoryEntry, KeyLog, TaskChart, TaskChartCell, MaintenanceIssue, LostFoundItem, OverdueHistoryRow, SupplyBoardItem, InspectionLogRow, LinenChangeHistoryRow, BroadcastTaskData, Group } from './types';
 // TOÀN BỘ 4 GIAI ĐOẠN đã chuyển sang Supabase — xem lib/supabaseHkpro.ts.
 // GIAI ĐOẠN 1: Đăng nhập + Bảng phòng/dọn phòng. GIAI ĐOẠN 2: Giao nhận chìa + Task Chart.
 // GIAI ĐOẠN 3: Bảo trì + Lost & Found. GIAI ĐOẠN 4: Note Board + Lịch sử kiểm phòng + Task khẩn.
@@ -15,6 +15,7 @@ import {
   sbGetSuppliesBoard, sbUpdateSupplyItem,
   sbStartInspectionLog, sbEndInspectionLog, sbGetInspectionLogs,
   sbSetBroadcastTask, sbClearBroadcastTask, sbGetBroadcastTask, sbCompleteBroadcastTask,
+  sbGetAssignGroups, sbSaveAssignGroups,
 } from './supabaseHkpro';
 
 // Dán URL Apps Script /exec vào đây (dùng chung backend Code.gs với bản HTML trước đó)
@@ -337,4 +338,14 @@ export async function getBroadcastTask(): Promise<BroadcastTaskData | null> {
 // Nhân viên bấm HOÀN THÀNH — ghi nhận đã xong, hiện lên "Tiến độ dọn phòng" cho Giám sát theo dõi
 export async function completeBroadcastTask(staff: string): Promise<{ success: boolean }> {
   return sbCompleteBroadcastTask(staff);
+}
+
+/** ===== NHÓM PHÂN CÔNG (màn Phân công dọn phòng) — DÙNG CHUNG mọi thiết bị qua Supabase,
+ *  tự động trống lại ngay khi Đồng bộ AI chạy (xem sbBulkUpdateRoomsFromAI). Thay cho
+ *  localStorage trước đây (chỉ lưu riêng từng trình duyệt). ===== */
+export async function getAssignGroups(): Promise<Group[]> {
+  return sbGetAssignGroups();
+}
+export async function saveAssignGroups(groups: Group[]): Promise<{ success: boolean }> {
+  return sbSaveAssignGroups(groups);
 }
