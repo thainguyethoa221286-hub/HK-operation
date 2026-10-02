@@ -282,7 +282,8 @@ export function HoverTip({ tip, children }: { tip: string; children: ReactNode }
   return (
     <span className="relative inline-flex group/tip flex-shrink-0">
       {children}
-      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-30 w-max max-w-[200px] rounded-lg bg-slate-800 text-white text-[10px] font-semibold px-2.5 py-1.5 opacity-0 group-hover/tip:opacity-100 transition-opacity shadow-lg text-center leading-snug">
+      {/* Hiện XUỐNG DƯỚI + z-50 — tránh bị mép thẻ phòng phía trên che mất khi icon nằm sát đỉnh thẻ */}
+      <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 w-48 rounded-lg bg-white border border-slate-300 shadow-xl p-2.5 text-xs font-semibold text-slate-700 opacity-0 group-hover/tip:opacity-100 transition-opacity text-center leading-snug">
         {tip}
       </span>
     </span>
