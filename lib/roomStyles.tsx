@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart, Star } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -246,6 +246,24 @@ function parseArrivalDate(ngayO?: string | null): Date | null {
   return date;
 }
 
+/** Lấy ngày Check-out (vế sau của NgayO, dạng "DD/MM-DD/MM") ra Date thật — dùng để kiểm tra
+ *  "khách trả phòng NGÀY MAI thì bỏ qua lịch thay ga hôm nay". Trả về null nếu NgayO chỉ có 1 mốc
+ *  ngày (chưa biết ngày trả phòng) hoặc không đọc được. */
+function parseDepartureDate(ngayO?: string | null): Date | null {
+  if (!ngayO) return null;
+  const parts = String(ngayO).trim().split('-').map((p) => p.trim());
+  if (parts.length !== 2) return null;
+  const m = parts[1].match(/^(\d{2})\/(\d{2})$/);
+  if (!m) return null;
+  const arr = parseArrivalDate(ngayO);
+  if (!arr) return null;
+  const now = new Date();
+  let date = new Date(now.getFullYear(), Number(m[2]) - 1, Number(m[1]));
+  // Vắt qua năm mới (VD Check-in 28/12, Check-out 03/01) -> cộng thêm 1 năm cho ngày Check-out
+  if (date.getTime() < arr.getTime()) date = new Date(now.getFullYear() + 1, Number(m[2]) - 1, Number(m[1]));
+  return date;
+}
+
 /** Số ngày khách ĐÃ Ở tính tới hôm nay (không tính theo giờ, chỉ tính theo ngày lịch) — dùng hiện
  *  trong Tooltip badge LSG. Trả về null nếu không đọc được ngày Check-in từ NgayO. */
 export function calcDaysStayed(ngayO?: string | null): number | null {
@@ -298,16 +316,32 @@ export function calcNextLinenChangeDate(ngayO?: string | null): string | null {
   return null;
 }
 
-/** Mục MỚI — Báo lịch Thay ga giường TỰ ĐỘNG ngay HÔM NAY cho 1 phòng cụ thể (icon giường kế bên
- *  số phòng). ĐIỀU KIỆN TIÊN QUYẾT: chỉ áp dụng phòng đang Occupied (khách đang ở trong phòng) —
- *  phòng Vacant/Arrival/Due out/Due out-ARR/OOO KHÔNG BAO GIỜ hiện icon này, dù rơi đúng ngày
- *  chẵn/lẻ, vì không có khách đang ở để thay ga. Dựa theo ngày Check-in (vế đầu NgayO) so parity
- *  chẵn/lẻ với hôm nay, có xử lý đúng mốc 31->01 (xem isLinenChangeDayByDate). */
+/** Mục MỚI — Báo lịch Thay ga giường TỰ ĐỘNG ngay HÔM NAY cho 1 phòng cụ thể (icon ngôi sao kế
+ *  bên số phòng).
+ *
+ *  ĐIỀU KIỆN TIÊN QUYẾT: chỉ áp dụng phòng đang Occupied (khách đang ở trong phòng) — phòng
+ *  Vacant/Arrival/Due out/Due out-ARR/OOO KHÔNG BAO GIỜ hiện icon này, dù rơi đúng ngày chẵn/lẻ,
+ *  vì không có khách đang ở để thay ga. Dựa theo ngày Check-in (vế đầu NgayO) so parity chẵn/lẻ
+ *  với hôm nay, có xử lý đúng mốc 31->01 (xem isLinenChangeDayByDate).
+ *
+ *  BỎ QUA nếu khách trả phòng NGÀY MAI (chỉ còn 1 đêm nữa là Check-out) — thay ga hôm nay là thừa
+ *  vì mai khách đã trả phòng, bộ phận buồng phòng sẽ dọn tổng vệ sinh lại từ đầu sau khi khách out.
+ *  VD: Check-in 01, Check-out 04 -> theo chu kỳ lẻ thì ngày 03 đến lịch thay, nhưng 03 là NGÀY MAI
+ *  của Check-out (04) -> BỎ QUA, không hiện icon ngôi sao ở ngày 03 nữa. */
 export function checkLinenChange(room: { FoStatus: string; NgayO?: string | null }): boolean {
   if (room.FoStatus !== 'Occupied') return false;
   const arr = parseArrivalDate(room.NgayO);
   if (!arr) return false;
-  return isLinenChangeDayByDate(new Date(), arr.getDate() % 2 === 0);
+  const today = new Date();
+  if (!isLinenChangeDayByDate(today, arr.getDate() % 2 === 0)) return false;
+
+  const dep = parseDepartureDate(room.NgayO);
+  if (dep) {
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+    const depDay = new Date(dep.getFullYear(), dep.getMonth(), dep.getDate()).getTime();
+    if (depDay === tomorrow) return false;
+  }
+  return true;
 }
 
 /** Tooltip nổi khi hover — dùng chung cho ghim Ghi chú đặc biệt (Pin) và badge LSG trên Thẻ phòng. */
@@ -340,35 +374,13 @@ export function LsgBadge({ note, ngayO }: { note: string; ngayO?: string | null 
 }
 
 /* =========================================================
-   MỤC MỚI — BÁO LỊCH THAY GA GIƯỜNG (PILLOW LINEN CHANGE INDICATOR)
+   MỤC MỚI — BÁO LỊCH THAY GA GIƯỜNG (STAR LINEN CHANGE INDICATOR)
    Icon đặt KẾ BÊN SỐ PHÒNG khi hôm nay đúng lịch thay ga, CHỈ áp dụng phòng Occupied (xem
-   checkLinenChange() ở trên). lucide-react KHÔNG có sẵn icon cái gối/pillow, nên tự vẽ 1 icon SVG
-   hình cái gối (viewBox 24x24, stroke currentColor) theo ĐÚNG chuẩn lucide để đồng bộ hình ảnh với
-   các icon khác trong app — không dùng tạm icon Giường (BedDouble) vì đã dùng cho trạng thái
-   Occupied ở Sơ đồ chính, dễ gây nhầm lẫn 2 icon giống nhau.
+   checkLinenChange() ở trên). Dùng icon Star (ngôi sao vàng) từ lucide-react, tô màu
+   text-amber-400 fill-amber-400 — thay thế hoàn toàn icon cái gối tự vẽ trước đây.
    ========================================================= */
-/** Icon Cái Gối (Pillow) — vẽ tay bằng SVG: hình con nhộng bo tròn 2 đầu (dáng gối/nệm) + 2 đường
- *  lõm nhẹ trên-dưới chính giữa mô phỏng nếp gối, cùng phong cách stroke với bộ icon lucide. */
-function PillowIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="6" width="18" height="12" rx="6" />
-      <path d="M9 6c0 1.4 1.1 2 3 2s3-.6 3-2" />
-      <path d="M9 18c0-1.4 1.1-2 3-2s3 .6 3 2" />
-    </svg>
-  );
-}
 
-/** Badge ĐẦY ĐỦ (nền + icon gối + Tooltip) — dùng ở Thẻ công việc nhân viên (RoomTaskCard) và
+/** Badge ĐẦY ĐỦ (nền + icon sao vàng + Tooltip) — dùng ở Thẻ công việc nhân viên (RoomTaskCard) và
  *  Khung Pop-up Chi tiết (RoomModal/RoomTaskModal), nơi có đủ chỗ và Tooltip không bị che. */
 export function LinenChangeBadge({ room }: { room: { FoStatus: string; NgayO?: string | null } }) {
   if (!checkLinenChange(room)) return null;
@@ -376,7 +388,7 @@ export function LinenChangeBadge({ room }: { room: { FoStatus: string; NgayO?: s
   return (
     <HoverTip tip={`Hôm nay đến lịch thay ga/gối (Check-in ngày: ${checkInShort || '—'})`}>
       <span className="bg-indigo-100 text-indigo-700 p-1 rounded-md text-xs inline-flex items-center gap-1 font-semibold border border-indigo-200">
-        <PillowIcon className="w-3.5 h-3.5" />
+        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
       </span>
     </HoverTip>
   );
@@ -391,7 +403,7 @@ export function LinenChangeIcon({ room }: { room: { FoStatus: string; NgayO?: st
       className="bg-indigo-100 text-indigo-700 p-1 rounded-md inline-flex items-center border border-indigo-200"
       aria-label="Hôm nay đến lịch thay ga giường"
     >
-      <PillowIcon className="w-3 h-3" />
+      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
     </span>
   );
 }
