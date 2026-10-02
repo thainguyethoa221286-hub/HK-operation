@@ -8,7 +8,7 @@ import {
 import type { Room } from '@/lib/types';
 import {
   formatDateShort, formatTimeOnly, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
-  addNoteCode, removeNoteCode, stripCodesFromNote, extractNoteCodes, FO_STATUS_LABEL,
+  addNoteCode, removeNoteCode, stripCodesFromNote, extractNoteCodes, FO_STATUS_LABEL, LinenChangeBadge,
 } from '@/lib/roomStyles';
 import { logTaskAction } from '@/lib/api';
 
@@ -163,6 +163,7 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
         <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 bg-white z-10 border-b border-slate-100">
           <div className="flex items-baseline gap-2">
             <h2 className="text-2xl font-extrabold text-indigo-600">Phòng {room.MaPhong}</h2>
+            <LinenChangeBadge room={room} />
             <span className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1 rounded-md">{room.LoaiPhong}</span>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
