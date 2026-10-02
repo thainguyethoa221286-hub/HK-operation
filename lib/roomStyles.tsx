@@ -113,7 +113,7 @@ export function combineNotes(ghiChu?: string | null, ghiChuNV?: string | null, g
   return [ghiChu, ghiChuNV, ghiChuAdmin].filter(Boolean).join(' ');
 }
 
-export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF', 'LSG'] as const;
+export const ALLOWED_NOTE_CODES = ['EB', 'BBC', 'HON', 'DND', 'RF', 'LSG', 'BC'] as const;
 
 export function cleanNote(rawNote?: string | null): string {
   if (!rawNote) return '';
