@@ -17,14 +17,18 @@ const HK_DOT: Record<string, string> = {
 };
 
 /* Mục 2 — badge viết tắt theo FO Status.
- * Theo yêu cầu UI mới: VD (Vacant) và DO (Due out) đổi sang nền đỏ ĐẬM, nổi bật, dễ quan sát;
- * ARR (Arrival) GIỮ NGUYÊN màu xanh dương như cũ. */
+ * Theo yêu cầu UI mới: VD (Vacant), DO (Due out), DO/Arr (Due out/ARR) dùng CHUNG 1 nền đỏ ĐẬM,
+ * nổi bật, dễ quan sát. Riêng ARR (Arrival): CHỈ đỏ đậm khi phòng ĐANG CÒN DƠ (HkStatus = "Phòng
+ * dơ", tức khách sắp tới mà phòng chưa kịp dọn — cần chú ý gấp); nếu phòng đã dọn/sạch thì ARR vẫn
+ * giữ màu xanh dương như cũ (xem logic động trong RoomChip bên dưới, không cố định ở bảng tĩnh này). */
+const DARK_RED_BADGE = 'bg-red-700 text-white border border-red-800';
+const ARR_BLUE_BADGE = 'bg-sky-50 text-sky-600 border border-sky-300';
 const FO_BADGE: Record<string, { text: string; cls: string }> = {
   Occupied: { text: 'OD', cls: 'bg-red-50 text-red-600 border border-red-300' },
-  'Due out': { text: 'DO', cls: 'bg-red-700 text-white border border-red-800' },
-  Vacant: { text: 'VD', cls: 'bg-red-700 text-white border border-red-800' },
-  'Due out/ARR': { text: 'DO/Arr', cls: 'bg-purple-50 text-purple-600 border border-purple-300' },
-  Arrival: { text: 'ARR', cls: 'bg-sky-50 text-sky-600 border border-sky-300' },
+  'Due out': { text: 'DO', cls: DARK_RED_BADGE },
+  Vacant: { text: 'VD', cls: DARK_RED_BADGE },
+  'Due out/ARR': { text: 'DO/Arr', cls: DARK_RED_BADGE },
+  Arrival: { text: 'ARR', cls: ARR_BLUE_BADGE },
 };
 
 /* Mục 4 — tông màu pastel riêng cho từng cột nhân viên, xoay vòng theo index */
@@ -224,7 +228,12 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     selectable?: boolean; selected?: boolean; onToggleSelect?: () => void;
   }) => {
     const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
-    const fo = FO_BADGE[room.FoStatus];
+    // ARR + phòng còn dơ (chưa dọn) -> đỏ đậm (cần chú ý gấp); ARR + đã dọn/sạch -> giữ xanh dương.
+    const fo = FO_BADGE[room.FoStatus]
+      ? room.FoStatus === 'Arrival' && room.HkStatus === 'Phòng dơ'
+        ? { ...FO_BADGE[room.FoStatus], cls: DARK_RED_BADGE }
+        : FO_BADGE[room.FoStatus]
+      : undefined;
     return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
