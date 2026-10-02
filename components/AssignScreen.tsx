@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RotateCcw, User, LogIn, Repeat, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
@@ -89,6 +89,15 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const isUnassigned = (r: Room) => !r.NhanVienPhuTrach || !activeGroupLabels.has(r.NhanVienPhuTrach);
   const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && isUnassigned(r));
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
+
+  // Mục 5 — Thanh tổng hợp trạng thái phòng (đặt cạnh nút IN TỔNG HỢP), tính trên TOÀN BỘ phòng
+  // (không chỉ phòng chưa gán), theo mẫu ảnh tham khảo. Không hiển thị "Công suất phòng" (%).
+  const statOccupied = rooms.filter((r) => r.FoStatus === 'Occupied').length;
+  const statArrival = rooms.filter((r) => r.FoStatus === 'Arrival').length;
+  const statB2B = rooms.filter((r) => r.FoStatus === 'Due out/ARR').length;
+  const statClean = rooms.filter((r) => r.HkStatus === 'Phòng sạch' || r.HkStatus === 'Đã kiểm tra').length;
+  const statDirty = rooms.filter((r) => r.HkStatus === 'Phòng dơ').length;
+  const statOOO = rooms.filter((r) => r.HkStatus === 'Phòng sửa chữa (OOO)').length;
 
   const toggleSelect = (maPhong: string) => {
     setSelectedIds((prev) => {
@@ -261,7 +270,32 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <h1 className="text-[19px] font-bold">Phân công dọn phòng</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Mục 5 — thanh tổng hợp trạng thái phòng, đặt cạnh nút IN TỔNG HỢP */}
+          <div className="flex flex-col gap-1 bg-slate-800 text-white rounded-lg px-3 py-2 text-[11px] font-semibold leading-none">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <User className="w-3 h-3 text-slate-300" />{statOccupied} Đang ở
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <LogIn className="w-3 h-3 text-emerald-400" />{statArrival} Khách đến
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Repeat className="w-3 h-3 text-orange-400" />{statB2B} B2B
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />{statClean} Sạch
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <AlertCircle className="w-3 h-3 text-rose-400" />{statDirty} Cần dọn
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Wrench className="w-3 h-3 text-slate-300" />{statOOO} OOO
+              </span>
+            </div>
+          </div>
           <button
             onClick={handlePrintAll}
             className="flex items-center gap-1.5 text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2"
