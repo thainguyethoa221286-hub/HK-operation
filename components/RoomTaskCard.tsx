@@ -5,7 +5,7 @@ import { Play, Square, Ban, Hand, RotateCcw, Lock, Unlock, BedDouble } from 'luc
 import type { Room } from '@/lib/types';
 import {
   formatDateShort, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
-  addNoteCode, removeNoteCode, LinenChangeBadge,
+  addNoteCode, removeNoteCode, LinenChangeBadge, combineNotes, isLongStay,
 } from '@/lib/roomStyles';
 
 const FO_BADGE: Record<string, { text: string; cls: string }> = {
@@ -101,14 +101,21 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
   const isDnd = room.TaskStatus === 'DND';
   const isCleaning = room.TaskStatus === 'Đang dọn';
   const isDone = room.TaskStatus === 'Hoàn thành';
+  // Mục mới — badge LSG trên Thẻ công việc nhân viên, đồng bộ với Sơ đồ chính & Khung Pop-up.
+  const showLsg = isLongStay(combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin), room.NgayO);
   void tick; // ép re-render mỗi giây khi đang dọn
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       {/* Header — nền pastel dịu mắt thay vì trắng trơn */}
       <div className="flex items-center justify-between px-3.5 pt-3 pb-2.5 border-b border-slate-100 bg-slate-50">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-1.5">
           <span className="text-[26px] font-extrabold text-slate-800 leading-none">{room.MaPhong}</span>
+          {showLsg && (
+            <span className="bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-md text-[10px] shadow-sm">
+              LSG
+            </span>
+          )}
           <LinenChangeBadge room={room} />
           {FO_BADGE[room.FoStatus] && (
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FO_BADGE[room.FoStatus].cls}`}>
