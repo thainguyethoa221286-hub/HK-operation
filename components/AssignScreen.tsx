@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, X, Printer, ChevronDown, Users, RotateCcw } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
+import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes } from '@/lib/roomStyles';
-import { updateRoomField } from '@/lib/api';
+import { updateRoomField, getAssignGroups, saveAssignGroups } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
   'Phòng dơ': 'bg-red-500',
@@ -39,14 +40,6 @@ const COLUMN_THEMES = [
   { bg: 'bg-purple-50/70', border: 'border-purple-200', header: 'bg-purple-100/80' },
 ];
 
-const DEFAULT_GROUPS: Group[] = [
-  { id: 'N1', staffs: [], extraTasks: [] },
-  { id: 'N2', staffs: [], extraTasks: [] },
-  { id: 'N3', staffs: [], extraTasks: [] },
-  { id: 'N4', staffs: [], extraTasks: [] },
-  { id: 'N5', staffs: [], extraTasks: [] },
-];
-
 /* Mục 2.B — badge DND (đỏ) / RF (tím đậm) trong ghi chú, hiện đồng thời nếu có cả 2 */
 function getLeftBadge(note: string) {
   const { dnd, rf } = hasDndOrRf(note);
@@ -67,42 +60,26 @@ interface AssignScreenProps {
 }
 
 export default function AssignScreen({ rooms, setRooms, staffList }: AssignScreenProps) {
-  const [groups, setGroups] = useState<Group[]>(DEFAULT_GROUPS);
+  const [groups, setGroups] = useState<Group[]>(DEFAULT_ASSIGN_GROUPS);
   const [addStaffOpenFor, setAddStaffOpenFor] = useState<string | null>(null);
   const [taskModalGroupId, setTaskModalGroupId] = useState<string | null>(null);
   const [taskDraft, setTaskDraft] = useState('');
   // Mục 1 — danh sách phòng đang được chọn (multi-select) trong kho chờ
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Nhóm phân công (N1-N5 + tên nhân viên) nay lưu trên Supabase — DÙNG CHUNG mọi thiết bị, không
+  // còn riêng từng trình duyệt như localStorage trước đây. Đồng bộ AI tự reset bảng này NGAY TRÊN
+  // SERVER (xem sbBulkUpdateRoomsFromAI) — màn này chỉ cần poll định kỳ để tự cập nhật theo, kể cả
+  // khi lượt Đồng bộ AI được bấm từ MỘT THIẾT BỊ KHÁC (đây chính là lỗi cũ: trước đây chỉ máy nào
+  // tự bấm Đồng bộ AI mới thấy Nhóm trống, các máy/trình duyệt khác vẫn còn tên nhân viên).
+  const isMountedRef = useRef(true);
   useEffect(() => {
-    let loadedGroups = DEFAULT_GROUPS;
-    try {
-      const saved = localStorage.getItem('hkpro_groups');
-      if (saved) loadedGroups = JSON.parse(saved);
-    } catch {}
-
-    // Đồng bộ AI (màn Sơ đồ phòng) ghi mốc giờ vào 'hk_last_ai_sync' mỗi lần chạy xong. Nếu mốc đó
-    // MỚI HƠN lần gần nhất màn Phân công này đã áp dụng — nghĩa là vừa có 1 lượt Đồng bộ AI mới (phòng
-    // của từng nhân viên đã bị reset về 0 trên Sheet) — tự động xoá sạch tên nhân viên trong các Tag
-    // N1/N2/N3... đưa nhóm về mặc định, để không còn giữ tên cũ (Loan/Hải/Nhân...) khi phòng đã trống.
-    let lastAppliedSync = '';
-    try { lastAppliedSync = localStorage.getItem('hkpro_groups_synced_at') || ''; } catch {}
-    let lastAiSync = '';
-    try { lastAiSync = localStorage.getItem('hk_last_ai_sync') || ''; } catch {}
-
-    if (lastAiSync && lastAiSync !== lastAppliedSync) {
-      setGroups(DEFAULT_GROUPS);
-      try {
-        localStorage.setItem('hkpro_groups', JSON.stringify(DEFAULT_GROUPS));
-        localStorage.setItem('hkpro_groups_synced_at', lastAiSync);
-      } catch {}
-    } else {
-      setGroups(loadedGroups);
-    }
+    isMountedRef.current = true;
+    const refreshGroups = () => { getAssignGroups().then((g) => { if (isMountedRef.current) setGroups(g); }).catch(() => {}); };
+    refreshGroups();
+    const timer = setInterval(refreshGroups, 20000);
+    return () => { isMountedRef.current = false; clearInterval(timer); };
   }, []);
-  useEffect(() => {
-    localStorage.setItem('hkpro_groups', JSON.stringify(groups));
-  }, [groups]);
 
   // Kho phòng chờ CHỈ hiển thị phòng chưa được gán cho nhân viên nào
   // Fix: phòng chỉ tính là "đã gán" khi nhãn của nó khớp với 1 nhóm ĐANG TỒN TẠI.
@@ -175,20 +152,30 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     if (!confirmed) return;
     const assignedIds = rooms.filter((r) => r.NhanVienPhuTrach).map((r) => r.MaPhong);
     setRooms((prev) => prev.map((r) => (assignedIds.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: '' } : r)));
-    setGroups(DEFAULT_GROUPS);
+    setGroups(DEFAULT_ASSIGN_GROUPS);
     setSelectedIds(new Set());
-    await Promise.all(assignedIds.map((id) => updateRoomField(id, 'NhanVienPhuTrach', '')));
+    await Promise.all([
+      ...assignedIds.map((id) => updateRoomField(id, 'NhanVienPhuTrach', '')),
+      saveAssignGroups(DEFAULT_ASSIGN_GROUPS),
+    ]);
   };
 
   const handlePrintAll = () => window.print();
 
+  // Mọi thay đổi Nhóm đều cập nhật state cục bộ NGAY (phản hồi tức thì) + lưu lên Supabase ngay sau
+  // đó (dùng chung mọi thiết bị, không còn localStorage riêng từng máy).
+  const updateGroups = (next: Group[]) => {
+    setGroups(next);
+    saveAssignGroups(next);
+  };
+
   const addGroup = () => {
     const nums = groups.map((g) => Number(g.id.replace('N', '')) || 0);
     const nextId = 'N' + (Math.max(0, ...nums) + 1);
-    setGroups((prev) => [...prev, { id: nextId, staffs: [], extraTasks: [] }]);
+    updateGroups([...groups, { id: nextId, staffs: [], extraTasks: [] }]);
   };
 
-  const removeGroup = (id: string) => setGroups((prev) => prev.filter((g) => g.id !== id));
+  const removeGroup = (id: string) => updateGroups(groups.filter((g) => g.id !== id));
 
   const addStaffToGroup = (groupId: string, staff: string) => {
     const group = groups.find((g) => g.id === groupId);
@@ -196,7 +183,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     const oldLabel = groupCurrentLabel(group);
     const updatedGroup = { ...group, staffs: [...group.staffs, staff] };
     const newLabel = groupCurrentLabel(updatedGroup);
-    setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
+    updateGroups(groups.map((g) => (g.id === groupId ? updatedGroup : g)));
     setAddStaffOpenFor(null);
     migrateAssignedRooms(oldLabel, newLabel);
   };
@@ -207,18 +194,18 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     const oldLabel = groupCurrentLabel(group);
     const updatedGroup = { ...group, staffs: group.staffs.filter((s) => s !== staff) };
     const newLabel = groupCurrentLabel(updatedGroup);
-    setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
+    updateGroups(groups.map((g) => (g.id === groupId ? updatedGroup : g)));
     migrateAssignedRooms(oldLabel, newLabel);
   };
 
   const openTaskModal = (groupId: string) => { setTaskModalGroupId(groupId); setTaskDraft(''); };
   const submitTask = () => {
     if (!taskModalGroupId || !taskDraft.trim()) return;
-    setGroups((prev) => prev.map((g) => (g.id === taskModalGroupId ? { ...g, extraTasks: [...g.extraTasks, taskDraft.trim()] } : g)));
+    updateGroups(groups.map((g) => (g.id === taskModalGroupId ? { ...g, extraTasks: [...g.extraTasks, taskDraft.trim()] } : g)));
     setTaskModalGroupId(null);
   };
   const removeTask = (groupId: string, idx: number) => {
-    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, extraTasks: g.extraTasks.filter((_, i) => i !== idx) } : g)));
+    updateGroups(groups.map((g) => (g.id === groupId ? { ...g, extraTasks: g.extraTasks.filter((_, i) => i !== idx) } : g)));
   };
 
   const RoomChip = ({
