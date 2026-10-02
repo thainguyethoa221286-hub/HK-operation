@@ -295,6 +295,18 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           {/* Ghi chú buồng phòng & nhân viên */}
           <div>
 
+            {/* Ghi chú GỐC do AI tự đồng bộ từ dữ liệu đặt phòng (room.GhiChu) — hiện công khai, chỉ
+                đọc, để nhân viên/giám sát đối chiếu nếu thấy icon EB/BBC/HON/LSG lạ trên thẻ phòng
+                (các icon này tự nhận diện dựa trên nội dung của đúng trường này). */}
+            {room.GhiChu && (
+              <div className="flex items-start gap-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2.5 mb-3">
+                <div>
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Dữ liệu gốc (AI)</div>
+                  <div className="text-[13px] font-semibold text-slate-700">{room.GhiChu}</div>
+                </div>
+              </div>
+            )}
+
             {/* Ghi chú từ Admin/Giám sát — nổi bật NỀN VÀNG + NHẤP NHÁY để gây chú ý mạnh, chỉ đọc (không sửa từ đây) */}
             {room.GhiChuAdmin && (
               <div className="flex items-start gap-2 bg-amber-100 border border-amber-400 text-amber-900 rounded-lg px-3 py-2.5 mb-3 animate-pulse">
