@@ -105,9 +105,9 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   };
 
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-[420px] rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-start mb-4">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white w-full max-w-[420px] rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-3">
           <div>
             <h4 className="text-[17px] font-bold">Phòng {room.MaPhong}</h4>
             <div className="text-xs text-slate-500 mt-0.5">
@@ -125,7 +125,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
             <select
               value={hk}
               onChange={(e) => setHk(e.target.value as HkStatus)}
-              className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm bg-slate-50"
+              className="w-full border border-slate-200 rounded-xl px-2 py-2 text-sm bg-slate-50/50 hover:bg-white transition-all"
             >
               {HK_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -139,7 +139,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
             <select
               value={fo}
               onChange={(e) => setFo(e.target.value as FoStatus)}
-              className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm bg-slate-50"
+              className="w-full border border-slate-200 rounded-xl px-2 py-2 text-sm bg-slate-50/50 hover:bg-white transition-all"
             >
               {FO_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -148,7 +148,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 bg-blue-50 rounded-xl px-3 py-2.5 mb-3.5">
+        <div className="flex items-center gap-2.5 border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white transition-all px-3 py-2.5 mb-3.5">
           <div className="w-[26px] h-[26px] rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
             <Users className="w-3.5 h-3.5 text-blue-700" />
           </div>
@@ -236,12 +236,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
           />
         </div>
 
-        <button
-          onClick={handleClose}
-          className="w-full bg-navy text-white rounded-xl py-3.5 text-[13px] font-bold tracking-wide"
-        >
-          ĐÓNG
-        </button>
+        <div className="border-t border-slate-100 pt-4">
+          <button
+            onClick={handleClose}
+            className="w-full bg-navy text-white rounded-xl py-3.5 text-[13px] font-bold tracking-wide"
+          >
+            ĐÓNG
+          </button>
+        </div>
       </div>
     </div>
   );
