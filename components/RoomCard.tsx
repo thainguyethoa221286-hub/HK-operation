@@ -40,9 +40,15 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   const daOutActive = hasDaOut && !room.isInspecting && room.HkStatus === 'Phòng dơ';
   const isCleaningNow = room.HkStatus === 'Phòng đang dọn';
   const bg = isSettled ? SETTLED_BG[room.TaskStatus] : isCleaningNow ? 'bg-blue-50' : daOutActive ? 'bg-red-50' : defaultBg;
-  // Ghi chú đặc biệt (VD "Khách dị ứng lông mèo") — gộp ghi chú tự do của Giám sát (GhiChuAdmin)
-  // + ghi chú tự do của nhân viên (GhiChuNV, đã lọc bỏ mã hệ thống EB/BBC/HON/DND/RF/LSG).
-  const specialNoteText = [room.GhiChuAdmin, stripCodesFromNote(room.GhiChuNV)].filter(Boolean).join(' • ');
+  // Ghi chú đặc biệt (VD "Khách dị ứng lông mèo") — CHỈ tính phần ghi chú TỰ DO thật sự, đã lọc bỏ
+  // HẾT các mã hệ thống đã có Badge/Icon riêng (EB/BBC/HON/DND/RF/LSG/BC) khỏi CẢ 2 nguồn: ghi chú
+  // Giám sát (GhiChuAdmin) VÀ ghi chú nhân viên (GhiChuNV). TRƯỚC ĐÂY chỉ lọc GhiChuNV, còn
+  // GhiChuAdmin giữ nguyên -> nếu Giám sát chỉ gõ đúng "LSG" (không có nội dung gì khác) thì Icon
+  // Ghim vẫn hiện thừa dù mã LSG đã có badge đỏ riêng rồi (đúng lỗi được báo). Icon Ghim giờ CHỈ hiện
+  // khi còn lại nội dung chữ thật sự sau khi đã lọc hết mã hệ thống.
+  const specialNoteText = [stripCodesFromNote(room.GhiChuAdmin), stripCodesFromNote(room.GhiChuNV)]
+    .filter(Boolean)
+    .join(' • ');
 
   return (
     <div
