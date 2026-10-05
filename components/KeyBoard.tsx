@@ -76,9 +76,13 @@ function KeyBoard({ keyLogs, myName, onConfirmBorrow, onReturn, canReturn = true
               )}
               <Key className={`w-4 h-4 mx-auto mb-1 ${isHeldByMe ? 'text-blue-600' : isHeldByOther ? 'text-slate-400' : 'text-emerald-600'}`} />
               <div className="text-[11px] font-extrabold text-slate-800 leading-tight">{label}</div>
-              {activeLog && (
+              {/* TRƯỚC ĐÂY chỉ hiện tên nhân viên khi activeLog tồn tại (tức CHÌA ĐANG ĐƯỢC GIỮ) —
+                  nên ngay khi chìa đã được TRẢ LẠI (gioTra có giá trị), activeLog = null và tên nhân
+                  viên biến mất hoàn toàn, Báo cáo không tra soát được ai đã mượn/trả. Nay hiện tên
+                  theo latestLog (lượt gần nhất, dù đang giữ hay đã trả), luôn còn trên Báo cáo. */}
+              {latestLog && (
                 <div className="mt-1 text-[9px] font-semibold text-slate-500">
-                  {isHeldByMe ? 'Bạn giữ' : activeLog.nhanVien}
+                  {isHeldByMe ? 'Bạn giữ' : latestLog.nhanVien}
                 </div>
               )}
               {latestLog ? (
