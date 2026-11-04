@@ -185,42 +185,82 @@ export default function HomePage() {
   ];
   const navItems = allNavItems.filter((item) => canAccess(item.key));
 
+  // Bảng màu pastel riêng cho từng module (viết đủ tên class để Tailwind sinh CSS)
+  const PASTEL: Record<ScreenKey, { card: string; iconBox: string; text: string; ring: string; dot: string }> = {
+    sodo:        { card: 'bg-emerald-50 border-emerald-100', iconBox: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-800', ring: 'border-emerald-300 ring-2 ring-emerald-200', dot: 'bg-emerald-500' },
+    phancong:    { card: 'bg-sky-50 border-sky-100',         iconBox: 'bg-sky-100 text-sky-600',         text: 'text-sky-800',     ring: 'border-sky-300 ring-2 ring-sky-200',         dot: 'bg-sky-500' },
+    nhiemvu:     { card: 'bg-violet-50 border-violet-100',   iconBox: 'bg-violet-100 text-violet-600',   text: 'text-violet-800',  ring: 'border-violet-300 ring-2 ring-violet-200',   dot: 'bg-violet-500' },
+    baocao:      { card: 'bg-amber-50 border-amber-100',     iconBox: 'bg-amber-100 text-amber-600',     text: 'text-amber-800',   ring: 'border-amber-300 ring-2 ring-amber-200',     dot: 'bg-amber-500' },
+    noteboard:   { card: 'bg-rose-50 border-rose-100',       iconBox: 'bg-rose-100 text-rose-600',       text: 'text-rose-800',    ring: 'border-rose-300 ring-2 ring-rose-200',       dot: 'bg-rose-500' },
+    task:        { card: 'bg-indigo-50 border-indigo-100',   iconBox: 'bg-indigo-100 text-indigo-600',   text: 'text-indigo-800',  ring: 'border-indigo-300 ring-2 ring-indigo-200',   dot: 'bg-indigo-500' },
+    maintenance: { card: 'bg-orange-50 border-orange-100',   iconBox: 'bg-orange-100 text-orange-600',   text: 'text-orange-800',  ring: 'border-orange-300 ring-2 ring-orange-200',   dot: 'bg-orange-500' },
+    lostfound:   { card: 'bg-teal-50 border-teal-100',       iconBox: 'bg-teal-100 text-teal-600',       text: 'text-teal-800',    ring: 'border-teal-300 ring-2 ring-teal-200',       dot: 'bg-teal-500' },
+    settings:    { card: 'bg-slate-50 border-slate-200',     iconBox: 'bg-slate-100 text-slate-600',     text: 'text-slate-700',   ring: 'border-slate-300 ring-2 ring-slate-200',     dot: 'bg-slate-500' },
+  };
+
+
   // Nếu màn đang chọn (mặc định 'sodo' lúc mới vào) KHÔNG còn nằm trong quyền hiệu lực —
   // VD Admin vừa đóng đúng module đó cho tài khoản này ở Ma trận phân quyền — tự động rơi về
   // module đầu tiên còn được mở, tránh màn chính bị trắng trơn không hiện gì.
   const effectiveScreen: ScreenKey | undefined = canAccess(screen) ? screen : navItems[0]?.key;
 
+  const initial = (account.hoTen || '?').trim().charAt(0).toUpperCase();
+
   const SidebarContent = (
     <>
-      <div className={`flex items-center gap-2 font-bold text-white text-[17px] px-4 pb-4 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
-        <span className="bg-emerald-600 w-[26px] h-[26px] rounded-lg flex items-center justify-center text-xs flex-shrink-0">🧹</span>
+      {/* Logo */}
+      <div className={`flex items-center gap-2 font-bold text-slate-800 text-[17px] px-4 pb-4 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
+        <span className="bg-emerald-500 text-white w-[28px] h-[28px] rounded-xl flex items-center justify-center text-xs flex-shrink-0 shadow-sm">🧹</span>
         {!sidebarCollapsed && 'HK OPERATION'}
       </div>
-      <div className={`flex items-center gap-2.5 px-4 py-3 border-t border-b border-white/10 mb-2.5 ${sidebarCollapsed ? 'justify-center px-0' : ''}`}>
-        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-          <User className="w-4 h-4" />
+
+      {/* Thẻ thông tin User */}
+      <div className={`mx-3 mb-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-center gap-3 ${sidebarCollapsed ? 'justify-center p-2' : 'p-3'}`}>
+        <div className="relative w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0" title={sidebarCollapsed ? account.hoTen : undefined}>
+          {initial || <User className="w-4 h-4" />}
+          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
         </div>
         {!sidebarCollapsed && (
-          <div className="flex-1 text-xs min-w-0">
-            <b className="block text-[13px] text-white truncate">{account.hoTen}</b>
-            {ROLE_LABELS[account.vaiTro] || account.vaiTro}
+          <div className="flex-1 min-w-0">
+            <b className="block text-[14px] text-slate-800 truncate">{account.hoTen}</b>
+            <span className="block text-xs text-slate-400 truncate">{ROLE_LABELS[account.vaiTro] || account.vaiTro}</span>
           </div>
         )}
-        {!sidebarCollapsed && <LogOut className="w-4 h-4 opacity-60 cursor-pointer flex-shrink-0" onClick={handleLogout} />}
-      </div>
-      <nav className="flex flex-col gap-0.5 px-2.5">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            title={sidebarCollapsed ? item.label : undefined}
-            onClick={() => { setScreen(item.key); setMobileNavOpen(false); }}
-            className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-lg text-sm ${sidebarCollapsed ? 'justify-center px-0' : ''} ${
-              item.key === effectiveScreen ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-white/5'
-            }`}
-          >
-            <item.icon className="w-4 h-4 flex-shrink-0" /> {!sidebarCollapsed && item.label}
+        {!sidebarCollapsed && (
+          <button onClick={handleLogout} title="Đăng xuất" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors flex-shrink-0">
+            <LogOut className="w-4 h-4" />
           </button>
-        ))}
+        )}
+      </div>
+
+      {!sidebarCollapsed && (
+        <div className="px-4 mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">Danh mục module</div>
+      )}
+
+      {/* Các thẻ module pastel */}
+      <nav className={`flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pt-1 pb-4 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
+        {navItems.map((item) => {
+          const c = PASTEL[item.key];
+          const active = item.key === effectiveScreen;
+          return (
+            <button
+              key={item.label}
+              title={sidebarCollapsed ? item.label : undefined}
+              onClick={() => { setScreen(item.key); setMobileNavOpen(false); }}
+              className={`group relative flex items-center gap-3 text-left rounded-2xl border shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${c.card} ${
+                active ? `${c.ring} shadow-md` : ''
+              } ${sidebarCollapsed ? 'justify-center p-2' : 'px-2.5 py-2'}`}
+            >
+              <span className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.iconBox}`}>
+                <item.icon className="w-[18px] h-[18px]" />
+              </span>
+              {!sidebarCollapsed && <span className={`flex-1 text-[14px] font-semibold ${c.text}`}>{item.label}</span>}
+              {active && (
+                <span className={`rounded-full ${c.dot} ${sidebarCollapsed ? 'absolute top-1 right-1 w-2 h-2' : 'w-2.5 h-2.5 mr-1'}`} />
+              )}
+            </button>
+          );
+        })}
       </nav>
     </>
   );
@@ -228,12 +268,12 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen" style={{ background: themeBackground }}>
       {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
-      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-[#054a36] text-slate-300 flex-shrink-0 flex-col py-4 relative transition-all duration-200`}>
+      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-slate-50/90 backdrop-blur border-r border-slate-200 text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
         {SidebarContent}
         <button
           onClick={toggleSidebarCollapsed}
           title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
-          className="absolute -right-3 top-16 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md hover:bg-emerald-500"
+          className="absolute -right-3 top-16 z-10 w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center shadow-md hover:text-emerald-600 hover:border-emerald-300 transition-colors"
         >
           {sidebarCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
