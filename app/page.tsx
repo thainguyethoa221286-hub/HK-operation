@@ -280,10 +280,10 @@ export default function HomePage() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 pb-20 md:pb-5 overflow-x-hidden">
+      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 pb-24 md:pb-5 overflow-x-hidden">
         {/* Mobile — Header đơn giản (không còn Hamburger/Drawer, xem thanh điều hướng ngang ở cuối màn hình) */}
         <div className="md:hidden flex items-center gap-2 mb-3">
-          <span className="bg-emerald-600 w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0">🧹</span>
+          <span className="bg-emerald-500 text-white w-7 h-7 rounded-xl flex items-center justify-center text-xs flex-shrink-0 shadow-sm">🧹</span>
           <span className="font-bold text-[15px]">HK OPERATION</span>
           <LogOut className="w-4 h-4 text-slate-400 ml-auto" onClick={handleLogout} />
         </div>
@@ -317,20 +317,27 @@ export default function HomePage() {
       </main>
 
       {/* Mobile — Thanh điều hướng NGANG cuộn được, cố định đáy màn hình, thay cho Sidebar dọc + Drawer */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#054a36] border-t border-white/10 overflow-x-auto">
-        <div className="flex gap-1 px-2 py-2 min-w-max">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => setScreen(item.key)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap flex-shrink-0 ${
-                item.key === effectiveScreen ? 'bg-emerald-600 text-white' : 'text-slate-300'
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </button>
-          ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] overflow-x-auto">
+        <div className="flex gap-2 px-3 py-2.5 min-w-max">
+          {navItems.map((item) => {
+            const c = PASTEL[item.key];
+            const active = item.key === effectiveScreen;
+            return (
+              <button
+                key={item.label}
+                onClick={() => setScreen(item.key)}
+                className={`relative flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl border shadow-sm text-[10px] font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-200 active:scale-95 ${c.card} ${c.text} ${
+                  active ? `${c.ring} shadow-md` : ''
+                }`}
+              >
+                <span className={`w-7 h-7 rounded-xl flex items-center justify-center ${c.iconBox}`}>
+                  <item.icon className="w-4 h-4" />
+                </span>
+                {item.label}
+                {active && <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${c.dot}`} />}
+              </button>
+            );
+          })}
         </div>
       </nav>
     </div>
