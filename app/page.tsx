@@ -185,17 +185,17 @@ export default function HomePage() {
   ];
   const navItems = allNavItems.filter((item) => canAccess(item.key));
 
-  // Bảng màu pastel riêng cho từng module (viết đủ tên class để Tailwind sinh CSS)
+  // Bảng màu pastel riêng cho từng module — tông đậm hơn để thẻ nổi rõ trên nền (viết đủ tên class để Tailwind sinh CSS)
   const PASTEL: Record<ScreenKey, { card: string; iconBox: string; text: string; ring: string; dot: string }> = {
-    sodo:        { card: 'bg-emerald-50 border-emerald-100', iconBox: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-800', ring: 'border-emerald-300 ring-2 ring-emerald-200', dot: 'bg-emerald-500' },
-    phancong:    { card: 'bg-sky-50 border-sky-100',         iconBox: 'bg-sky-100 text-sky-600',         text: 'text-sky-800',     ring: 'border-sky-300 ring-2 ring-sky-200',         dot: 'bg-sky-500' },
-    nhiemvu:     { card: 'bg-violet-50 border-violet-100',   iconBox: 'bg-violet-100 text-violet-600',   text: 'text-violet-800',  ring: 'border-violet-300 ring-2 ring-violet-200',   dot: 'bg-violet-500' },
-    baocao:      { card: 'bg-amber-50 border-amber-100',     iconBox: 'bg-amber-100 text-amber-600',     text: 'text-amber-800',   ring: 'border-amber-300 ring-2 ring-amber-200',     dot: 'bg-amber-500' },
-    noteboard:   { card: 'bg-rose-50 border-rose-100',       iconBox: 'bg-rose-100 text-rose-600',       text: 'text-rose-800',    ring: 'border-rose-300 ring-2 ring-rose-200',       dot: 'bg-rose-500' },
-    task:        { card: 'bg-indigo-50 border-indigo-100',   iconBox: 'bg-indigo-100 text-indigo-600',   text: 'text-indigo-800',  ring: 'border-indigo-300 ring-2 ring-indigo-200',   dot: 'bg-indigo-500' },
-    maintenance: { card: 'bg-orange-50 border-orange-100',   iconBox: 'bg-orange-100 text-orange-600',   text: 'text-orange-800',  ring: 'border-orange-300 ring-2 ring-orange-200',   dot: 'bg-orange-500' },
-    lostfound:   { card: 'bg-teal-50 border-teal-100',       iconBox: 'bg-teal-100 text-teal-600',       text: 'text-teal-800',    ring: 'border-teal-300 ring-2 ring-teal-200',       dot: 'bg-teal-500' },
-    settings:    { card: 'bg-slate-50 border-slate-200',     iconBox: 'bg-slate-100 text-slate-600',     text: 'text-slate-700',   ring: 'border-slate-300 ring-2 ring-slate-200',     dot: 'bg-slate-500' },
+    sodo: { card: 'bg-emerald-100 border-emerald-200', iconBox: 'bg-white text-emerald-600 shadow-sm', text: 'text-emerald-900', ring: 'border-emerald-400 ring-2 ring-emerald-300', dot: 'bg-emerald-500' },
+    phancong: { card: 'bg-sky-100 border-sky-200', iconBox: 'bg-white text-sky-600 shadow-sm', text: 'text-sky-900', ring: 'border-sky-400 ring-2 ring-sky-300', dot: 'bg-sky-500' },
+    nhiemvu: { card: 'bg-violet-100 border-violet-200', iconBox: 'bg-white text-violet-600 shadow-sm', text: 'text-violet-900', ring: 'border-violet-400 ring-2 ring-violet-300', dot: 'bg-violet-500' },
+    baocao: { card: 'bg-amber-100 border-amber-200', iconBox: 'bg-white text-amber-600 shadow-sm', text: 'text-amber-900', ring: 'border-amber-400 ring-2 ring-amber-300', dot: 'bg-amber-500' },
+    noteboard: { card: 'bg-rose-100 border-rose-200', iconBox: 'bg-white text-rose-600 shadow-sm', text: 'text-rose-900', ring: 'border-rose-400 ring-2 ring-rose-300', dot: 'bg-rose-500' },
+    task: { card: 'bg-indigo-100 border-indigo-200', iconBox: 'bg-white text-indigo-600 shadow-sm', text: 'text-indigo-900', ring: 'border-indigo-400 ring-2 ring-indigo-300', dot: 'bg-indigo-500' },
+    maintenance: { card: 'bg-orange-100 border-orange-200', iconBox: 'bg-white text-orange-600 shadow-sm', text: 'text-orange-900', ring: 'border-orange-400 ring-2 ring-orange-300', dot: 'bg-orange-500' },
+    lostfound: { card: 'bg-teal-100 border-teal-200', iconBox: 'bg-white text-teal-600 shadow-sm', text: 'text-teal-900', ring: 'border-teal-400 ring-2 ring-teal-300', dot: 'bg-teal-500' },
+    settings: { card: 'bg-slate-100 border-slate-200', iconBox: 'bg-white text-slate-600 shadow-sm', text: 'text-slate-900', ring: 'border-slate-400 ring-2 ring-slate-300', dot: 'bg-slate-500' },
   };
 
 
@@ -215,7 +215,7 @@ export default function HomePage() {
       </div>
 
       {/* Thẻ thông tin User */}
-      <div className={`mx-3 mb-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-center gap-3 ${sidebarCollapsed ? 'justify-center p-2' : 'p-3'}`}>
+      <div className={`mx-3 mb-4 bg-white border border-slate-200 rounded-2xl shadow-md flex items-center gap-3 ${sidebarCollapsed ? 'justify-center p-2' : 'p-3'}`}>
         <div className="relative w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center flex-shrink-0" title={sidebarCollapsed ? account.hoTen : undefined}>
           {initial || <User className="w-4 h-4" />}
           <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
@@ -234,7 +234,7 @@ export default function HomePage() {
       </div>
 
       {!sidebarCollapsed && (
-        <div className="px-4 mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">Danh mục module</div>
+        <div className="px-4 mb-2 text-[11px] font-bold tracking-wider text-slate-500 uppercase">Danh mục module</div>
       )}
 
       {/* Các thẻ module pastel */}
@@ -268,7 +268,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen" style={{ background: themeBackground }}>
       {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
-      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-slate-50/90 backdrop-blur border-r border-slate-200 text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
+      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-white border-r border-slate-200 shadow-[2px_0_12px_rgba(15,23,42,0.06)] text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
         {SidebarContent}
         <button
           onClick={toggleSidebarCollapsed}
