@@ -139,24 +139,30 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
         </div>
       </div>
 
-      {/* Ổ khoá: SƠ ĐỒ PHÒNG dùng khoá thẻ từ DÁNG MẢNH (kiểu A); màn NHIỆM VỤ (dimSettled) giữ khoá đen cũ.
-          Thẻ treo DND/RF/MKR móc từ ổ khoá, đung đưa nhẹ. */}
-      <div className={`pointer-events-none absolute ${dimSettled ? (special ? 'right-4 top-[22%]' : 'right-3 top-[20%]') : (special ? 'right-5 top-[24%]' : 'right-3.5 top-[22%]')}`}>
-        {dimSettled ? (
-          <>
-        <div className={`relative rounded-[7px] bg-gradient-to-br from-slate-600 via-slate-800 to-slate-950 border border-slate-900 shadow-[0_3px_6px_rgba(15,23,42,0.35),inset_1px_1px_0_rgba(255,255,255,0.18)] flex flex-col items-center ${special ? 'w-[22px] h-[60px] pt-1.5' : 'w-[17px] h-[46px] pt-1'}`}>
-          {/* Mắt cảm biến thẻ từ */}
-          <span className={`rounded-[3px] bg-slate-950 border border-slate-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)] ${special ? 'w-[12px] h-[9px]' : 'w-[9px] h-[7px]'}`} />
-          {/* Đèn LED */}
-          <span className={`mt-1.5 rounded-full ${accent.led} ${special ? 'w-[5px] h-[5px]' : 'w-[4px] h-[4px]'}`} />
-          {/* Vệt bóng loáng */}
-          <span className="absolute top-1 left-[3px] w-[2px] h-[60%] rounded-full bg-white/10" />
+      {dimSettled ? (
+        /* Màn NHIỆM VỤ: ổ khoá Y HỆT cửa xám (đầu đọc thẻ nhỏ + núm + tay gạt inox), CÙNG VỊ TRÍ — chỉ khác nền thẻ */
+        <div className="pointer-events-none absolute right-[9%] top-[55%]">
+          <div className="relative w-[11px] h-[14px] rounded-[3px] bg-gradient-to-b from-slate-700 to-black border border-slate-400/70 shadow-[0_1px_2px_rgba(0,0,0,0.5)] flex justify-center pt-[3px]">
+            <span className={`w-[3px] h-[3px] rounded-full ${accent.led}`} />
+          </div>
+          <span className="absolute right-[1px] top-[18px] w-[9px] h-[9px] rounded-full bg-gradient-to-br from-white to-slate-400 shadow-[0_1px_2px_rgba(0,0,0,0.45)]" />
+          <span className="absolute right-[5px] top-[20px] w-[22px] h-[4px] rounded-full bg-gradient-to-b from-white via-slate-300 to-slate-500 shadow-[0_2px_2px_rgba(0,0,0,0.4)]" />
+          {(dnd || rf || hasMkr) && (
+            <>
+              <style>{`@keyframes hkHangerSwing2{0%,100%{transform:rotate(6deg)}50%{transform:rotate(-4deg)}}`}</style>
+              <div className="absolute right-[-9px] top-[17px] origin-top flex flex-col items-center gap-1" style={{ animation: 'hkHangerSwing2 3.2s ease-in-out infinite' }}>
+                {dnd && <HangerTag label="DND" cls="from-red-500 to-red-700" />}
+                {rf && <HangerTag label="RF" cls="from-purple-500 to-purple-800" />}
+                {hasMkr && <HangerTag label="MKR" cls="from-blue-500 to-blue-700" />}
+              </div>
+            </>
+          )}
         </div>
-        {/* Tay gạt kim loại 3D — chìa sang trái từ phần dưới ổ khoá */}
-        <span className={`absolute rounded-full bg-gradient-to-b from-slate-100 via-slate-300 to-slate-500 border border-slate-400/70 shadow-[0_2px_3px_rgba(15,23,42,0.35)] ${special ? 'right-[8px] bottom-[10px] w-[34px] h-[9px]' : 'right-[6px] bottom-[7px] w-[26px] h-[7px]'}`} />
-          </>
-        ) : (
-          <>
+      ) : (
+        <>
+      {/* SƠ ĐỒ PHÒNG: ổ khoá thẻ từ DÁNG MẢNH (kiểu A) + thẻ treo móc dây thừng.
+          Thẻ treo DND/RF/MKR móc từ ổ khoá, đung đưa nhẹ. */}
+      <div className={`pointer-events-none absolute ${special ? 'right-5 top-[24%]' : 'right-3.5 top-[22%]'}`}>
         <div className={`relative rounded-full bg-gradient-to-r from-slate-300 via-slate-50 to-slate-400 border border-slate-400/60 shadow-[0_2px_3px_rgba(15,23,42,0.3)] ${special ? 'w-[15px] h-[54px]' : 'w-[12px] h-[40px]'}`}>
           {/* Khe đọc thẻ */}
           <span className={`absolute left-1/2 -translate-x-1/2 rounded-[3px] bg-slate-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.7)] ${special ? 'top-[7px] w-[8px] h-[14px]' : 'top-[5px] w-[6px] h-[10px]'}`} />
@@ -166,13 +172,11 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
         {/* Tay gạt inox nhỏ — chìa vào trong cửa */}
         <span className={`absolute rounded-full bg-gradient-to-b from-slate-50 via-slate-300 to-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.35)] ${special ? 'right-[7px] top-[36px] w-[30px] h-[6px]' : 'right-[5px] top-[27px] w-[22px] h-[5px]'}`} />
         <span className={`absolute rounded-full bg-gradient-to-br from-white to-slate-400 shadow-[0_1px_2px_rgba(15,23,42,0.4)] ${special ? 'right-[3px] top-[34px] w-[9px] h-[9px]' : 'right-[2px] top-[25.5px] w-[8px] h-[8px]'}`} />
-          </>
-        )}
         {(dnd || rf || hasMkr) && (
           <>
             <style>{`@keyframes hkHangerSwing{0%,100%{transform:translateX(-50%) rotate(7deg)}50%{transform:translateX(-50%) rotate(-3deg)}}`}</style>
             <div
-              className={`absolute left-1/2 flex flex-col items-center gap-1 origin-top ${dimSettled ? (special ? 'top-[44px]' : 'top-[33px]') : (special ? 'top-[44px]' : 'top-[32px]')}`}
+              className={`absolute left-1/2 flex flex-col items-center gap-1 origin-top ${special ? 'top-[44px]' : 'top-[32px]'}`}
               style={{ animation: 'hkHangerSwing 3.2s ease-in-out infinite', transform: 'translateX(-50%) rotate(7deg)' }}
             >
               {dnd && (dimSettled ? <HangerTag label="DND" cls="from-red-500 to-red-700" big={special} /> : <RopeHangerTag label="DND" cls="from-red-500 to-red-700" big={special} />)}
@@ -182,6 +186,8 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
           </>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
