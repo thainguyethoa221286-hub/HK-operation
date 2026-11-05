@@ -242,8 +242,16 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
      Ghi 1 dòng lịch sử "Chuyển PM Shift" (VD "DND · Tâm") -> Daily Report ghi lại được. */
   const pmLabel = groupCurrentLabel(pmGroup);
   const pmRooms = roomsForGroup(rooms, pmGroup).sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
+  // Phòng DND / RF: theo trạng thái nhiệm vụ HOẶC bảng treo trên ghi chú (ghi chú AI / nhân viên / giám sát)
+  // — giống cách thẻ phòng hiện bảng DND/RF. Bỏ qua phòng đã dọn xong và phòng đã giao ca chiều.
+  const pmKind = (r: Room): 'DND' | 'RF' | '' => {
+    if (r.TaskStatus === 'DND') return 'DND';
+    if (r.TaskStatus === 'Refused') return 'RF';
+    const { dnd, rf } = hasDndOrRf(combineNotes(r.GhiChu, r.GhiChuNV, r.GhiChuAdmin));
+    return dnd ? 'DND' : rf ? 'RF' : '';
+  };
   const pmCandidates = rooms
-    .filter((r) => (r.TaskStatus === 'DND' || r.TaskStatus === 'Refused') && !isPmLabel(r.NhanVienPhuTrach))
+    .filter((r) => pmKind(r) !== '' && r.TaskStatus !== 'Hoàn thành' && !isPmLabel(r.NhanVienPhuTrach))
     .sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
   const pmSelectedValid = pmCandidates.filter((r) => pmSelected.has(r.MaPhong));
   const togglePmSelect = (maPhong: string) => {
@@ -262,13 +270,16 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const changes = list.map((r) => ({
       id: r.MaPhong,
-      was: `${r.TaskStatus === 'DND' ? 'DND' : 'RF'} · ${r.NhanVienPhuTrach ? displayLabel(r.NhanVienPhuTrach) : 'chưa gán'}`,
+      was: `${pmKind(r)} · ${r.NhanVienPhuTrach ? displayLabel(r.NhanVienPhuTrach) : 'chưa gán'}`,
+      // Gỡ bảng DND/RF khỏi CẢ 3 nguồn ghi chú (giống khi bật MKR) -> thẻ phòng trắng lại, ca chiều mở làm được
       fields: {
         NhanVienPhuTrach: pmLabel,
         TrolleyCode: PM_GROUP_ID,
         TaskStatus: 'Chưa dọn',
         StartTime: '',
-        GhiChuNV: removeNoteCode(removeNoteCode(r.GhiChuNV, 'DND'), 'RF'),
+        GhiChu: removeNoteCode(removeNoteCode(r.GhiChu || '', 'DND'), 'RF'),
+        GhiChuNV: removeNoteCode(removeNoteCode(r.GhiChuNV || '', 'DND'), 'RF'),
+        GhiChuAdmin: removeNoteCode(removeNoteCode(r.GhiChuAdmin || '', 'DND'), 'RF'),
       },
     }));
     setRooms((prev) => prev.map((r) => {
@@ -665,7 +676,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
             ) : (
               pmCandidates.map((r) => {
                 const on = pmSelected.has(r.MaPhong);
-                const isDnd = r.TaskStatus === 'DND';
+                const isDnd = pmKind(r) === 'DND';
                 return (
                   <button
                     key={r.MaPhong}
