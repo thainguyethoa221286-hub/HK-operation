@@ -268,7 +268,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen" style={{ background: themeBackground }}>
       {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
-      <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-white border-r border-slate-200 shadow-[2px_0_12px_rgba(15,23,42,0.06)] text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
+      <aside className={`print:!hidden hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-white border-r border-slate-200 shadow-[2px_0_12px_rgba(15,23,42,0.06)] text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
         {SidebarContent}
         <button
           onClick={toggleSidebarCollapsed}
@@ -280,16 +280,16 @@ export default function HomePage() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 pb-24 md:pb-5 overflow-x-hidden">
+      <main className="flex-1 w-full px-3 md:px-6 py-4 md:py-5 pb-24 md:pb-5 overflow-x-hidden print:p-0">
         {/* Mobile — Header đơn giản (không còn Hamburger/Drawer, xem thanh điều hướng ngang ở cuối màn hình) */}
-        <div className="md:hidden flex items-center gap-2 mb-3">
+        <div className="md:hidden print:hidden flex items-center gap-2 mb-3">
           <span className="bg-emerald-500 text-white w-7 h-7 rounded-xl flex items-center justify-center text-xs flex-shrink-0 shadow-sm">🧹</span>
           <span className="font-bold text-[15px]">HK OPERATION</span>
           <LogOut className="w-4 h-4 text-slate-400 ml-auto" onClick={handleLogout} />
         </div>
 
         {syncError && (
-          <div className="mb-4 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+          <div className="mb-4 print:hidden text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
             ⚠ {syncError}
           </div>
         )}
@@ -301,7 +301,7 @@ export default function HomePage() {
             {effectiveScreen === 'sodo' && canAccess('sodo') && <RoomMapScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} account={account} />}
             {effectiveScreen === 'phancong' && canAccess('phancong') && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
             {effectiveScreen === 'nhiemvu' && canAccess('nhiemvu') && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
-            {effectiveScreen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} />}
+            {effectiveScreen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} account={account} />}
             {effectiveScreen === 'task' && canAccess('task') && <TaskChartScreen />}
             {effectiveScreen === 'maintenance' && canAccess('maintenance') && <MaintenanceScreen />}
             {effectiveScreen === 'lostfound' && canAccess('lostfound') && <LostFoundScreen />}
@@ -317,7 +317,7 @@ export default function HomePage() {
       </main>
 
       {/* Mobile — Thanh điều hướng NGANG cuộn được, cố định đáy màn hình, thay cho Sidebar dọc + Drawer */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] overflow-x-auto">
+      <nav className="md:hidden print:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] overflow-x-auto">
         <div className="flex gap-2 px-3 py-2.5 min-w-max">
           {navItems.map((item) => {
             const c = PASTEL[item.key];
