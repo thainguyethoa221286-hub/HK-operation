@@ -5,7 +5,7 @@ import { X, Users, CalendarDays, User, ChevronDown, Search, Check, Pencil } from
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
 import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge } from '@/lib/roomStyles';
-import { createMaintenanceIssue } from '@/lib/api';
+import { createMaintenanceIssue, logTaskAction } from '@/lib/api';
 
 interface RoomModalProps {
   room: Room | null;
@@ -85,6 +85,12 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
       if (!res.success) {
         window.alert(`⚠ Không ghi được sự cố "Sửa chữa" cho phòng ${room.MaPhong} vào Maintenance:\n${res.error || 'Lỗi không rõ nguyên nhân'}\n\nCác thay đổi khác của phòng vẫn được lưu — chị vào module Maintenance thêm thủ công ticket này giúp mình.`);
       }
+    }
+
+    // Ghi lịch sử MỖI LẦN BẬT MKR (TẮT -> BẬT trong phiên này) kèm giờ bấm + người bật — để Báo cáo
+    // ngày đếm đủ số lần khách treo bảng MKR (giống DND/RF), tiện đối soát khi có sự cố.
+    if (flags.includes('TrangDiem') && !initialFlags.includes('TrangDiem')) {
+      logTaskAction(room.MaPhong, account?.hoTen || 'Giám sát', 'MKR Bật').catch(() => {});
     }
 
     // Bật cờ MKR — DND/RF đã hết hiệu lực (phòng cần trang điểm/chuẩn bị, không còn từ chối/không làm phiền
