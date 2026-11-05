@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, Fragment } from 'react';
-import { Wrench, Printer, Plus, CalendarClock, Trash2, ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Wrench, Printer, Plus, CalendarClock, Trash2, Check, Clock, MoreHorizontal, Pencil, X } from 'lucide-react';
 import type { MaintenanceIssue } from '@/lib/types';
 import { getMaintenanceIssues, createMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue } from '@/lib/api';
 
@@ -9,17 +9,14 @@ import { getMaintenanceIssues, createMaintenanceIssue, updateMaintenanceIssue, d
 function parseDMY(s: string): Date | null {
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-  // Dự phòng cho dữ liệu cũ (trước khi Code.gs ép Plain text) — Sheets có thể đã tự đổi ngày
-  // thành dạng khác (VD "Tue Jul 28 2026...") khiến không khớp regex trên, thử parse trực tiếp.
+  // Dự phòng cho dữ liệu cũ (Sheets có thể đã tự đổi ngày thành dạng khác)
   const fallback = new Date(s);
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 function formatDMY(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
-/** Hiện ngày gọn "DD/MM/YYYY" cho MỌI dạng dữ liệu — kể cả dòng cũ bị Sheets tự đổi thành chuỗi
- *  Date dài dòng (VD "Tue Jul 28 2026 00:00:00 GMT+0700..."). Không có dữ liệu giờ phút thật nên
- *  chỉ hiện ngày, không hiện HH:mm. */
+/** Hiện ngày gọn "DD/MM/YYYY" cho MỌI dạng dữ liệu */
 function formatReportedDate(s: string): string {
   const d = parseDMY(s);
   return d ? formatDMY(d) : s;
@@ -27,8 +24,19 @@ function formatReportedDate(s: string): string {
 function toInputDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+/** "yyyy-MM-dd" (ô chọn ngày) -> Date theo giờ địa phương */
+function fromInputDate(s: string): Date | null {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
 
 type QuickFilter = 'today' | 'week' | 'month' | 'range';
+const FILTERS: { key: QuickFilter; label: string; short?: string }[] = [
+  { key: 'today', label: 'Hôm nay' },
+  { key: 'week', label: 'Tuần này' },
+  { key: 'month', label: 'Tháng này' },
+  { key: 'range', label: 'Tổng hợp khoảng ngày', short: 'Khoảng ngày' },
+];
 
 export default function MaintenanceScreen() {
   const [issues, setIssues] = useState<MaintenanceIssue[]>([]);
@@ -36,9 +44,9 @@ export default function MaintenanceScreen() {
   const [filter, setFilter] = useState<QuickFilter>('today');
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
-  const [showRangePicker, setShowRangePicker] = useState(false);
 
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [schedulingId, setSchedulingId] = useState<number | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState('');
 
@@ -46,6 +54,7 @@ export default function MaintenanceScreen() {
   const [newRoom, setNewRoom] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newReporter, setNewReporter] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -59,14 +68,15 @@ export default function MaintenanceScreen() {
       })
       .catch((err) => {
         setLoading(false);
-        setLoadError(err?.message || 'Không tải được dữ liệu Maintenance — kiểm tra lại Code.gs đã Deploy phiên bản mới chưa.');
+        setLoadError(err?.message || 'Không tải được dữ liệu Maintenance.');
       });
   };
   useEffect(() => { refresh(); }, []);
 
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Thứ 2 đầu tuần
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfWeek = new Date(todayStart);
+  startOfWeek.setDate(todayStart.getDate() - ((todayStart.getDay() + 6) % 7)); // Thứ 2 đầu tuần
 
   const filteredIssues = issues.filter((it) => {
     const d = parseDMY(it.reportedDate);
@@ -75,9 +85,9 @@ export default function MaintenanceScreen() {
     if (filter === 'week') return d >= startOfWeek && d <= today;
     if (filter === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
     if (filter === 'range') {
-      if (!rangeFrom || !rangeTo) return true;
-      const from = new Date(rangeFrom);
-      const to = new Date(rangeTo);
+      const from = fromInputDate(rangeFrom);
+      const to = fromInputDate(rangeTo);
+      if (!from || !to) return true;
       return d >= from && d <= to;
     }
     return true;
@@ -86,16 +96,40 @@ export default function MaintenanceScreen() {
   const total = filteredIssues.length;
   const done = filteredIssues.filter((i) => i.status === 'Đã xong').length;
   const pending = total - done;
+  const scheduled = filteredIssues.filter((i) => i.status !== 'Đã xong' && i.dueDate).length;
+  const donePct = total ? Math.round((done / total) * 100) : 0;
 
-  const reportTitle = filter === 'range' && rangeFrom && rangeTo
-    ? `Báo cáo sửa chữa ${formatDMY(new Date(rangeFrom))} - ${formatDMY(new Date(rangeTo))}`
+  const rangeLabel = filter === 'range' && fromInputDate(rangeFrom) && fromInputDate(rangeTo)
+    ? `${formatDMY(fromInputDate(rangeFrom)!)} - ${formatDMY(fromInputDate(rangeTo)!)}`
+    : '';
+  const listTitle =
+    filter === 'today' ? `Chi tiết ngày ${formatDMY(today)}`
+    : filter === 'week' ? 'Chi tiết tuần này'
+    : filter === 'month' ? `Chi tiết tháng ${today.getMonth() + 1}/${today.getFullYear()}`
+    : rangeLabel ? `Chi tiết ${rangeLabel}` : 'Chi tiết khoảng ngày đã chọn';
+  const reportTitle =
+    filter === 'range' && rangeLabel ? `Báo cáo sửa chữa ${rangeLabel}`
+    : filter === 'week' ? `Báo cáo sửa chữa tuần ${formatDMY(startOfWeek)} - ${formatDMY(today)}`
+    : filter === 'month' ? `Báo cáo sửa chữa tháng ${today.getMonth() + 1}/${today.getFullYear()}`
     : `Báo cáo sửa chữa ngày ${formatDMY(today)}`;
 
+  const pickFilter = (f: QuickFilter) => {
+    setFilter(f);
+    if (f === 'range' && !rangeFrom && !rangeTo) {
+      const from = new Date(todayStart);
+      from.setDate(from.getDate() - 6);
+      setRangeFrom(toInputDate(from));
+      setRangeTo(toInputDate(todayStart));
+    }
+  };
+
   const handleAdd = async () => {
-    if (!newRoom.trim() || !newDesc.trim()) return;
+    if (!newRoom.trim() || !newDesc.trim() || saving) return;
+    setSaving(true);
     const res = await createMaintenanceIssue(newRoom.trim(), newDesc.trim(), newReporter.trim() || 'Chưa rõ');
+    setSaving(false);
     if (res.success && res.issue) {
-      setIssues((prev) => [...prev, res.issue!]);
+      setIssues((prev) => [res.issue!, ...prev]);
       setNewRoom(''); setNewDesc(''); setNewReporter(''); setShowAddForm(false);
     }
   };
@@ -106,7 +140,7 @@ export default function MaintenanceScreen() {
     await updateMaintenanceIssue(issue.id, { status: newStatus });
   };
 
-  // Sửa trực tiếp trên bảng — gõ ngay vào ô "Lỗi của phòng", lưu khi rời khỏi ô (onBlur), không cần nút Sửa riêng
+  // Sửa trực tiếp — gõ ngay vào ô "Lỗi của phòng", lưu khi rời khỏi ô (onBlur)
   const handleDescriptionChange = (id: number, value: string) => {
     setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, issueDescription: value } : i)));
   };
@@ -114,8 +148,17 @@ export default function MaintenanceScreen() {
     await updateMaintenanceIssue(id, { issueDescription: value });
   };
 
+  const openSchedule = (issue: MaintenanceIssue) => {
+    const d = issue.dueDate ? parseDMY(issue.dueDate) : null;
+    const tomorrow = new Date(todayStart);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setScheduleDraft(toInputDate(d || tomorrow));
+    setSchedulingId(issue.id);
+    setMenuId(null);
+  };
   const confirmSchedule = async (id: number) => {
-    const dueDate = scheduleDraft ? formatDMY(new Date(scheduleDraft)) : '';
+    const d = fromInputDate(scheduleDraft);
+    const dueDate = d ? formatDMY(d) : '';
     setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, dueDate } : i)));
     setSchedulingId(null);
     await updateMaintenanceIssue(id, { dueDate });
@@ -127,12 +170,14 @@ export default function MaintenanceScreen() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Xoá ghi nhận sửa chữa này? Không thể hoàn tác.')) return;
+    setMenuId(null);
+    setConfirmDeleteId(null);
     setIssues((prev) => prev.filter((i) => i.id !== id));
     await deleteMaintenanceIssue(id);
   };
 
   const handlePrint = () => {
+    setMenuId(null);
     document.body.classList.add('printing-chart-mode');
     printRef.current?.classList.add('print-target');
     const cleanup = () => {
@@ -144,87 +189,235 @@ export default function MaintenanceScreen() {
     window.print();
   };
 
+  /* ---------- Các mảnh giao diện dùng chung cho bảng (laptop) và thẻ (điện thoại) ---------- */
+  const StatusBadge = (issue: MaintenanceIssue) => {
+    if (issue.status === 'Đã xong')
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Đã xong
+        </span>
+      );
+    if (issue.dueDate)
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Hẹn lịch sửa · {formatReportedDate(issue.dueDate).slice(0, 5)}
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" /> Đang xử lý
+      </span>
+    );
+  };
+
+  const DoneSwitch = (issue: MaintenanceIssue) => {
+    const on = issue.status === 'Đã xong';
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => toggleStatus(issue)}
+        title={on ? 'Mở lại sự cố' : 'Đánh dấu đã xong'}
+        className={`relative inline-block w-[38px] h-[22px] rounded-full transition-colors flex-shrink-0 ${on ? 'bg-emerald-500' : 'bg-slate-200'}`}
+      >
+        <span className={`absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`} />
+      </button>
+    );
+  };
+
+  const DescInput = (issue: MaintenanceIssue, big?: boolean) => (
+    <input
+      value={issue.issueDescription}
+      onChange={(e) => handleDescriptionChange(issue.id, e.target.value)}
+      onBlur={(e) => handleDescriptionBlur(issue.id, e.target.value)}
+      title="Bấm để sửa nội dung"
+      className={`w-full border border-transparent hover:border-slate-200 focus:border-blue-300 rounded-lg px-2 py-1.5 -ml-2 bg-transparent focus:bg-white outline-none transition-colors font-semibold ${big ? 'text-[14px]' : 'text-[13.5px]'} ${
+        issue.status === 'Đã xong' ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-800'
+      }`}
+    />
+  );
+
+  const ScheduleBox = (issue: MaintenanceIssue) =>
+    schedulingId !== issue.id ? null : (
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <input
+          type="date"
+          value={scheduleDraft}
+          onChange={(e) => setScheduleDraft(e.target.value)}
+          className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white"
+        />
+        <button onClick={() => confirmSchedule(issue.id)} className="rounded-lg px-3 py-1.5 text-xs font-bold text-white bg-blue-600">
+          Lưu hẹn
+        </button>
+        {issue.dueDate && (
+          <button onClick={() => cancelSchedule(issue.id)} className="rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 bg-white">
+            Bỏ hẹn
+          </button>
+        )}
+        <button onClick={() => setSchedulingId(null)} className="text-xs text-slate-500 px-1">Đóng</button>
+      </div>
+    );
+
+  const ActionMenu = (issue: MaintenanceIssue) => (
+    <div className="relative inline-block">
+      <button
+        onClick={() => { setMenuId(menuId === issue.id ? null : issue.id); setConfirmDeleteId(null); }}
+        aria-label="Thao tác"
+        className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 bg-white"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {menuId === issue.id && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl bg-white border border-slate-200 shadow-xl p-1 text-left">
+          <button onClick={() => openSchedule(issue)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            <CalendarClock className="w-3.5 h-3.5 text-blue-600" /> {issue.dueDate ? 'Đổi lịch hẹn' : 'Hẹn lịch sửa'}
+          </button>
+          <button
+            onClick={() => {
+              setMenuId(null);
+              setTimeout(() => {
+                const all = Array.from(document.querySelectorAll<HTMLInputElement>(`[data-desc="${issue.id}"] input`));
+                all.find((x) => x.offsetParent !== null)?.focus();
+              }, 0);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <Pencil className="w-3.5 h-3.5 text-slate-500" /> Sửa nội dung
+          </button>
+          {confirmDeleteId === issue.id ? (
+            <button onClick={() => handleDelete(issue.id)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white bg-red-600">
+              <Trash2 className="w-3.5 h-3.5" /> Bấm lần nữa để xoá
+            </button>
+          ) : (
+            <button onClick={() => setConfirmDeleteId(issue.id)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50">
+              <Trash2 className="w-3.5 h-3.5" /> Xoá sự cố
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div>
-      <h1 className="text-[19px] font-bold mb-4 flex items-center gap-2">
-        <Wrench className="w-5 h-5 text-slate-500" /> Maintenance
-      </h1>
+      {/* Lớp trong suốt: bấm ra ngoài để đóng menu Thao tác */}
+      {menuId !== null && <div className="fixed inset-0 z-20" onClick={() => { setMenuId(null); setConfirmDeleteId(null); }} />}
 
-      {/* 3 thẻ thống kê */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5">
-          <div className="text-[10px] font-bold text-slate-400 uppercase">Tổng</div>
-          <div className="text-2xl font-extrabold text-slate-800">{total}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5">
-          <div className="text-[10px] font-bold text-emerald-500 uppercase">Xong</div>
-          <div className="text-2xl font-extrabold text-emerald-600">{done}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3.5">
-          <div className="text-[10px] font-bold text-amber-500 uppercase">Đang xử lý</div>
-          <div className="text-2xl font-extrabold text-amber-600">{pending}</div>
-        </div>
-      </div>
-
-      {/* Bộ lọc thời gian */}
-      <div className="no-print flex flex-col sm:flex-row gap-2.5 mb-4">
-        <div className="relative flex-1">
-          <select
-            value={filter}
-            onChange={(e) => { setFilter(e.target.value as QuickFilter); setShowRangePicker(false); }}
-            className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700"
-          >
-            <option value="today">📅 Hôm nay</option>
-            <option value="week">Tuần này</option>
-            <option value="month">Tháng này</option>
-          </select>
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-        <button
-          onClick={() => { setFilter('range'); setShowRangePicker((s) => !s); }}
-          className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700"
-        >
-          Tổng hợp khoảng ngày
-        </button>
-      </div>
-      {showRangePicker && (
-        <div className="no-print flex items-center gap-2 mb-4 bg-white border border-slate-200 rounded-xl p-3">
-          <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
-          <span className="text-slate-400 text-sm">đến</span>
-          <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
-        </div>
-      )}
-
-      {/* Tiêu đề danh sách + In + Thêm mới */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h2 className="text-[15px] font-bold text-slate-800">
-          Chi tiết {filter === 'range' ? 'khoảng ngày đã chọn' : `ngày ${formatDMY(today)}`}
-        </h2>
-        <div className="no-print flex items-center gap-2">
-          <button onClick={() => setShowAddForm((s) => !s)} className="flex items-center gap-1 text-[12px] font-bold text-white bg-emerald-600 rounded-lg px-3 py-1.5">
-            <Plus className="w-3.5 h-3.5" /> Thêm sự cố
-          </button>
-          <button onClick={handlePrint} className="flex items-center gap-1 text-[13px] font-bold text-purple-700">
-            <Printer className="w-4 h-4" /> In báo cáo ngày
-          </button>
-        </div>
-      </div>
-
-      {showAddForm && (
-        <div className="no-print bg-white border border-slate-200 rounded-xl p-3.5 mb-4 space-y-2">
-          <div className="flex gap-2">
-            <input value={newRoom} onChange={(e) => setNewRoom(e.target.value)} placeholder="Số phòng" className="w-24 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm" />
-            <input value={newReporter} onChange={(e) => setNewReporter(e.target.value)} placeholder="Người báo" className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm" />
+      <div className="screen-only">
+        {/* Tiêu đề */}
+        <div className="flex items-end justify-between gap-3 mb-4">
+          <div>
+            <div className="text-[10.5px] font-bold tracking-[0.14em] text-slate-400 uppercase">M Hotel Saigon · Kỹ thuật</div>
+            <h1 className="text-[20px] font-extrabold tracking-tight flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-slate-500" /> Maintenance
+            </h1>
           </div>
-          <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Nội dung sự cố..." rows={2} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm" />
-          <button onClick={handleAdd} className="bg-emerald-600 text-white text-sm font-bold rounded-lg px-4 py-2">Lưu sự cố</button>
+          <div className="text-xs text-slate-500 tabular-nums">Hôm nay {formatDMY(today)}</div>
         </div>
-      )}
 
-      {/* Bảng danh sách sự cố — ẨN KHI IN */}
-      <div className="screen-only bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        {loading ? (
-          <div className="text-sm text-slate-400 text-center py-10">
+        {/* 3 thẻ tổng */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4 mb-4">
+          <div className="rounded-2xl bg-white border border-blue-100 p-3 sm:p-4 shadow-[0_6px_18px_-12px_rgba(37,99,235,.5)]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.12em] text-blue-600">TỔNG</span>
+              <span className="hidden sm:flex w-8 h-8 rounded-xl bg-blue-50 text-blue-600 items-center justify-center"><Wrench className="w-4 h-4" /></span>
+            </div>
+            <div className="text-[28px] sm:text-[34px] font-extrabold text-blue-700 leading-none mt-1.5 tabular-nums">{total}</div>
+            <div className="text-[10.5px] sm:text-xs text-slate-500 mt-1">sự cố</div>
+          </div>
+          <div className="rounded-2xl bg-white border border-emerald-100 p-3 sm:p-4 shadow-[0_6px_18px_-12px_rgba(16,185,129,.5)]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.12em] text-emerald-600">XONG</span>
+              <span className="hidden sm:flex w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 items-center justify-center"><Check className="w-4 h-4" strokeWidth={3} /></span>
+            </div>
+            <div className="text-[28px] sm:text-[34px] font-extrabold text-emerald-600 leading-none mt-1.5 tabular-nums">{done}</div>
+            <div className="mt-2 h-1.5 rounded-full bg-emerald-50 overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${donePct}%` }} />
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white border border-orange-100 p-3 sm:p-4 shadow-[0_6px_18px_-12px_rgba(249,115,22,.5)]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.12em] text-orange-600 whitespace-nowrap">ĐANG XỬ LÝ</span>
+              <span className="hidden sm:flex w-8 h-8 rounded-xl bg-orange-50 text-orange-600 items-center justify-center"><Clock className="w-4 h-4" /></span>
+            </div>
+            <div className="text-[28px] sm:text-[34px] font-extrabold text-orange-600 leading-none mt-1.5 tabular-nums">{pending}</div>
+            <div className="text-[10.5px] sm:text-xs text-slate-500 mt-1">{scheduled} hẹn lịch</div>
+          </div>
+        </div>
+
+        {/* Thanh lọc + hành động */}
+        <div className="rounded-2xl bg-white border border-slate-200/80 p-2.5 sm:p-3 mb-3 flex flex-col lg:flex-row lg:items-center gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 max-w-full overflow-x-auto">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => pickFilter(f.key)}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${filter === f.key ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {f.short ? (<><span className="sm:hidden">{f.short}</span><span className="hidden sm:inline">{f.label}</span></>) : f.label}
+                </button>
+              ))}
+            </div>
+            {filter === 'range' && (
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white" />
+                <span className="text-slate-400 text-xs">→</span>
+                <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 lg:ml-auto">
+            <button
+              onClick={() => setShowAddForm((s) => !s)}
+              className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-sky-500 shadow-[0_6px_14px_-6px_rgba(37,99,235,.7)] active:scale-[.98] whitespace-nowrap"
+            >
+              {showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />} Thêm sự cố
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 whitespace-nowrap"
+            >
+              <Printer className="w-3.5 h-3.5" /> In báo cáo ngày
+            </button>
+          </div>
+        </div>
+
+        {/* Form thêm sự cố */}
+        {showAddForm && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleAdd(); }}
+            className="rounded-2xl bg-blue-50/70 border border-blue-200 p-3 mb-3 grid grid-cols-2 sm:grid-cols-[110px_1fr_160px_auto] gap-2 items-end"
+          >
+            <label className="text-[11px] font-bold text-slate-600">
+              Số phòng
+              <input value={newRoom} onChange={(e) => setNewRoom(e.target.value)} placeholder="VD 605" className="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white font-normal" />
+            </label>
+            <label className="text-[11px] font-bold text-slate-600 col-span-2 sm:col-span-1 order-3 sm:order-none">
+              Lỗi của phòng
+              <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Mô tả lỗi..." className="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white font-normal" />
+            </label>
+            <label className="text-[11px] font-bold text-slate-600">
+              Người báo
+              <input value={newReporter} onChange={(e) => setNewReporter(e.target.value)} placeholder="Tên" className="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white font-normal" />
+            </label>
+            <div className="flex gap-2 col-span-2 sm:col-span-1 order-4 sm:order-none">
+              <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200 bg-white">Huỷ</button>
+              <button type="submit" disabled={saving || !newRoom.trim() || !newDesc.trim()} className="flex-1 rounded-lg px-3 py-2 text-xs font-extrabold text-white bg-blue-600 disabled:opacity-50">
+                {saving ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="flex items-center justify-between mb-2 px-1 gap-2">
+          <div className="text-[13px] font-bold text-slate-700">{listTitle}</div>
+          <div className="hidden sm:block text-[11px] text-slate-400">Bấm vào nội dung lỗi để sửa</div>
+        </div>
+
+        {loading || loadError ? (
+          <div className="rounded-2xl bg-white border border-slate-200 text-sm text-slate-400 text-center py-10">
             {loadError ? (
               <div>
                 <div className="text-red-500 font-semibold mb-2">⚠ {loadError}</div>
@@ -233,104 +426,82 @@ export default function MaintenanceScreen() {
             ) : 'Đang tải...'}
           </div>
         ) : filteredIssues.length === 0 ? (
-          <div className="text-sm text-slate-400 text-center py-10">Không có sự cố nào trong khoảng thời gian này.</div>
+          <div className="rounded-2xl bg-white border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">
+            Không có sự cố nào trong khoảng thời gian này.
+          </div>
         ) : (
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="bg-slate-100 text-slate-700 text-[11px] font-bold uppercase whitespace-nowrap">
-                <th className="px-3 py-2.5 text-left">Số phòng</th>
-                <th className="px-2 py-2.5 text-left">Lỗi của phòng</th>
-                <th className="px-2 py-2.5 text-left">Thời gian</th>
-                <th className="px-2 py-2.5 text-center">Trạng thái</th>
-                <th className="px-2 py-2.5 text-center">Xong</th>
-                <th className="px-2 py-2.5 text-center">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* LAPTOP: bảng */}
+            <div className="hidden md:block rounded-2xl bg-white border border-slate-200/80 shadow-[0_10px_30px_-22px_rgba(15,23,42,.5)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50/80 text-[10.5px] font-extrabold tracking-[0.1em] text-slate-500 uppercase border-b border-slate-200/80">
+                    <th className="px-4 py-3 text-left w-[110px] rounded-tl-2xl">Số phòng</th>
+                    <th className="px-3 py-3 text-left">Lỗi của phòng</th>
+                    <th className="px-3 py-3 text-left w-[150px]">Thời gian</th>
+                    <th className="px-3 py-3 text-center w-[170px]">Trạng thái</th>
+                    <th className="px-3 py-3 text-center w-[70px]">Xong</th>
+                    <th className="px-3 py-3 text-center w-[96px] whitespace-nowrap rounded-tr-2xl">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredIssues.map((issue, ix) => {
+                    const isDone = issue.status === 'Đã xong';
+                    return (
+                      <tr key={issue.id} className={`${ix ? 'border-t border-slate-100' : ''} ${isDone ? 'bg-slate-50/40' : ''} hover:bg-blue-50/30 align-top`}>
+                        <td className="px-4 py-3">
+                          <div className={`text-[17px] font-extrabold tabular-nums ${isDone ? 'text-slate-400' : 'text-slate-900'}`}>{issue.roomNo}</div>
+                        </td>
+                        <td className="px-3 py-2.5 min-w-[180px]" data-desc={issue.id}>
+                          {DescInput(issue)}
+                          {ScheduleBox(issue)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="text-[13px] font-bold text-slate-700 tabular-nums">{formatReportedDate(issue.reportedDate)}</div>
+                          <div className="text-[11.5px] text-slate-500 mt-0.5">Báo: {issue.reportedBy}</div>
+                        </td>
+                        <td className="px-3 py-3 text-center">{StatusBadge(issue)}</td>
+                        <td className="px-3 py-3 text-center">{DoneSwitch(issue)}</td>
+                        <td className="px-3 py-2.5 text-center">{ActionMenu(issue)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ĐIỆN THOẠI: thẻ */}
+            <div className="md:hidden flex flex-col gap-2.5">
               {filteredIssues.map((issue) => {
                 const isDone = issue.status === 'Đã xong';
-                const rowExpanded = expandedId === issue.id || schedulingId === issue.id;
+                const tone = isDone ? 'border-l-emerald-500' : issue.dueDate ? 'border-l-blue-500' : 'border-l-orange-500';
                 return (
-                  <Fragment key={issue.id}>
-                    <tr className="border-t border-slate-200 align-top">
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <div className="font-extrabold text-slate-800">{issue.roomNo}</div>
-                        {/* Hẹn + ngày hiện gọn ngay dưới số phòng, chỉ khi đã hẹn lịch sửa */}
-                        {issue.dueDate && (
-                          <div className="text-[10px] text-blue-600 font-semibold mt-0.5">📅 Hẹn: {formatReportedDate(issue.dueDate)}</div>
-                        )}
-                      </td>
-                      <td className="px-2 py-2.5 min-w-[160px]">
-                        {/* Sửa trực tiếp — gõ ngay vào ô, lưu khi rời khỏi ô, không cần bấm nút Sửa riêng */}
-                        <input
-                          value={issue.issueDescription}
-                          onChange={(e) => handleDescriptionChange(issue.id, e.target.value)}
-                          onBlur={(e) => handleDescriptionBlur(issue.id, e.target.value)}
-                          className="w-full border border-transparent hover:border-slate-200 focus:border-blue-300 rounded-lg px-2 py-1.5 -ml-2 text-[13px] text-slate-700 bg-transparent focus:bg-white outline-none transition-colors"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5 text-slate-500 whitespace-nowrap">
-                        <div>{formatReportedDate(issue.reportedDate)}</div>
-                        <div className="text-[10px] text-slate-400">👤 {issue.reportedBy}</div>
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <span className={`inline-block text-[10px] font-bold rounded-full px-2.5 py-1 whitespace-nowrap ${
-                          isDone ? 'bg-emerald-100 text-emerald-700' : issue.dueDate ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-600'
-                        }`}>
-                          {isDone ? 'Đã xong' : issue.dueDate ? 'Hẹn lịch sửa' : 'Đang xử lý'}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <button
-                          onClick={() => toggleStatus(issue)}
-                          className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border whitespace-nowrap ${isDone ? 'text-slate-500 border-slate-200 bg-white' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}
-                        >
-                          {isDone ? 'Mở lại' : 'Xong'}
-                        </button>
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <button onClick={() => setExpandedId(expandedId === issue.id ? null : issue.id)} className="text-slate-400 font-bold px-2 hover:text-slate-700">•••</button>
-                      </td>
-                    </tr>
-
-                    {rowExpanded && (
-                      <tr className="bg-slate-50/60 border-t border-slate-100">
-                        <td colSpan={6} className="px-3 py-3">
-                          {expandedId === issue.id && schedulingId !== issue.id && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => { setSchedulingId(issue.id); setScheduleDraft(''); }}
-                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange-600 bg-white border border-slate-200 rounded-lg py-2"
-                              >
-                                <CalendarClock className="w-3.5 h-3.5" /> {issue.dueDate ? 'Đổi lịch hẹn' : 'Hẹn'}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(issue.id)}
-                                className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold text-red-600 bg-white border border-red-200 rounded-lg py-2"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> Xóa
-                              </button>
-                            </div>
-                          )}
-
-                          {schedulingId === issue.id && (
-                            <div>
-                              <div className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Chọn ngày hẹn</div>
-                              <input type="date" value={scheduleDraft} onChange={(e) => setScheduleDraft(e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm mb-2 bg-white" />
-                              <div className="flex gap-2">
-                                <button onClick={() => confirmSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-white bg-orange-500 rounded-lg py-2">XÁC NHẬN</button>
-                                <button onClick={() => cancelSchedule(issue.id)} className="flex-1 text-[12px] font-bold text-slate-600 bg-slate-200 rounded-lg py-2">BỎ HẸN</button>
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                  <div key={issue.id} className={`relative rounded-2xl bg-white border border-slate-200/80 border-l-4 ${tone} p-3.5 shadow-[0_8px_20px_-16px_rgba(15,23,42,.6)]`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className={`text-[22px] font-extrabold tabular-nums leading-none ${isDone ? 'text-slate-400' : 'text-slate-900'}`}>{issue.roomNo}</span>
+                        <span className="text-[11px] text-slate-400 tabular-nums">{formatReportedDate(issue.reportedDate)}</span>
+                      </div>
+                      {ActionMenu(issue)}
+                    </div>
+                    <div className="mt-1.5 pl-2" data-desc={issue.id}>
+                      {DescInput(issue, true)}
+                      {ScheduleBox(issue)}
+                    </div>
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        {StatusBadge(issue)}
+                        <span className="text-[11px] text-slate-500">Báo: {issue.reportedBy}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 flex-shrink-0">
+                        Xong {DoneSwitch(issue)}
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -357,7 +528,9 @@ export default function MaintenanceScreen() {
                 <td className="border border-slate-300 px-2 py-1.5">{issue.issueDescription}</td>
                 <td className="border border-slate-300 px-2 py-1.5">{issue.reportedBy}</td>
                 <td className="border border-slate-300 px-2 py-1.5">{formatReportedDate(issue.reportedDate)}</td>
-                <td className="border border-slate-300 px-2 py-1.5">{issue.status}</td>
+                <td className="border border-slate-300 px-2 py-1.5">
+                  {issue.status === 'Đã xong' ? 'Đã xong' : issue.dueDate ? `Hẹn sửa ${formatReportedDate(issue.dueDate)}` : 'Đang xử lý'}
+                </td>
               </tr>
             ))}
           </tbody>
