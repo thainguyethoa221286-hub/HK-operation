@@ -102,6 +102,13 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
       changes.GhiChu = strip(room.GhiChu || '');
       changes.GhiChuNV = strip(room.GhiChuNV || '');
       changes.GhiChuAdmin = strip(note);
+      // Khách đã treo MKR (yêu cầu dọn) — nếu nhân viên trước đó đã báo phòng DND / Từ chối (RF),
+      // tự động TRẢ PHÒNG VỀ "Chưa dọn" để thẻ ở màn Nhiệm vụ của nhân viên quay lại thẻ trắng
+      // (hết cửa xám DND/RF) và treo bảng MKR, nhân viên vào dọn được ngay.
+      if (room.TaskStatus === 'DND' || room.TaskStatus === 'Refused') {
+        changes.TaskStatus = 'Chưa dọn';
+        changes.StartTime = '';
+      }
     }
 
     onSave(room.MaPhong, changes);
