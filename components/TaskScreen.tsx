@@ -465,11 +465,12 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
           <div className="text-sm text-slate-400 text-center py-10">Chưa có phòng nào được giao cho bạn hôm nay.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-            {/* Nhiệm vụ phụ CHƯA xong lên đầu, đã xong xuống cuối (giống phòng đã dọn) */}
-            {extraOpen.map(renderExtraCard)}
+            {/* Phòng xếp trước theo thứ tự ưu tiên; NHIỆM VỤ PHỤ luôn nằm CUỐI danh sách
+                (chưa xong trước, đã xong sau) */}
             {myRooms.map((room) => (
               <RoomCard key={room.MaPhong} room={room} onClick={() => setSelectedRoom(room)} dimSettled />
             ))}
+            {extraOpen.map(renderExtraCard)}
             {extraDone.map(renderExtraCard)}
           </div>
         )}
