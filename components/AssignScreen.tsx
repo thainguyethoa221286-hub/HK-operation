@@ -271,20 +271,16 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     const changes = list.map((r) => ({
       id: r.MaPhong,
       was: `${pmKind(r)} · ${r.NhanVienPhuTrach ? displayLabel(r.NhanVienPhuTrach) : 'chưa gán'}`,
-      // Gỡ bảng DND/RF khỏi CẢ 3 nguồn ghi chú (giống khi bật MKR) -> thẻ phòng trắng lại, ca chiều mở làm được
+      // CHỈ đổi người phụ trách sang ca chiều — GIỮ NGUYÊN trạng thái DND/RF + bảng treo trên ghi chú.
+      // Khi khách cho dọn, nhân viên ca chiều mở thẻ phòng bấm "BỎ DND" / "LÀM LẠI" như ca sáng.
       fields: {
         NhanVienPhuTrach: pmLabel,
         TrolleyCode: PM_GROUP_ID,
-        TaskStatus: 'Chưa dọn',
-        StartTime: '',
-        GhiChu: removeNoteCode(removeNoteCode(r.GhiChu || '', 'DND'), 'RF'),
-        GhiChuNV: removeNoteCode(removeNoteCode(r.GhiChuNV || '', 'DND'), 'RF'),
-        GhiChuAdmin: removeNoteCode(removeNoteCode(r.GhiChuAdmin || '', 'DND'), 'RF'),
       },
     }));
     setRooms((prev) => prev.map((r) => {
       const c = changes.find((x) => x.id === r.MaPhong);
-      return c ? { ...r, ...c.fields, TaskStatus: 'Chưa dọn' as Room['TaskStatus'] } : r;
+      return c ? { ...r, ...c.fields } : r;
     }));
     setPmMoves((prev) => {
       const next = { ...prev };
@@ -714,8 +710,10 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                   ? { t: `Xong ${formatTimeOnly(room.EndTime)}`, c: 'bg-emerald-100 text-emerald-700' }
                   : room.TaskStatus === 'Đang dọn'
                   ? { t: `Đang dọn ${formatTimeOnly(room.StartTime)}`, c: 'bg-blue-100 text-blue-700' }
-                  : room.TaskStatus === 'DND' || room.TaskStatus === 'Refused'
-                  ? { t: room.TaskStatus === 'DND' ? 'DND lại' : 'RF lại', c: 'bg-red-100 text-red-700' }
+                  : pmKind(room) === 'DND'
+                  ? { t: 'Còn DND', c: 'bg-red-100 text-red-700' }
+                  : pmKind(room) === 'RF'
+                  ? { t: 'Còn RF', c: 'bg-purple-100 text-purple-700' }
                   : { t: 'Chờ làm', c: 'bg-indigo-100 text-indigo-700' };
                 return (
                   <div key={room.MaPhong} className="w-[170px]">
