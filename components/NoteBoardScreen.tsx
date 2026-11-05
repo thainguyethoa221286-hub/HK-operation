@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ClipboardList, Trash2 } from 'lucide-react';
 import type { Room, OverdueHistoryRow, SupplyBoardItem, LinenChangeHistoryRow } from '@/lib/types';
 import { SUPPLY_LABELS } from '@/lib/types';
+import ProjectorBoard from './ProjectorBoard';
 import {
   getOverdueHistory, deleteOverdueHistoryRow, clearOverdueHistory,
   getSuppliesBoard, updateSupplyItem, getLinenChangeHistory,
@@ -186,34 +187,40 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
           </div>
         </div>
 
-        <div className="bg-[#1a2e26] rounded-2xl shadow-lg p-5">
-          <h2 className="text-center text-white text-xl font-bold tracking-wide mb-5" style={{ fontFamily: 'cursive' }}>
-            GHI CHÚ DỊCH VỤ / SPECIAL
-          </h2>
-          <div className="divide-y divide-white/10">
-            {SUPPLY_LABELS.map((label) => {
-              const item = supplies.find((s) => s.label === label);
-              return (
-                <div key={label} className="flex items-center gap-3 py-3">
-                  <div className="relative flex-shrink-0">
-                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-600" />
-                    <span className="bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-md shadow text-[12px] whitespace-nowrap inline-block">
-                      {label}
-                    </span>
+        <ProjectorBoard>
+          {/* Font phấn viết tay cho bảng đen */}
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" />
+          <div className="bg-[#1a2e26] rounded-xl p-4 sm:p-5 shadow-[inset_0_0_40px_rgba(0,0,0,.35)]">
+            <h2 className="nbp-chalk text-center text-white text-2xl tracking-wide mb-4">
+              GHI CHÚ DỊCH VỤ / SPECIAL
+            </h2>
+            <div className="divide-y divide-white/10">
+              {SUPPLY_LABELS.map((label, i) => {
+                const item = supplies.find((s) => s.label === label);
+                return (
+                  <div key={label} className="flex items-center gap-3 py-2.5">
+                    <div className="relative flex-shrink-0">
+                      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-600" />
+                      <span
+                        className="bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-md shadow text-[12px] whitespace-nowrap inline-block"
+                        style={{ transform: `rotate(${((i % 3) - 1) * 1.2}deg)` }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                    <input
+                      defaultValue={item?.value || ''}
+                      onChange={(e) => handleSupplyChange(label, e.target.value)}
+                      onBlur={(e) => handleSupplyBlur(label, e.target.value)}
+                      placeholder="Viết ghi chú tại đây..."
+                      className="nbp-chalk flex-1 min-w-0 bg-transparent text-white placeholder-white/30 text-[16px] outline-none border-b border-white/10 focus:border-amber-400 py-1"
+                    />
                   </div>
-                  <input
-                    defaultValue={item?.value || ''}
-                    onChange={(e) => handleSupplyChange(label, e.target.value)}
-                    onBlur={(e) => handleSupplyBlur(label, e.target.value)}
-                    placeholder="Viết ghi chú tại đây..."
-                    className="flex-1 min-w-0 bg-transparent text-white placeholder-white/30 text-[14px] outline-none border-b border-white/10 focus:border-amber-400 py-1"
-                    style={{ fontFamily: 'cursive' }}
-                  />
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </ProjectorBoard>
       </div>
     </div>
   );
