@@ -471,9 +471,6 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
             {myRooms.map((room) => (
               <div key={room.MaPhong} className="relative">
                 {/* Phòng ca chiều (PM Shift) — gắn nhãn nhỏ để nhân viên biết phòng được chuyển từ ca sáng */}
-                {isPmLabel(room.NhanVienPhuTrach) && (
-                  <span className="absolute -top-2 left-2 z-20 rounded-full bg-indigo-600 text-white text-[9px] font-extrabold tracking-wide px-2 py-[2px] shadow">PM SHIFT</span>
-                )}
                 <RoomCard room={room} onClick={() => setSelectedRoom(room)} dimSettled />
               </div>
             ))}
