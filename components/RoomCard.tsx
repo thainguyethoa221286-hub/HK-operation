@@ -148,7 +148,7 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
               style={{ animation: 'hkHangerSwing 3.2s ease-in-out infinite', transform: 'translateX(-50%) rotate(7deg)' }}
             >
               {dnd && <HangerTag label="DND" cls="from-red-500 to-red-700" big={special} />}
-              {rf && <HangerTag label="RF" cls="from-teal-500 to-teal-700" big={special} />}
+              {rf && <HangerTag label="RF" cls="from-purple-500 to-purple-800" big={special} />}
               {hasMkr && <HangerTag label="MKR" cls="from-blue-500 to-blue-700" big={special} />}
             </div>
           </>
@@ -183,7 +183,7 @@ function HangerTag({ label, cls, big }: { label: string; cls: string; big?: bool
 const SETTLED_DOOR: Record<string, { chip: string; chipCls: string; led: string }> = {
   'Hoàn thành': { chip: 'ĐÃ DỌN', chipCls: 'bg-emerald-600/90 border-emerald-300 text-white', led: 'bg-emerald-400 shadow-[0_0_5px_2px_rgba(52,211,153,0.85)]' },
   DND: { chip: 'DND', chipCls: 'bg-red-700/85 border-red-300 text-white', led: 'bg-red-400 shadow-[0_0_5px_2px_rgba(248,113,113,0.85)]' },
-  Refused: { chip: 'RF', chipCls: 'bg-teal-700/85 border-teal-300 text-white', led: 'bg-teal-300 shadow-[0_0_5px_2px_rgba(94,234,212,0.85)]' },
+  Refused: { chip: 'RF', chipCls: 'bg-purple-700/85 border-purple-300 text-white', led: 'bg-purple-400 shadow-[0_0_5px_2px_rgba(192,132,252,0.85)]' },
 };
 
 function SettledDoor({ room, onClick, special }: { room: Room; onClick: () => void; special?: boolean }) {
@@ -259,7 +259,7 @@ function SettledDoor({ room, onClick, special }: { room: Room; onClick: () => vo
                   <style>{`@keyframes hkHangerSwing2{0%,100%{transform:rotate(6deg)}50%{transform:rotate(-4deg)}}`}</style>
                   <div className="absolute right-[-9px] top-[17px] origin-top" style={{ animation: 'hkHangerSwing2 3.2s ease-in-out infinite' }}>
                     {isDnd && <HangerTag label="DND" cls="from-red-500 to-red-700" />}
-                    {isRf && <HangerTag label="RF" cls="from-teal-500 to-teal-700" />}
+                    {isRf && <HangerTag label="RF" cls="from-purple-500 to-purple-800" />}
                   </div>
                 </>
               )}
