@@ -465,12 +465,13 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
         ) : totalWork === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Chưa có phòng nào được giao cho bạn hôm nay.</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+          // Lưới thẻ theo TỈ LỆ CÁNH CỬA (cao hơn rộng) -> 1 hàng chứa nhiều phòng hơn, xem gọn trong 1 màn hình.
+          // Bấm vào thẻ mới mở bảng chi tiết to.
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5 [&>*]:aspect-[5/7]">
             {/* Phòng xếp trước theo thứ tự ưu tiên; NHIỆM VỤ PHỤ luôn nằm CUỐI danh sách
                 (chưa xong trước, đã xong sau) */}
             {myRooms.map((room) => (
               <div key={room.MaPhong} className="relative">
-                {/* Phòng ca chiều (PM Shift) — gắn nhãn nhỏ để nhân viên biết phòng được chuyển từ ca sáng */}
                 <RoomCard room={room} onClick={() => setSelectedRoom(room)} dimSettled />
               </div>
             ))}
