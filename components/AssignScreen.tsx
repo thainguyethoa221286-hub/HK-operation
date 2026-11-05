@@ -43,13 +43,28 @@ const COLUMN_THEMES = [
 ];
 
 /* Mục 2.B — badge DND (đỏ) / RF (tím đậm) trong ghi chú, hiện đồng thời nếu có cả 2 */
-function getLeftBadge(note: string) {
+/** Đầu thẻ phòng ở bảng Phân công: phòng DND / RF thay chấm màu bằng BIỂN CẤM TRÒN (không hiện chữ).
+ *  - DND: tròn ĐỎ, gạch ngang trắng (biển "cấm vào")
+ *  - RF : tròn TÍM, dấu ✕ trắng
+ *  Phòng bình thường giữ chấm màu theo Tình trạng phòng như cũ. */
+function StatusSign({ note, hkStatus }: { note: string; hkStatus: string }) {
   const { dnd, rf } = hasDndOrRf(note);
-  if (!dnd && !rf) return null;
+  // Ô CỐ ĐỊNH 12px cho MỌI thẻ -> số phòng luôn bắt đầu cùng 1 vị trí, các thẻ thẳng hàng
   return (
-    <span className="flex items-center gap-1">
-      {dnd && <span className="bg-red-600 text-white font-extrabold px-1 rounded-sm text-[9px]">DND</span>}
-      {rf && <span className="bg-purple-800 text-white font-extrabold px-1 rounded-sm text-[9px]">RF</span>}
+    <span className="w-3 h-3 flex items-center justify-center flex-shrink-0">
+      {dnd ? (
+        <span title="DND — Không làm phiền" className="w-3 h-3 rounded-full bg-red-600 flex items-center justify-center">
+          <span className="block w-[7px] h-[2px] rounded-full bg-white" />
+        </span>
+      ) : rf ? (
+        <span title="RF — Khách từ chối dọn" className="w-3 h-3 rounded-full bg-purple-700 flex items-center justify-center">
+          <svg viewBox="0 0 10 10" className="w-[7px] h-[7px]" aria-hidden="true">
+            <path d="M2 2l6 6M8 2L2 8" stroke="white" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </span>
+      ) : (
+        <i className={`w-2 h-2 rounded-full inline-block ${HK_DOT[hkStatus] || 'bg-slate-300'}`} />
+      )}
     </span>
   );
 }
@@ -291,10 +306,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         </button>
       )}
 
-      {/* Trái: chấm status + badge DND/RF + số phòng + icon EB/BBC/HON (CHỈ 3 mã này, ẩn mọi ghi chú khác) */}
+      {/* Trái: chấm status (DND/RF = biển cấm tròn) + số phòng + icon EB/BBC/HON (CHỈ 3 mã này, ẩn mọi ghi chú khác) */}
       <span className="flex items-center gap-1.5 font-semibold min-w-0">
-        <i className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${HK_DOT[room.HkStatus] || 'bg-slate-300'}`} />
-        {getLeftBadge(combinedNote)}
+        <StatusSign note={combinedNote} hkStatus={room.HkStatus} />
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
         <NoteIcons note={combinedNote} ngayO={room.NgayO} />
       </span>
