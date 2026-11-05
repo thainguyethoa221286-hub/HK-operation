@@ -3,10 +3,10 @@
 import { memo } from 'react';
 import type { Room } from '@/lib/types';
 import {
-  getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, PriorityFlagBadges, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
+  getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
   FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon,
 } from '@/lib/roomStyles';
-import { Pin } from 'lucide-react';
+import { Pin, Zap, Sparkles } from 'lucide-react';
 
 interface RoomCardProps {
   room: Room;
@@ -36,6 +36,8 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   // Cờ "Đã out" (DaOut) — nền ĐỎ NHẠT chỉ khi phòng CÒN CHƯA BẮT ĐẦU DỌN ("Phòng dơ").
   // Ngay khi nhân viên bấm "Bắt đầu dọn phòng" (HkStatus -> "Phòng đang dọn"), nền phải chuyển
   // XANH DƯƠNG NHẠT theo đúng viền (không còn giữ đỏ nữa) để phản ánh đúng đang xử lý.
+  const hasRush = flagList.includes('CayBac');
+  const hasMkr = flagList.includes('TrangDiem');
   const hasDaOut = flagList.includes('DaOut');
   const daOutActive = hasDaOut && !room.isInspecting && room.HkStatus === 'Phòng dơ';
   const isCleaningNow = room.HkStatus === 'Phòng đang dọn';
@@ -76,9 +78,20 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
               {room.LoaiPhong}
               <span className="absolute right-[3px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] rounded-full bg-slate-400" />
             </span>
-            <div className="flex flex-wrap items-start justify-end gap-1 min-w-0">
+            <div className="flex flex-wrap items-center justify-end gap-1 min-w-0 pt-[1px]">
               {specialNoteText && <Pin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" aria-label="Ghi chú đặc biệt" />}
-              <PriorityFlagBadges flags={room.Flags} />
+              {/* RUSH / MKR — chip TRÒN NHỎ chỉ có icon (không chữ) để không đè lên biển tên loại phòng.
+                  Màu giữ đúng như cũ: RUSH cam (nhấp nháy), MKR xanh dương. */}
+              {hasRush && (
+                <span title="RUSH" aria-label="Rush" className={`rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm ring-2 ring-orange-200 animate-pulse flex-shrink-0 ${special ? 'w-5 h-5' : 'w-4 h-4'}`}>
+                  <Zap className={`${special ? 'w-3 h-3' : 'w-2.5 h-2.5'} fill-white`} />
+                </span>
+              )}
+              {hasMkr && (
+                <span title="MKR" aria-label="MKR" className={`rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm ring-2 ring-blue-200 flex-shrink-0 ${special ? 'w-5 h-5' : 'w-4 h-4'}`}>
+                  <Sparkles className={special ? 'w-3 h-3' : 'w-2.5 h-2.5'} />
+                </span>
+              )}
               <FlagBadgeIcons flags={room.Flags} />
               <NoteIcons note={combinedNote} ngayO={room.NgayO} />
             </div>
