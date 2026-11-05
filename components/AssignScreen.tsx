@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
@@ -24,6 +23,9 @@ const HK_DOT: Record<string, string> = {
  * giữ màu xanh dương như cũ (xem logic động trong RoomChip bên dưới, không cố định ở bảng tĩnh này). */
 const DARK_RED_BADGE = 'bg-red-700 text-white border border-red-800';
 const ARR_BLUE_BADGE = 'bg-sky-50 text-sky-600 border border-sky-300';
+// Phòng trống đã sạch -> VC VÀNG; đã kiểm tra -> VCI XANH LÁ (cùng màu trạng thái ở Sơ đồ phòng)
+const VC_BADGE = 'bg-amber-100 text-amber-800 border border-amber-400';
+const VCI_BADGE = 'bg-emerald-100 text-emerald-800 border border-emerald-400';
 const FO_BADGE: Record<string, { text: string; cls: string }> = {
   Occupied: { text: 'OD', cls: 'bg-red-50 text-red-600 border border-red-300' },
   'Due out': { text: 'DO', cls: DARK_RED_BADGE },
@@ -133,23 +135,11 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     await updateRoomField(maPhong, 'NhanVienPhuTrach', '');
   };
 
-  const onDragEnd = (result: DropResult) => {
-    const { destination, draggableId, source } = result;
-    if (!destination) return;
-    if (!destination.droppableId.startsWith('group-')) return;
-    const groupId = destination.droppableId.replace('group-', '');
-    const group = groups.find((g) => g.id === groupId);
-    if (!group) return;
-    const draggedId = draggableId.replace(/^pool-/, '').replace(/^assigned-[^-]+-/, '');
-
-    // Mục 1 — nếu phòng đang kéo nằm trong danh sách đã chọn (>1 phòng) thì kéo cả nhóm chọn
-    const fromPool = source.droppableId.startsWith('pool-');
-    if (fromPool && selectedIds.has(draggedId) && selectedIds.size > 1) {
-      assignRooms(Array.from(selectedIds), group);
-      setSelectedIds(new Set());
-    } else {
-      assignRooms([draggedId], group);
-    }
+  // Gán bằng BẤM (không kéo thả): chọn các phòng ở kho chờ -> bấm vào nhóm (N1, N2...) để gán cả loạt
+  const assignSelectedTo = (group: Group) => {
+    if (selectedIds.size === 0) return;
+    assignRooms(Array.from(selectedIds), group);
+    setSelectedIds(new Set());
   };
 
   // Khi nhãn của 1 nhóm đổi (thêm/bớt nhân viên), toàn bộ phòng đang mang nhãn cũ
@@ -269,11 +259,20 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   }) => {
     const combinedNote = combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin);
     // ARR + phòng còn dơ (chưa dọn) -> đỏ đậm (cần chú ý gấp); ARR + đã dọn/sạch -> giữ xanh dương.
-    const fo = FO_BADGE[room.FoStatus]
-      ? room.FoStatus === 'Arrival' && room.HkStatus === 'Phòng dơ'
-        ? { ...FO_BADGE[room.FoStatus], cls: DARK_RED_BADGE }
-        : FO_BADGE[room.FoStatus]
-      : undefined;
+    // Ký hiệu FO:
+    //  - Arrival (phòng trống có khách đến): còn dơ -> "VD/ARR" (đỏ đậm); đã sạch -> "ARR" (xanh dương)
+    //  - Vacant (phòng trống, không có khách đến): còn dơ -> "VD" (đỏ đậm); Phòng sạch -> "VC" (vàng);
+    //    Đã kiểm tra -> "VCI" (xanh lá) — cùng màu trạng thái ở Sơ đồ phòng
+    //  - DO/Arr, DO, OD giữ nguyên
+    const fo = room.FoStatus === 'Arrival'
+      ? room.HkStatus === 'Phòng dơ'
+        ? { text: 'VD/ARR', cls: DARK_RED_BADGE }
+        : FO_BADGE.Arrival
+      : room.FoStatus === 'Vacant' && room.HkStatus === 'Đã kiểm tra'
+      ? { text: 'VCI', cls: VCI_BADGE }
+      : room.FoStatus === 'Vacant' && room.HkStatus === 'Phòng sạch'
+      ? { text: 'VC', cls: VC_BADGE }
+      : FO_BADGE[room.FoStatus];
     return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
@@ -286,7 +285,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         <button
           onClick={(e) => { e.stopPropagation(); onRemove?.(); }}
           title="Bỏ phân công"
-          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-slate-300 text-slate-400 shadow-sm flex items-center justify-center text-[9px] font-bold leading-none opacity-0 group-hover:opacity-100 hover:text-red-600 hover:border-red-300 transition-opacity z-10"
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-slate-300 text-slate-400 shadow-sm flex items-center justify-center text-[9px] font-bold leading-none opacity-70 md:opacity-0 md:group-hover:opacity-100 hover:text-red-600 hover:border-red-300 transition-opacity z-10"
         >
           ✕
         </button>
@@ -300,7 +299,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         <NoteIcons note={combinedNote} ngayO={room.NgayO} />
       </span>
 
-      {/* Phải: badge trạng thái FO (OD/DO/VD/ARR/DO-Arr) — đẩy sát mép phải, căn đều trên mọi thẻ.
+      {/* Phải: badge trạng thái FO (OD/DO/VD/VC/VCI/ARR/VD-ARR/DO-Arr) — đẩy sát mép phải, căn đều trên mọi thẻ.
           Riêng OD mà HÔM NAY đến lịch thay ga giường (checkLinenChange) -> thêm icon sao vàng nhỏ
           ngay sát chữ OD, để nhân viên biết cần mang ga/gối mới khi vào dọn phòng này. */}
       {fo && (
@@ -316,7 +315,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <div className={selectedIds.size > 0 ? 'pb-36 md:pb-24' : ''}>
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <h1 className="text-[19px] font-bold">Phân công dọn phòng</h1>
         <div className="flex items-center gap-2 flex-wrap">
@@ -364,49 +363,25 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       <div className="mb-2 text-[13px] font-bold text-red-600 flex items-center justify-between">
         Phòng cần dọn (Dirty) <span className="text-slate-400 font-normal text-xs">{dirtyRooms.length} phòng</span>
       </div>
-      <Droppable droppableId="pool-dirty" isDropDisabled direction="horizontal">
-        {(provided) => (
-          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-wrap gap-2 mb-5">
-            {dirtyRooms.map((room, i) => (
-              <Draggable key={room.MaPhong} draggableId={`pool-${room.MaPhong}`} index={i}>
-                {(p) => (
-                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[150px]">
-                    <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {dirtyRooms.map((room) => (
+          <div key={room.MaPhong} className="w-[150px]">
+            <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
           </div>
-        )}
-      </Droppable>
+        ))}
+      </div>
 
       <div className="mb-2 text-[13px] font-bold text-slate-600 flex items-center justify-between">
         Phòng đã sạch <span className="text-slate-400 font-normal text-xs">{cleanRooms.length} phòng</span>
       </div>
-      <Droppable droppableId="pool-clean" isDropDisabled direction="horizontal">
-        {(provided) => (
-          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-wrap gap-2 mb-6">
-            {cleanRooms.map((room, i) => (
-              <Draggable key={room.MaPhong} draggableId={`pool-${room.MaPhong}`} index={i}>
-                {(p) => (
-                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="w-[150px]">
-                    <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {cleanRooms.map((room) => (
+          <div key={room.MaPhong} className="w-[150px]">
+            <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
           </div>
-        )}
-      </Droppable>
+        ))}
+      </div>
 
-      {selectedIds.size > 0 && (
-        <div className="mb-4 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
-          Đã chọn {selectedIds.size} phòng — kéo 1 phòng bất kỳ trong số đó vào cột nhân viên để gán cả loạt
-          <button onClick={() => setSelectedIds(new Set())} className="text-blue-500 underline">Bỏ chọn</button>
-        </div>
-      )}
 
       <div className="flex items-center gap-2 flex-wrap mb-4 pb-3 border-b border-slate-200">
         <span className="text-xs font-bold text-slate-500">NHÓM:</span>
@@ -455,7 +430,10 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           const theme = COLUMN_THEMES[idx % COLUMN_THEMES.length];
           return (
             <div key={g.id} className={`border rounded-xl flex flex-col overflow-hidden ${theme.bg} ${theme.border}`}>
-              <div className={`flex items-center justify-between px-3 py-2.5 border-b ${theme.border} ${theme.header}`}>
+              <div
+                onClick={selectedIds.size > 0 ? () => assignSelectedTo(g) : undefined}
+                className={`flex items-center justify-between px-3 py-2.5 border-b ${theme.border} ${theme.header} ${selectedIds.size > 0 ? 'cursor-pointer ring-2 ring-inset ring-blue-400' : ''}`}
+              >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Users className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                   <span className="font-bold text-sm truncate">{groupLabel(g) || g.id}</span>
@@ -463,9 +441,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                   <span className="text-red-600 font-extrabold text-sm whitespace-nowrap">({weighted} phòng)</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Printer className="w-3.5 h-3.5 text-slate-500 cursor-pointer" onClick={() => window.print()} />
+                  <Printer className="w-3.5 h-3.5 text-slate-500 cursor-pointer" onClick={(e) => { e.stopPropagation(); window.print(); }} />
                   <button
-                    onClick={() => openTaskModal(g.id)}
+                    onClick={(e) => { e.stopPropagation(); openTaskModal(g.id); }}
                     className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"
                     title="Thêm nhiệm vụ khác"
                   >
@@ -474,23 +452,22 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                 </div>
               </div>
 
-              <Droppable droppableId={`group-${g.id}`}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`flex-1 p-2 space-y-1.5 min-h-[80px] transition-colors ${snapshot.isDraggingOver ? 'bg-white/70' : ''}`}
-                  >
-                    {myRooms.map((room, i) => (
-                      <Draggable key={room.MaPhong} draggableId={`assigned-${g.id}-${room.MaPhong}`} index={i}>
-                        {(p) => (
-                          <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}>
-                            <RoomChip room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
-                          </div>
-                        )}
-                      </Draggable>
+              <div className="flex-1 p-2 space-y-1.5 min-h-[80px]">
+                    {/* Đang chọn phòng -> nút gán nhanh ngay đầu cột */}
+                    {selectedIds.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => assignSelectedTo(g)}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-blue-400 bg-white/80 py-2 text-[12px] font-bold text-blue-700 hover:bg-blue-50 active:scale-[0.98] transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Gán {selectedIds.size} phòng vào {g.id}
+                      </button>
+                    )}
+                    {myRooms.map((room) => (
+                      <div key={room.MaPhong}>
+                        <RoomChip room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
+                      </div>
                     ))}
-                    {provided.placeholder}
 
                     {g.extraTasks.map((task, idx2) => (
                       <div key={idx2} className="flex items-start justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11px] text-yellow-800">
@@ -498,9 +475,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                         <X className="w-3 h-3 cursor-pointer flex-shrink-0 mt-0.5" onClick={() => removeTask(g.id, idx2)} />
                       </div>
                     ))}
-                  </div>
-                )}
-              </Droppable>
+              </div>
             </div>
           );
         })}
@@ -533,6 +508,35 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           </div>
         </div>
       )}
-    </DragDropContext>
+
+      {/* Thanh gán nhanh — hiện khi đang chọn phòng: bấm vào nhóm để gán cả loạt phòng đã chọn */}
+      {selectedIds.size > 0 && (
+        <div className="fixed inset-x-0 z-40 bottom-[92px] md:bottom-4 px-3 md:pl-[calc(16rem+1.5rem)] md:pr-6 pointer-events-none">
+          <div className="pointer-events-auto mx-auto max-w-3xl rounded-2xl bg-slate-900/95 text-white shadow-[0_12px_30px_rgba(15,23,42,0.45)] border border-slate-700 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-[12.5px] font-bold">
+                Đã chọn <span className="text-sky-300">{selectedIds.size}</span> phòng — bấm nhóm để gán
+              </span>
+              <button onClick={() => setSelectedIds(new Set())} className="text-[11.5px] font-semibold text-slate-300 hover:text-white underline">
+                Bỏ chọn
+              </button>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => assignSelectedTo(g)}
+                  className="flex-shrink-0 flex items-center gap-1.5 rounded-xl bg-white text-slate-800 px-3 py-2 text-[12.5px] font-bold hover:bg-sky-50 active:scale-95 transition"
+                >
+                  <span className="text-blue-700">{g.id}</span>
+                  {g.staffs.length > 0 && <span className="text-slate-500 font-semibold max-w-[110px] truncate">{g.staffs.join('+')}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
