@@ -7,7 +7,7 @@ import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
   FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon, formatTimeOnly,
 } from '@/lib/roomStyles';
-import { Pin, Zap, Check } from 'lucide-react';
+import { Pin, Zap, Check, User } from 'lucide-react';
 
 interface RoomCardProps {
   room: Room;
@@ -113,23 +113,29 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
             </div>
           </div>
 
-          {/* Chân cửa: trái = icon máy bay/giường/nhà + trạng thái khách (cùng màu vạch cửa), phải = tên nhân viên */}
-          <div className="flex items-center justify-between gap-1.5 mt-auto pt-2 border-t border-slate-200/80">
+          {/* Chân cửa: dòng 1 = icon máy bay/giường/nhà + trạng thái khách (cùng màu vạch cửa);
+              dòng 2 = BẢNG TÊN nhân viên phụ trách — dòng riêng, đủ chỗ hiện tên, không bị cắt "H...".
+              Ca chiều (PM Shift) -> bảng tên nền VÀNG, chỉ hiện tên nhân viên ca chiều. */}
+          <div className="mt-auto pt-2 border-t border-slate-200/80 flex flex-col gap-1">
             <span className={`flex items-center gap-1 font-semibold min-w-0 [&_svg]:!text-current ${accent.text} ${special ? 'text-[13px]' : 'text-[10px]'}`}>
               <FoStatusIcon status={room.FoStatus} />
               <span className="truncate">{FO_STATUS_LABEL[room.FoStatus]}</span>
             </span>
-            {room.NhanVienPhuTrach && (
-              // Phòng ca chiều (PM Shift) -> nền VÀNG + chỉ tên nhân viên ca chiều (gọn, dễ nhận ra)
-              <span
-                title={isPmLabel(room.NhanVienPhuTrach) ? 'Ca chiều (PM Shift)' : undefined}
-                className={`font-bold uppercase rounded-md px-1.5 py-0.5 whitespace-nowrap truncate max-w-[55%] border ${
-                  isPmLabel(room.NhanVienPhuTrach) ? 'bg-amber-300 border-amber-400 text-amber-950' : 'bg-slate-100 border-slate-200 text-slate-700'
-                } ${special ? 'text-[11px]' : 'text-[9px]'}`}
-              >
-                {isPmLabel(room.NhanVienPhuTrach) ? labelNames(room.NhanVienPhuTrach).join('+') || 'PM' : room.NhanVienPhuTrach}
-              </span>
-            )}
+            {room.NhanVienPhuTrach && (() => {
+              const pm = isPmLabel(room.NhanVienPhuTrach);
+              const name = (pm ? labelNames(room.NhanVienPhuTrach).join(' + ') || 'PM' : labelNames(room.NhanVienPhuTrach).join(' + ') || room.NhanVienPhuTrach);
+              return (
+                <span
+                  title={pm ? `Ca chiều (PM Shift): ${name}` : name}
+                  className={`self-start max-w-full flex items-center gap-1 rounded-md border font-bold uppercase leading-[1.2] ${
+                    pm ? 'bg-amber-300 border-amber-400 text-amber-950' : 'bg-slate-100 border-slate-200 text-slate-700'
+                  } ${special ? 'text-[11px] px-2 py-1' : 'text-[9.5px] px-1.5 py-[3px]'}`}
+                >
+                  <User className={`flex-shrink-0 ${special ? 'w-3 h-3' : 'w-2.5 h-2.5'} ${pm ? 'text-amber-800' : 'text-slate-400'}`} strokeWidth={2.5} />
+                  <span className="truncate">{name}</span>
+                </span>
+              );
+            })()}
           </div>
         </div>
       </div>
