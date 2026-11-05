@@ -302,7 +302,7 @@ export default function HomePage() {
             {effectiveScreen === 'phancong' && canAccess('phancong') && <AssignScreen rooms={rooms} setRooms={setRoomsTracked} staffList={staffList} />}
             {effectiveScreen === 'nhiemvu' && canAccess('nhiemvu') && <TaskScreen rooms={rooms} setRooms={setRoomsTracked} account={account} />}
             {effectiveScreen === 'baocao' && canAccess('baocao') && <ReportScreen rooms={rooms} account={account} />}
-            {effectiveScreen === 'task' && canAccess('task') && <TaskChartScreen />}
+            {effectiveScreen === 'task' && canAccess('task') && <TaskChartScreen rooms={rooms} />}
             {effectiveScreen === 'maintenance' && canAccess('maintenance') && <MaintenanceScreen />}
             {effectiveScreen === 'lostfound' && canAccess('lostfound') && <LostFoundScreen />}
             {effectiveScreen === 'noteboard' && canAccess('noteboard') && <NoteBoardScreen rooms={rooms} />}
