@@ -450,7 +450,8 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       >
         {groups.map((g, idx) => {
           const myRooms = roomsForGroup(rooms, g);
-          const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong));
+          // Mỗi nhiệm vụ phụ được tính như 01 phòng
+          const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong)) + (g.extraTasks?.length || 0);
           const theme = COLUMN_THEMES[idx % COLUMN_THEMES.length];
           return (
             <div key={g.id} className={`border rounded-xl flex flex-col overflow-hidden ${theme.bg} ${theme.border}`}>
