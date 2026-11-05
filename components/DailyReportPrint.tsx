@@ -7,8 +7,9 @@ import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extr
 import { buildExtraTasks } from '@/lib/extraTasks';
 
 /* =========================================================================
-   BẢN BÁO CÁO PDF (CHỈ DÙNG KHI TẢI FILE) — màn Daily Report trên app giữ nguyên.
-   Component này ẩn trên màn hình (hidden) và CHỈ hiện khi in / lưu PDF (print:block).
+   TỜ BÁO CÁO DAILY REPORT — DÙNG CHUNG cho màn Daily Report trên app VÀ bản in / tải PDF.
+   - Lịch sử chìa khóa ghi ngay dưới tên từng nhân viên.
+   - "Lịch sử giám sát kiểm phòng" + chữ ký: CHỈ hiện khi in (màn Nhiệm vụ đã có bảng này).
    ========================================================================= */
 interface DailyReportPrintProps {
   rooms: Room[];
@@ -137,11 +138,19 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     };
   }).sort((a, b) => b.pct - a.pct);
 
+  // Chìa khóa theo từng nhân viên (nhóm "Tâm+Nghị" gồm chìa của cả 2 người)
+  const keysForLabel = (label: string) => {
+    const names = label.split('+').map((x) => x.trim());
+    return keyRows.filter((k) => names.includes(k.nhanVien));
+  };
   // Bàn giao chìa khóa — sắp theo Bộ, rồi tầng, rồi giờ nhận
   const keyRows = keyLogs
     .map((l) => ({ ...l, ...splitKeyLabel(l.keyLabel) }))
     .sort((a, b) => (a.set + a.floors).localeCompare(b.set + b.floors) || (a.gioMuon || '').localeCompare(b.gioMuon || ''));
 
+  // Chìa của nhân viên không nằm trong nhóm nào đang phân công -> ghi riêng 1 dòng
+  const groupedNames = new Set(staffStats.flatMap((st) => st.staff.split('+').map((x) => x.trim())));
+  const unmatchedKeys = keyRows.filter((k) => !groupedNames.has(k.nhanVien));
   // Lịch sử giám sát kiểm phòng — giống màn Nhiệm vụ (dữ liệu trả về mới nhất trước -> đảo lại cũ trước)
   const inspectionRows = [...inspections].reverse();
   // Cột "Giám sát VCI": CHỈ tên giám sát của lượt kiểm ĐẠT gần nhất (chi tiết giờ xem ở Lịch sử bên dưới)
@@ -156,11 +165,12 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
   ];
 
   return (
-    <div className="hk-report hidden print:block">
+    <div className="hk-report">
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 9mm 10mm 11mm; @bottom-right { content: 'Trang ' counter(page) ' / ' counter(pages); font: 8px sans-serif; color: #94a3b8; } }
-          html, body { background: #fff !important; }
+          html, body { background: #fff !important; width: 100% !important; min-width: 0 !important; }
+          .hk-report-sheet { width: 100% !important; }
           .hk-report-sheet { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important; }
           .hk-report table { font-size: 9.5px; }
           .hk-report tr { break-inside: avoid; }
@@ -172,14 +182,13 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           [style*="linear-gradient"] { background: #fff !important; }
           .hk-report .hk-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
           .hk-report .hk-staff { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-          .hk-report .hk-two { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .hk-report .min-w-\\[860px\\], .hk-report .min-w-\\[640px\\] { min-width: 0 !important; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
       {/* ============ TỜ BÁO CÁO ============ */}
-      <div className="hk-report-sheet bg-white text-slate-800">
+      <div className="hk-report-sheet mx-auto max-w-[1200px] bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.3)] px-4 py-5 md:px-8 md:py-7">
         {/* Tiêu đề */}
         <header className="flex flex-wrap items-start justify-between gap-3 border-b-[3px] border-slate-900 pb-3">
           <div>
@@ -212,7 +221,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           {staffStats.length === 0 ? (
             <div className="text-[12px] text-slate-400 py-3">Chưa có phòng nào được phân công hôm nay.</div>
           ) : (
-            <div className="hk-staff grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="hk-staff grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-start gap-2">
               {staffStats.map((s) => (
                 <div key={s.staff} className="border border-slate-300 rounded-md px-3 py-2 break-inside-avoid">
                   <div className="flex items-baseline justify-between gap-2">
@@ -229,14 +238,43 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                     {s.extraCount > 0 && <> · gồm {s.extraCount} NV phụ</>}
                     {s.vacuum && <> · Hút bụi: {s.vacuum}</>}
                   </div>
+                  {/* Lịch sử bộ chìa khóa của nhân viên */}
+                  <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-200 space-y-0.5">
+                    {keysForLabel(s.staff).length === 0 ? (
+                      <div className="text-[10px] text-slate-400">Chưa nhận chìa khóa</div>
+                    ) : keysForLabel(s.staff).map((k) => (
+                      <div key={k.rowIndex} className="flex items-center justify-between gap-1.5 text-[10.5px] tabular-nums">
+                        <span className="min-w-0 truncate">
+                          <b>{k.set || '—'}</b> <span className="text-slate-500">· {k.floors}</span>
+                          {s.staff.includes('+') && <span className="text-slate-400"> ({k.nhanVien})</span>}
+                        </span>
+                        <span className="flex-shrink-0 whitespace-nowrap">
+                          <span className="text-slate-500">Nhận</span> {formatTimeOnly(k.gioMuon) || '—'}
+                          <span className="text-slate-300"> · </span>
+                          {k.trangThai === 'Đã trả' && k.gioTra
+                            ? <><span className="text-slate-500">Trả</span> {formatTimeOnly(k.gioTra)}</>
+                            : <span className="font-bold text-red-600">Chưa trả</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+          {unmatchedKeys.length > 0 && (
+            <div className="mt-2 text-[10.5px] text-slate-600">
+              <b>Chìa khóa khác:</b>{' '}
+              {unmatchedKeys.map((k, i) => (
+                <span key={k.rowIndex} className="tabular-nums">
+                  {i > 0 && ' · '}{k.set} {k.floors} — {k.nhanVien}, nhận {formatTimeOnly(k.gioMuon) || '—'}, {k.trangThai === 'Đã trả' && k.gioTra ? `trả ${formatTimeOnly(k.gioTra)}` : 'chưa trả'}
+                </span>
               ))}
             </div>
           )}
         </Section>
 
-        {/* Ghi chú + Bàn giao chìa khóa */}
-        <div className="hk-two grid grid-cols-1 lg:grid-cols-2 gap-x-6">
+        {/* Ghi chú trong ngày — trải hết bề ngang */}
           <Section title="Ghi chú trong ngày">
             {adminNotedRooms.length === 0 && staffNotedRooms.length === 0 ? (
               <div className="text-[11.5px] text-slate-400">Không có ghi chú.</div>
@@ -265,39 +303,6 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
             )}
           </Section>
 
-          <Section title="Bàn giao chìa khóa">
-            {keyRows.length === 0 ? (
-              <div className="text-[11.5px] text-slate-400">Chưa có lượt nhận chìa khóa nào hôm nay. Các bộ chìa FL: có sẵn.</div>
-            ) : (
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="text-[9.5px] uppercase tracking-wide text-slate-500 border-b border-slate-300">
-                    <th className="text-left py-1 pr-2">Bộ số</th>
-                    <th className="text-left py-1 pr-2">Chìa</th>
-                    <th className="text-left py-1 pr-2">Nhân viên</th>
-                    <th className="text-left py-1 pr-2">Nhận</th>
-                    <th className="text-left py-1">Trả</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {keyRows.map((k) => (
-                    <tr key={k.rowIndex} className="border-b border-slate-100">
-                      <td className="py-1 pr-2 font-bold whitespace-nowrap">{k.set || '—'}</td>
-                      <td className="py-1 pr-2 whitespace-nowrap">{k.floors}</td>
-                      <td className="py-1 pr-2 font-semibold">{k.nhanVien}</td>
-                      <td className="py-1 pr-2 tabular-nums">{formatTimeOnly(k.gioMuon) || '—'}</td>
-                      <td className="py-1 tabular-nums">
-                        {k.trangThai === 'Đã trả' && k.gioTra
-                          ? formatTimeOnly(k.gioTra)
-                          : <StatusBadge label="CHƯA TRẢ" cls="bg-red-50 text-red-700 border-red-200" />}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Section>
-        </div>
 
         {/* Bảng dữ liệu chính */}
         <Section title="Chi tiết phòng" aside={`${total} phòng`}>
@@ -366,7 +371,8 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           </div>
         </Section>
 
-        {/* Lịch sử giám sát kiểm phòng — cùng dữ liệu & cột với bảng "Lịch sử kiểm phòng" ở màn Nhiệm vụ */}
+        {/* Lịch sử giám sát kiểm phòng — CHỈ khi in/tải PDF (trên app đã có ở màn Nhiệm vụ) */}
+        <div className="hidden print:block">
         <Section title="Lịch sử giám sát kiểm phòng" aside={`${inspectionRows.length} lượt`}>
           {inspectionRows.length === 0 ? (
             <div className="text-[11.5px] text-slate-400">Chưa có lượt kiểm phòng nào được ghi nhận.</div>
@@ -396,8 +402,10 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           )}
         </Section>
 
-        {/* Ký xác nhận + chân trang */}
-        <div className="break-inside-avoid">
+        </div>
+
+        {/* Ký xác nhận + chân trang — CHỈ khi in/tải PDF */}
+        <div className="hidden print:block break-inside-avoid">
         <div className="mt-6 grid grid-cols-2 gap-6 text-center text-[11px]">
           <div>
             <div className="font-bold uppercase tracking-wide text-slate-600">Người lập báo cáo</div>
