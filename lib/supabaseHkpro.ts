@@ -409,30 +409,12 @@ function maintenanceRowToIssue(row: any): MaintenanceIssue {
   };
 }
 
-/** Lấy toàn bộ ticket Bảo trì — đồng thời tự dọn (xoá hẳn) ticket ĐÃ XONG quá 180 ngày,
- *  giống hệt hành vi getMaintenanceIssues() cũ bên Apps Script. */
+/** Lấy toàn bộ ticket Bảo trì — LƯU TRỮ LÂU DÀI: không tự xoá ticket cũ nữa
+ *  (trước đây tự xoá ticket ĐÃ XONG quá 180 ngày). Chỉ xoá khi người dùng bấm Xoá. */
 export async function sbGetMaintenanceIssues(): Promise<MaintenanceIssue[]> {
   const { data, error } = await supabase.from('hkpro_maintenance_issues').select('*').order('id', { ascending: false });
   if (error) throw new Error('Supabase getMaintenanceIssues lỗi: ' + error.message);
-  const rows = data || [];
-
-  const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const expiredIds: number[] = [];
-  const kept = rows.filter((row: any) => {
-    if (str(row.status) !== 'Đã xong') return true;
-    const parts = str(row.reported_date).split('/'); // dd/MM/yyyy
-    if (parts.length !== 3) return true;
-    const reportedTime = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
-    if (now - reportedTime > SIX_MONTHS_MS) { expiredIds.push(Number(row.id)); return false; }
-    return true;
-  });
-  if (expiredIds.length > 0) {
-    supabase.from('hkpro_maintenance_issues').delete().in('id', expiredIds).then(({ error: delErr }) => {
-      if (delErr) console.warn('[HK PRO] Dọn ticket Bảo trì quá hạn lỗi:', delErr.message);
-    });
-  }
-  return kept.map(maintenanceRowToIssue);
+  return (data || []).map(maintenanceRowToIssue);
 }
 
 export async function sbCreateMaintenanceIssue(roomNo: string, issueDescription: string, reportedBy: string): Promise<{ success: boolean; issue?: MaintenanceIssue; error?: string }> {
