@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star, Moon, ArrowRight, Check } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
-import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel } from '@/lib/assignHelpers';
+import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel, labelNames } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly } from '@/lib/roomStyles';
 import { updateRoomField, updateRoomFields, getAssignGroups, saveAssignGroups, fetchRooms, getTodayHistory, logTaskAction } from '@/lib/api';
 
@@ -120,9 +120,20 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   // Nếu nhóm bị xoá hoặc đổi thành phần (khiến nhãn cũ không còn khớp nhóm nào),
   // phòng đó tự động coi là chưa gán và quay lại kho chờ — không bị "biến mất".
   // Thẻ PM Shift luôn có (kể cả khi Đồng bộ AI / Xoá dữ liệu đã reset bảng Nhóm về mặc định)
-  const pmGroup = groups.find((g) => g.id === PM_GROUP_ID) || emptyPmGroup();
+  // Nếu bảng Nhóm bị ghi đè mất tên ca chiều (Đồng bộ AI reset, máy khác đang mở bản cũ...)
+  // -> tự khôi phục tên từ chính các phòng đang mang nhãn "PM:Tên" — phòng đã đẩy không bao giờ "mất".
+  const storedPm = groups.find((g) => g.id === PM_GROUP_ID);
+  const pmLabelOnRooms = rooms.find((r) => (r.NhanVienPhuTrach || '').startsWith('PM:'))?.NhanVienPhuTrach || '';
+  const pmGroup: Group =
+    storedPm && storedPm.staffs.length > 0
+      ? storedPm
+      : pmLabelOnRooms
+      ? { id: PM_GROUP_ID, staffs: labelNames(pmLabelOnRooms), extraTasks: storedPm?.extraTasks || [] }
+      : storedPm || emptyPmGroup();
   const normalGroups = groups.filter((g) => g.id !== PM_GROUP_ID);
-  const groupsWithPm = groups.some((g) => g.id === PM_GROUP_ID) ? groups : [...groups, pmGroup];
+  const groupsWithPm = groups.some((g) => g.id === PM_GROUP_ID)
+    ? groups.map((g) => (g.id === PM_GROUP_ID ? pmGroup : g))
+    : [...groups, pmGroup];
   const activeGroupLabels = new Set(groupsWithPm.map((g) => groupCurrentLabel(g)));
   const isUnassigned = (r: Room) => !r.NhanVienPhuTrach || !activeGroupLabels.has(r.NhanVienPhuTrach);
   const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && isUnassigned(r));
@@ -290,7 +301,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   // ra dữ liệu cũ/rỗng — trong khi tên nhân viên ở Sơ đồ phòng (field NhanVienPhuTrach riêng, lưu ở
   // bảng khác và LUÔN được await khi ghi) vẫn còn, gây cảm giác "data bị xoá sạch không đều nhau".
   // Nay BẮT BUỘC chờ kết quả ghi + báo lỗi rõ ràng ngay khi thất bại, không còn im lặng mất dữ liệu.
-  const updateGroups = async (next: Group[]) => {
+  const updateGroups = async (nextRaw: Group[]) => {
+    // Luôn giữ thẻ PM Shift khi lưu (các thao tác của nhóm ca sáng không được làm mất ca chiều)
+    const next = nextRaw.some((g) => g.id === PM_GROUP_ID) || pmGroup.staffs.length === 0 ? nextRaw : [...nextRaw, pmGroup];
     setGroups(next);
     const res = await saveAssignGroups(next);
     if (!res.success) {
@@ -561,6 +574,16 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                         <RoomChip room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
                       </div>
                     ))}
+
+                    {/* Phòng của nhóm này đã đẩy sang ca chiều — vẫn hiện mờ để giám sát theo dõi */}
+                    {rooms
+                      .filter((r) => isPmLabel(r.NhanVienPhuTrach) && pmMoves[r.MaPhong]?.info.split(' · ')[1] === displayLabel(groupCurrentLabel(g)))
+                      .map((r) => (
+                        <div key={'pm-' + r.MaPhong} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/60 px-2.5 py-1.5 text-[12px]">
+                          <span className="font-bold text-slate-400 line-through tabular-nums">{r.MaPhong} - {r.LoaiPhong}</span>
+                          <span className="text-[10px] font-extrabold text-indigo-600 whitespace-nowrap">→ PM · {pmMoves[r.MaPhong].info.split(' · ')[0]}</span>
+                        </div>
+                      ))}
 
                     {g.extraTasks.map((task, idx2) => (
                       <div key={idx2} className="flex items-start justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11px] text-yellow-800">
