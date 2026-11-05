@@ -40,7 +40,17 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
   const openModal = (room: Room) => setActiveRoom(room);
   const closeModal = () => setActiveRoom(null);
 
-  const handleSave = async (maPhong: string, changes: Partial<Room>) => {
+  const handleSave = async (maPhong: string, changesIn: Partial<Room>) => {
+    // Bật MKR (TrangDiem) cho phòng đang DND / Từ chối (RF) -> trả nhiệm vụ về "Chưa dọn".
+    // Kiểm tra theo dữ liệu MỚI NHẤT của phòng (danh sách rooms đã được làm mới định kỳ), KHÔNG theo
+    // dữ liệu lúc vừa mở bảng — tránh trường hợp nhân viên vừa bấm RF/DND mà bảng Admin chưa kịp thấy.
+    const changes: Partial<Room> = { ...changesIn };
+    const latest = rooms.find((r) => r.MaPhong === maPhong);
+    const mkrOn = (changes.Flags ?? latest?.Flags ?? '').split(',').map((f) => f.trim()).includes('TrangDiem');
+    if (mkrOn && latest && (latest.TaskStatus === 'DND' || latest.TaskStatus === 'Refused')) {
+      changes.TaskStatus = 'Chưa dọn';
+      changes.StartTime = '';
+    }
     setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, ...changes } : r)));
     const fieldMap: Record<string, string> = {
       HkStatus: 'HkStatus', FoStatus: 'FoStatus',
