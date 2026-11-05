@@ -275,7 +275,7 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               </span>
             )}
             {showRfTag && (
-              <span className="flex items-center gap-1 bg-gradient-to-b from-teal-500 to-teal-700 text-white text-[12px] font-extrabold px-2.5 py-1 rounded-lg shadow-[0_3px_6px_rgba(13,148,136,0.4)]">
+              <span className="flex items-center gap-1 bg-gradient-to-b from-purple-500 to-purple-800 text-white text-[12px] font-extrabold px-2.5 py-1 rounded-lg shadow-[0_3px_6px_rgba(126,34,206,0.4)]">
                 <AlertTriangle className="w-3.5 h-3.5" /> RF
               </span>
             )}
