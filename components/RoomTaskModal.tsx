@@ -188,9 +188,10 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
         <div
           className="relative h-[150px] rounded-t-[22px] overflow-hidden border border-black/10 shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
           style={{
-            backgroundColor: '#a99d90',
+            // Cùng màu xám ghi + mặt da nhám như cửa "đã xong" ở thẻ nhiệm vụ (RoomCard)
+            backgroundColor: '#8e9196',
             backgroundImage:
-              'repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 5px), linear-gradient(180deg, #bcb1a5 0%, #a99d90 55%, #9a8e81 100%)',
+              "radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.26), rgba(255,255,255,0) 60%), linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0) 30%, rgba(0,0,0,0) 75%, rgba(0,0,0,0.12)), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.10 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         >
           {/* Đường ghép ván cửa */}
@@ -198,13 +199,13 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
           {/* Biển số phòng kim loại */}
           <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-400/70 bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 px-5 pt-1.5 pb-1 shadow-[0_4px_10px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.95)]">
             <span
-              className="block text-[38px] font-extrabold leading-none tracking-wide text-slate-500"
+              className="block text-[38px] font-extrabold leading-none tracking-wide text-slate-900"
               style={{ textShadow: '0 1px 0 rgba(255,255,255,0.95), 0 -1px 0 rgba(15,23,42,0.35)' }}
             >
               {room.MaPhong}
             </span>
             <span
-              className="block mt-1 text-center text-[11px] font-extrabold tracking-[0.25em] text-slate-500/90"
+              className="block mt-1 text-center text-[11px] font-extrabold tracking-[0.25em] text-slate-700"
               style={{ textShadow: '0 1px 0 rgba(255,255,255,0.9)' }}
             >
               {room.LoaiPhong}
