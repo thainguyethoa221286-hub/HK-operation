@@ -6,6 +6,11 @@ import { VACUUM_FLOORS } from '@/lib/types';
 import RoomCard from './RoomCard';
 import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
+import ExtraTaskCard from './ExtraTaskCard';
+import { getAssignGroups } from '@/lib/api';
+import type { Group, HistoryEntry } from '@/lib/types';
+import { buildExtraTasks, getExtraTaskHistory, logExtraTask, EXTRA_ACT, type ExtraTaskItem } from '@/lib/extraTasks';
+import { nowTimeStr, diffMinutes } from '@/lib/roomStyles';
 import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs, getBroadcastTask, completeBroadcastTask } from '@/lib/api';
 import type { InspectionLogRow, BroadcastTaskData } from '@/lib/types';
 import { TASK_STATUS_STYLE, formatTimeOnly, removeNoteCode } from '@/lib/roomStyles';
@@ -90,6 +95,42 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   const [skipKeys, setSkipKeys] = useState(false);
   const [inspectionLogs, setInspectionLogs] = useState<InspectionLogRow[]>([]);
   const [broadcastTask, setBroadcastTaskState] = useState<BroadcastTaskData | null>(null);
+
+  // ===== NHIỆM VỤ PHỤ (từ Nhóm ở màn Phân công) — tính như 01 phòng =====
+  const [assignGroups, setAssignGroups] = useState<Group[]>([]);
+  const [extraHistory, setExtraHistory] = useState<HistoryEntry[]>([]);
+  const [extraBusy, setExtraBusy] = useState<string | null>(null);
+  const refreshExtra = () => {
+    getAssignGroups().then(setAssignGroups).catch(() => {});
+    getExtraTaskHistory().then(setExtraHistory).catch(() => {});
+  };
+  useEffect(() => {
+    refreshExtra();
+    const timer = setInterval(refreshExtra, 15000);
+    return () => clearInterval(timer);
+  }, []);
+  const allExtraTasks = buildExtraTasks(assignGroups, extraHistory);
+
+  const extraAction = async (task: ExtraTaskItem, action: 'start' | 'done' | 'redo') => {
+    const gio = nowTimeStr();
+    const hanhDong = EXTRA_ACT[action];
+    const chiTiet = action === 'done' ? String(diffMinutes(task.start, gio)) : '';
+    // Hiện ngay trên màn hình (không đợi vòng làm mới), rồi ghi vào lịch sử
+    setExtraHistory((prev) => [...prev, { ngay: '', maPhong: task.key, nhanVien: account.hoTen, hanhDong, gio, chiTiet }]);
+    setExtraBusy(task.key);
+    try { await logExtraTask(task.key, account.hoTen, hanhDong, chiTiet); } catch {}
+    setExtraBusy(null);
+  };
+  const renderExtraCard = (t: ExtraTaskItem) => (
+    <ExtraTaskCard
+      key={t.key}
+      task={t}
+      busy={extraBusy === t.key}
+      onStart={() => extraAction(t, 'start')}
+      onFinish={() => extraAction(t, 'done')}
+      onRedo={() => extraAction(t, 'redo')}
+    />
+  );
 
   const refreshBroadcast = () => { getBroadcastTask().then(setBroadcastTaskState).catch(() => {}); };
   useEffect(() => {
@@ -211,10 +252,15 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
       (r.NhanVienPhuTrach || '').split('+').map((s) => s.trim()).includes(account.hoTen)
     );
     const myRooms = sortTaskRooms(myRoomsRaw);
-    const doneCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Hoàn thành').length;
-    const percent = myRoomsRaw.length > 0 ? Math.round((doneCount / myRoomsRaw.length) * 100) : 0;
-    const dirtyCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Chưa dọn').length;
-    const cleaningCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Đang dọn').length;
+    // Nhiệm vụ phụ của các nhóm có tên mình — mỗi nhiệm vụ tính như 01 phòng
+    const myExtraTasks = allExtraTasks.filter((t) => t.groupLabel.split('+').map((s) => s.trim()).includes(account.hoTen));
+    const extraOpen = myExtraTasks.filter((t) => t.status !== 'done');
+    const extraDone = myExtraTasks.filter((t) => t.status === 'done');
+    const totalWork = myRoomsRaw.length + myExtraTasks.length;
+    const doneCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Hoàn thành').length + extraDone.length;
+    const percent = totalWork > 0 ? Math.round((doneCount / totalWork) * 100) : 0;
+    const dirtyCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Chưa dọn').length + myExtraTasks.filter((t) => t.status === 'todo').length;
+    const cleaningCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Đang dọn').length + myExtraTasks.filter((t) => t.status === 'doing').length;
     const dndCount = myRoomsRaw.filter((r) => r.TaskStatus === 'DND').length;
     const rfCount = myRoomsRaw.filter((r) => r.TaskStatus === 'Refused').length;
 
@@ -361,14 +407,19 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
         </div>
 
         {/* Bảng thống kê tiến độ */}
-        {myRoomsRaw.length > 0 && (
+        {totalWork > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
             <div className="flex items-center gap-4">
               <ProgressRing percent={percent} />
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-extrabold text-slate-700">
-                  TIẾN ĐỘ DỌN PHÒNG — Đã dọn: {doneCount}/{myRoomsRaw.length} phòng
+                  TIẾN ĐỘ DỌN PHÒNG — Đã dọn: {doneCount}/{totalWork} phòng
                 </div>
+                {myExtraTasks.length > 0 && (
+                  <div className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                    Gồm {myRoomsRaw.length} phòng + {myExtraTasks.length} nhiệm vụ phụ
+                  </div>
+                )}
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
                   <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${percent}%` }} />
                 </div>
@@ -410,13 +461,16 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
             <div className="text-[13px] font-bold text-slate-400">Danh sách phòng đang khóa</div>
             <div className="text-[11px] text-slate-400 mt-0.5">Nhận chìa khóa ở khung phía trên để bắt đầu dọn phòng</div>
           </div>
-        ) : myRooms.length === 0 ? (
+        ) : totalWork === 0 ? (
           <div className="text-sm text-slate-400 text-center py-10">Chưa có phòng nào được giao cho bạn hôm nay.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            {/* Nhiệm vụ phụ CHƯA xong lên đầu, đã xong xuống cuối (giống phòng đã dọn) */}
+            {extraOpen.map(renderExtraCard)}
             {myRooms.map((room) => (
               <RoomCard key={room.MaPhong} room={room} onClick={() => setSelectedRoom(room)} dimSettled />
             ))}
+            {extraDone.map(renderExtraCard)}
           </div>
         )}
 
@@ -433,6 +487,12 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
     (acc[r.NhanVienPhuTrach] = acc[r.NhanVienPhuTrach] || []).push(r);
     return acc;
   }, {});
+  // Nhiệm vụ phụ gom theo đúng nhãn nhóm (khớp NhanVienPhuTrach), kể cả nhóm chưa có phòng nào
+  const extraByStaff = allExtraTasks.reduce<Record<string, ExtraTaskItem[]>>((acc, t) => {
+    (acc[t.groupLabel] = acc[t.groupLabel] || []).push(t);
+    if (!byStaff[t.groupLabel]) byStaff[t.groupLabel] = [];
+    return acc;
+  }, {});
 
   return (
     <div>
@@ -442,8 +502,10 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
       ) : (
         <div className="space-y-3.5">
           {Object.entries(byStaff).map(([staff, staffRooms]) => {
-            const done = staffRooms.filter((r) => r.TaskStatus === 'Hoàn thành').length;
-            const pct = staffRooms.length > 0 ? Math.round((done / staffRooms.length) * 100) : 0;
+            const staffExtra = extraByStaff[staff] || [];
+            const total = staffRooms.length + staffExtra.length;
+            const done = staffRooms.filter((r) => r.TaskStatus === 'Hoàn thành').length + staffExtra.filter((t) => t.status === 'done').length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
             return (
               <div key={staff} className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
@@ -458,7 +520,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                           <span className="bg-red-100 text-red-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ Đã xong Task chỉ đạo</span>
                         )}
                       </span>
-                      <span className="text-[11px] font-extrabold text-slate-500 flex-shrink-0">{done}/{staffRooms.length} xong</span>
+                      <span className="text-[11px] font-extrabold text-slate-500 flex-shrink-0">{done}/{total} xong</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
                       <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${pct}%` }} />
@@ -466,6 +528,20 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                   </div>
                 </div>
                 <div className="p-3 flex flex-wrap gap-1.5">
+                  {staffExtra.map((t) => (
+                    <span
+                      key={t.key}
+                      title={t.text}
+                      className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full max-w-full ${
+                        t.status === 'done' ? 'bg-emerald-100 text-emerald-700' : t.status === 'doing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      📋 <span className="truncate max-w-[140px]">{t.text}</span>
+                      <span className="opacity-70 font-semibold whitespace-nowrap">
+                        · {t.status === 'done' ? `Xong ${formatTimeOnly(t.end)}` : t.status === 'doing' ? `Đang làm từ ${formatTimeOnly(t.start)}` : 'Chưa làm'}
+                      </span>
+                    </span>
+                  ))}
                   {sortTaskRooms(staffRooms).map((r) => {
                     const style = TASK_STATUS_STYLE[r.TaskStatus] || TASK_STATUS_STYLE['Chưa dọn'];
                     return (
