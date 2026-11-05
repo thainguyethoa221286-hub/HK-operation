@@ -6,9 +6,13 @@ import type { Room, KeyLog, HistoryEntry } from '@/lib/types';
 import { getKeyLogs, getTodayHistory } from '@/lib/api';
 import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes } from '@/lib/roomStyles';
 import KeyBoard from './KeyBoard';
+import DailyReportPrint from './DailyReportPrint';
+import type { Account } from '@/lib/types';
 
 interface ReportScreenProps {
   rooms: Room[];
+  /** Người đang đăng nhập — in ở mục "Người lập" của file PDF */
+  account?: Account | null;
 }
 
 /** Tổng số phút từ danh sách Duration dạng chuỗi (bỏ qua giá trị rỗng/không hợp lệ) */
@@ -30,7 +34,19 @@ function StatusBadge({ label, cls }: { label: string; cls: string }) {
   return <span className={`inline-block font-bold px-2 py-0.5 rounded text-[10px] ${cls}`}>{label}</span>;
 }
 
-export default function ReportScreen({ rooms }: ReportScreenProps) {
+export default function ReportScreen({ rooms, account }: ReportScreenProps) {
+  // TẢI BÁO CÁO PDF: mở hộp thoại in của trình duyệt với BẢN BÁO CÁO PDF (DailyReportPrint),
+  // đặt sẵn tên file "HK_Daily_Report_dd-mm-yyyy" -> chọn "Lưu dưới dạng PDF" để tải về.
+  const handleDownloadPdf = () => {
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const oldTitle = document.title;
+    document.title = `HK_Daily_Report_${p2(d.getDate())}-${p2(d.getMonth() + 1)}-${d.getFullYear()}`;
+    const restore = () => { document.title = oldTitle; window.removeEventListener('afterprint', restore); };
+    window.addEventListener('afterprint', restore);
+    setTimeout(() => window.print(), 50);
+  };
+
   const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
   // Lịch sử TRONG NGÀY của TẤT CẢ phòng — dùng riêng để liệt kê đủ MỌI lần bấm bật DND/RF
   // (mỗi lần bấm đã tự ghi 1 dòng mới trong tab "LichSuDon", không ghi đè) cho Daily Report.
@@ -103,10 +119,15 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
 
   return (
     <div>
+      {/* Bản báo cáo PDF — ẩn trên màn hình, chỉ hiện khi tải / in */}
+      <DailyReportPrint rooms={rooms} account={account} />
+
+      {/* Giao diện Daily Report trên app — giữ nguyên, KHÔNG xuất hiện trong file PDF */}
+      <div className="print:hidden">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[19px] font-bold">Báo cáo — Hiệu suất nhân viên</h1>
         <button
-          onClick={() => window.print()}
+          onClick={handleDownloadPdf}
           className="flex items-center gap-1.5 text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2"
         >
           <Printer className="w-3.5 h-3.5" /> IN BÁO CÁO
@@ -328,6 +349,7 @@ export default function ReportScreen({ rooms }: ReportScreenProps) {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );
