@@ -5,6 +5,8 @@ import type { Room, KeyLog, HistoryEntry, InspectionLogRow, Account, Group } fro
 import { getKeyLogs, getTodayHistory, getInspectionLogs, getAssignGroups } from '@/lib/api';
 import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes } from '@/lib/roomStyles';
 import { buildExtraTasks } from '@/lib/extraTasks';
+import { keyToDMY, type DailySnapshot } from '@/lib/dailyArchive';
+import { labelNames, displayLabel, PM_MOVE_ACTION } from '@/lib/assignHelpers';
 
 /* =========================================================================
    TỜ BÁO CÁO DAILY REPORT — DÙNG CHUNG cho màn Daily Report trên app VÀ bản in / tải PDF.
@@ -15,6 +17,8 @@ interface DailyReportPrintProps {
   rooms: Room[];
   /** Người đang đăng nhập — in ở mục "Người lập báo cáo" */
   account?: Account | null;
+  /** Bản báo cáo ĐÃ LƯU (Kho báo cáo) — có thì vẽ lại đúng dữ liệu ngày đó, không tải dữ liệu hôm nay */
+  snapshot?: DailySnapshot | null;
 }
 
 /** Tổng số phút từ danh sách Duration dạng chuỗi (bỏ qua giá trị rỗng/không hợp lệ) */
@@ -57,15 +61,25 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
   );
 }
 
-export default function DailyReportPrint({ rooms, account }: DailyReportPrintProps) {
-  const [keyLogs, setKeyLogs] = useState<KeyLog[]>([]);
+export default function DailyReportPrint({ rooms: liveRooms, account, snapshot }: DailyReportPrintProps) {
+  const [liveKeyLogs, setKeyLogs] = useState<KeyLog[]>([]);
   // Lịch sử TRONG NGÀY của TẤT CẢ phòng — DND/RF (mỗi lần bấm 1 dòng) + nhiệm vụ phụ
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [inspections, setInspections] = useState<InspectionLogRow[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [now, setNow] = useState(() => new Date());
+  const [liveHistory, setHistory] = useState<HistoryEntry[]>([]);
+  const [liveInspections, setInspections] = useState<InspectionLogRow[]>([]);
+  const [liveGroups, setGroups] = useState<Group[]>([]);
+  const [liveNow, setNow] = useState(() => new Date());
+
+  // Xem bản đã lưu -> dùng dữ liệu của bản đó; không thì dữ liệu trực tiếp hôm nay
+  const rooms = snapshot ? snapshot.rooms : liveRooms;
+  const keyLogs = snapshot ? snapshot.keyLogs : liveKeyLogs;
+  const history = snapshot ? snapshot.history : liveHistory;
+  const inspections = snapshot ? snapshot.inspections : liveInspections;
+  const groups = snapshot ? snapshot.groups : liveGroups;
+  const now = snapshot ? new Date(snapshot.exportedAt) : liveNow;
+  const reporter = snapshot ? snapshot.by : account?.hoTen || '';
 
   useEffect(() => {
+    if (snapshot) return;
     const load = () => {
       getKeyLogs().then(setKeyLogs).catch(() => {});
       getTodayHistory().then(setHistory).catch(() => {});
@@ -79,22 +93,24 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     const onBeforePrint = () => setNow(new Date());
     window.addEventListener('beforeprint', onBeforePrint);
     return () => { clearInterval(timer); window.removeEventListener('beforeprint', onBeforePrint); };
-  }, []);
+  }, [snapshot]);
 
   // MỖI LẦN treo bảng DND / RF / MKR trong ngày (theo giờ bấm) -> gom đủ mốc giờ HH:mm theo từng phòng.
   // Luôn liệt kê đủ số lần, KỂ CẢ khi phòng đã bỏ DND/RF/MKR — để đối soát khi có sự cố.
-  const { dndTimesByRoom, rfTimesByRoom, mkrTimesByRoom } = useMemo(() => {
+  const { dndTimesByRoom, rfTimesByRoom, mkrTimesByRoom, pmMoveByRoom } = useMemo(() => {
     const dnd: Record<string, string[]> = {};
     const rf: Record<string, string[]> = {};
     const mkr: Record<string, string[]> = {};
+    const pm: Record<string, string> = {};
     for (const h of history) {
+      if (h.hanhDong === PM_MOVE_ACTION) pm[h.maPhong] = `${formatTimeOnly(h.gio)}${h.chiTiet ? ` (${h.chiTiet})` : ''}`;
       const t = formatTimeOnly(h.gio);
       if (!t) continue;
       if (h.hanhDong === 'DND Bật') (dnd[h.maPhong] ||= []).push(t);
       if (h.hanhDong === 'Từ chối (RF)') (rf[h.maPhong] ||= []).push(t);
       if (h.hanhDong === 'MKR Bật') (mkr[h.maPhong] ||= []).push(t);
     }
-    return { dndTimesByRoom: dnd, rfTimesByRoom: rf, mkrTimesByRoom: mkr };
+    return { dndTimesByRoom: dnd, rfTimesByRoom: rf, mkrTimesByRoom: mkr, pmMoveByRoom: pm };
   }, [history]);
 
   // Ghi chú nhân viên / giám sát — Báo cáo kết hợp ghi chú hiện tại + "hôm qua" (giữ đủ 1 ngày)
@@ -105,7 +121,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
 
   // Danh sách đầy đủ phòng, sắp theo số phòng tăng dần
   const allRoomsSorted = [...rooms].sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
-  const todayStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+  const todayStr = snapshot ? keyToDMY(snapshot.date) : `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
   const exportTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const total = rooms.length;
@@ -143,7 +159,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
 
   // Chìa khóa theo từng nhân viên (nhóm "Tâm+Nghị" gồm chìa của cả 2 người)
   const keysForLabel = (label: string) => {
-    const names = label.split('+').map((x) => x.trim());
+    const names = labelNames(label);
     return keyRows.filter((k) => names.includes(k.nhanVien));
   };
   // Bàn giao chìa khóa — sắp theo Bộ, rồi tầng, rồi giờ nhận
@@ -152,7 +168,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     .sort((a, b) => (a.set + a.floors).localeCompare(b.set + b.floors) || (a.gioMuon || '').localeCompare(b.gioMuon || ''));
 
   // Chìa của nhân viên không nằm trong nhóm nào đang phân công -> ghi riêng 1 dòng
-  const groupedNames = new Set(staffStats.flatMap((st) => st.staff.split('+').map((x) => x.trim())));
+  const groupedNames = new Set(staffStats.flatMap((st) => labelNames(st.staff)));
   const unmatchedKeys = keyRows.filter((k) => !groupedNames.has(k.nhanVien));
   // Lịch sử giám sát kiểm phòng — giống màn Nhiệm vụ (dữ liệu trả về mới nhất trước -> đảo lại cũ trước)
   const inspectionRows = [...inspections].reverse();
@@ -203,7 +219,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
             <tbody>
               <tr><td className="pr-3 text-slate-500 font-semibold text-right">Ngày báo cáo</td><td className="font-bold tabular-nums">{todayStr}</td></tr>
               <tr><td className="pr-3 text-slate-500 font-semibold text-right">Thời gian xuất</td><td className="font-bold tabular-nums">{exportTime}</td></tr>
-              <tr><td className="pr-3 text-slate-500 font-semibold text-right">Người lập</td><td className="font-bold">{account?.hoTen || '—'}</td></tr>
+              <tr><td className="pr-3 text-slate-500 font-semibold text-right">Người lập</td><td className="font-bold">{reporter || '—'}</td></tr>
             </tbody>
           </table>
         </header>
@@ -229,7 +245,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                 <div key={s.staff} className="border border-slate-300 rounded-md px-3 py-2 break-inside-avoid">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-bold text-[12.5px] truncate">
-                      {s.staff}{s.trolley ? <span className="text-slate-500 font-semibold"> (Xe {s.trolley})</span> : null}
+                      {displayLabel(s.staff)}{s.trolley && s.trolley !== 'PM' ? <span className="text-slate-500 font-semibold"> (Xe {s.trolley})</span> : null}
                     </span>
                     <span className="font-extrabold text-[12.5px] tabular-nums">{s.pct}%</span>
                   </div>
@@ -297,7 +313,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                       <td className="py-1 pr-2 w-[70px]"><StatusBadge label="NHÂN VIÊN" cls="bg-blue-50 text-blue-800 border-blue-200" /></td>
                       <td className="py-1">
                         {staffNoteFor(r)}{!stripCodesFromNote(r.GhiChuNV) && <span className="text-slate-400"> (hôm qua)</span>}
-                        {r.NhanVienPhuTrach && <span className="text-slate-400"> — {r.NhanVienPhuTrach}</span>}
+                        {r.NhanVienPhuTrach && <span className="text-slate-400"> — {displayLabel(r.NhanVienPhuTrach)}</span>}
                       </td>
                     </tr>
                   ))}
@@ -348,7 +364,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                     <tr key={r.MaPhong} className={`border-t border-slate-200 align-top ${i % 2 ? 'bg-slate-50/70' : ''}`}>
                       <td className="px-2 py-1.5 font-extrabold">{r.MaPhong}</td>
                       <td className="px-2 py-1.5 text-slate-600">{r.LoaiPhong}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">{r.NhanVienPhuTrach || '—'}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap">{r.NhanVienPhuTrach ? displayLabel(r.NhanVienPhuTrach) : '—'}</td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         {vci ? (
                           <b>{vci.giamSat}</b>
@@ -362,7 +378,10 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                         {r.SafeStatus === 'Đóng' ? <StatusBadge label="LOCKED" cls="bg-sky-50 text-sky-700 border-sky-200" /> : '—'}
                       </td>
                       <td className="px-2 py-1.5 text-slate-700 min-w-[160px] w-[30%]">
-                        {hangers.length === 0 && otherCodes.length === 0 && !r.GhiChuAdmin && !staffNote && '—'}
+                        {hangers.length === 0 && otherCodes.length === 0 && !r.GhiChuAdmin && !staffNote && !pmMoveByRoom[r.MaPhong] && '—'}
+                        {pmMoveByRoom[r.MaPhong] && (
+                          <div className="mb-0.5"><StatusBadge label={`→ PM SHIFT ${pmMoveByRoom[r.MaPhong]}`} cls="bg-indigo-50 text-indigo-700 border-indigo-200" /></div>
+                        )}
                         {(hangers.length > 0 || otherCodes.length > 0) && (
                           <div className="flex flex-wrap gap-1">
                             {hangers.map((h) => (
@@ -425,7 +444,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           <div>
             <div className="font-bold uppercase tracking-wide text-slate-600">Người lập báo cáo</div>
             <div className="h-10" />
-            <div className="font-semibold">{account?.hoTen || ''}</div>
+            <div className="font-semibold">{reporter}</div>
           </div>
           <div>
             <div className="font-bold uppercase tracking-wide text-slate-600">Quản lý buồng phòng</div>
