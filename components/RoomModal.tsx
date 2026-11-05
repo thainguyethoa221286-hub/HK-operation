@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Users } from 'lucide-react';
+import { X, Users, CalendarDays, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
 import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge } from '@/lib/roomStyles';
@@ -108,14 +108,21 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     onClose();
   };
 
+  // Màu ô "Tình trạng phòng" (chấm trạng thái + nền + viền) đổi theo đúng HkStatus đang chọn
+  const hkTone = HK_TONE[hk] ?? HK_TONE['Phòng dơ'];
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-[420px] border-2 border-slate-300 shadow-2xl shadow-black/30 rounded-3xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-5 pb-0 overflow-y-auto scrollbar-none h-auto">
-          <div className="flex justify-between items-start mb-2.5 border-b border-slate-200 pb-3">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 z-50">
+      <div
+        className="bg-white w-full sm:max-w-[420px] rounded-t-3xl sm:rounded-3xl shadow-[0_20px_50px_rgba(15,23,42,0.35)] overflow-hidden flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 pt-5 pb-1 overflow-y-auto scrollbar-none">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-3.5">
             <div>
               <div className="flex items-center gap-1.5">
-                <h4 className="text-[17px] font-bold">Phòng {room.MaPhong}</h4>
+                <h4 className="text-xl font-bold text-slate-800">Phòng {room.MaPhong}</h4>
                 {showLsg && (
                   <span className="bg-red-600 text-white font-bold px-2 py-0.5 rounded-md text-xs shadow-sm">
                     LSG
@@ -123,77 +130,101 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                 )}
                 <LinenChangeBadge room={room} />
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                {room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}
+              <div className="flex items-center gap-1.5 text-[13px] text-slate-500 mt-0.5">
+                <span>{room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}</span>
+                <CalendarDays className="w-4 h-4 text-slate-400" />
               </div>
             </div>
-            <X className="w-[18px] h-[18px] text-slate-500 cursor-pointer" onClick={handleClose} />
+            <button
+              onClick={handleClose}
+              aria-label="Đóng"
+              className="w-9 h-9 -mr-1.5 -mt-1 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex gap-2.5 mb-2.5">
-            <div className="flex-1">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+          {/* Tình trạng phòng + Trạng thái khách */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="min-w-0">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                 Tình trạng phòng
               </label>
-              <select
-                value={hk}
-                onChange={(e) => setHk(e.target.value as HkStatus)}
-                className="w-full border border-slate-200 rounded-xl px-2 py-2 text-sm bg-slate-50/50 hover:bg-white transition-all"
-              >
-                {HK_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <div className={`relative rounded-2xl border ${hkTone.box}`}>
+                <span className={`absolute left-3 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${hkTone.dot}`} />
+                <select
+                  value={hk}
+                  onChange={(e) => setHk(e.target.value as HkStatus)}
+                  className="w-full appearance-none bg-transparent rounded-2xl pl-8 pr-8 py-2.5 text-[13px] font-semibold text-slate-800 outline-none cursor-pointer truncate"
+                >
+                  {HK_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              </div>
             </div>
-            <div className="flex-1">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+            <div className="min-w-0">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                 Trạng thái khách
               </label>
-              <select
-                value={fo}
-                onChange={(e) => setFo(e.target.value as FoStatus)}
-                className="w-full border border-slate-200 rounded-xl px-2 py-2 text-sm bg-slate-50/50 hover:bg-white transition-all"
-              >
-                {FO_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <div className="relative rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <User className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                <select
+                  value={fo}
+                  onChange={(e) => setFo(e.target.value as FoStatus)}
+                  className="w-full appearance-none bg-transparent rounded-2xl pl-9 pr-8 py-2.5 text-[13px] font-semibold text-slate-800 outline-none cursor-pointer truncate"
+                >
+                  {FO_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white transition-all px-3 py-2.5 mb-2.5">
-            <div className="w-[26px] h-[26px] rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
-              <Users className="w-3.5 h-3.5 text-blue-700" />
+          {/* Gán nhân viên — khung nét đứt pastel; vẫn là ô chọn thả xuống như hiện tại (không đổi cách gán) */}
+          <div className="relative flex items-center gap-2.5 border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/40 hover:bg-indigo-50/70 transition px-3 py-2.5 mb-4">
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 text-blue-600" />
             </div>
             <select
               value={staff}
               onChange={(e) => setStaff(e.target.value)}
-              className="flex-1 bg-transparent font-semibold text-sm outline-none cursor-pointer"
+              className="flex-1 min-w-0 appearance-none bg-transparent font-semibold text-sm text-slate-800 outline-none cursor-pointer pr-7"
             >
               <option value="">— Chưa gán —</option>
               {staffList.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
 
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Điều phối</div>
-          <div className="grid grid-cols-4 gap-2 mb-2.5">
+          {/* Lưới Điều phối 4 ô */}
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Điều phối</div>
+          <div className="grid grid-cols-4 gap-2 mb-3">
             {FLAGS.map((f) => {
               const active = flags.includes(f.key);
+              const tone = FLAG_TONE[f.key];
               return (
-                <div
+                <button
+                  type="button"
                   key={f.key}
                   onClick={() => (f.key === 'DaOut' ? handleDaOut() : toggleFlag(f.key))}
-                  className={`border-2 rounded-xl px-1 py-2.5 text-center text-[10px] font-semibold cursor-pointer transition-colors ${
-                    active
-                      ? 'border-blue-500 bg-blue-50/50 text-blue-600'
-                      : 'border-slate-200 text-slate-500 bg-white hover:border-blue-500 hover:bg-blue-50/50'
+                  className={`relative rounded-2xl px-1 py-3 text-center text-[11px] font-semibold transition-all duration-150 active:scale-95 ${
+                    active ? `${tone.active} shadow-md` : `${tone.idle} shadow-[0_2px_6px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 hover:shadow-md`
                   }`}
                 >
-                  <span className="block text-base mb-1">{f.icon}</span>
+                  {active && (
+                    <span className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center ${tone.dot}`}>
+                      <Check className="w-2.5 h-2.5 text-white" strokeWidth={3.5} />
+                    </span>
+                  )}
+                  <span className="block text-[22px] leading-none mb-1.5">{f.icon}</span>
                   {f.label}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -201,7 +232,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
           {/* Ô Ghi chú Sửa chữa RIÊNG — chỉ hiện khi cờ "Sửa chữa" đang bật, tách biệt hoàn toàn
               khỏi Ghi chú nhân viên/giám sát. Nội dung này tự đổ sang Module Maintenance khi Đóng. */}
           {isRepairActive && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-2.5">
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 mb-3">
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 uppercase mb-2">
                 🔧 Ghi chú sửa chữa
               </div>
@@ -209,63 +240,61 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                 value={repairNote}
                 onChange={(e) => setRepairNote(e.target.value)}
                 placeholder="Mô tả sự cố cần sửa (VD: AC ồn, cửa bị cứng...)"
-                className="w-full min-h-[60px] border border-orange-200 rounded-lg p-2.5 text-sm resize-y bg-white"
+                className="w-full min-h-[60px] border border-orange-200 rounded-xl p-2.5 text-sm resize-y bg-white"
               />
             </div>
           )}
 
           {/* Mục 3 — Logic tương tác Kiểm phòng / Nhả phòng (isInspecting) */}
-          <div className="flex gap-2 mb-2.5">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <button
               onClick={() => onToggleInspecting(room.MaPhong, true)}
               disabled={room.isInspecting}
-              className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-yellow-100 text-yellow-800 disabled:opacity-40"
+              className="flex items-center justify-center gap-1.5 rounded-2xl py-3 text-[13px] font-bold bg-amber-100/80 text-amber-800 hover:bg-amber-100 active:scale-[0.98] transition disabled:opacity-40 disabled:active:scale-100"
             >
-              🔍 KIỂM PHÒNG
+              <Search className="w-4 h-4" strokeWidth={2.5} /> KIỂM PHÒNG
             </button>
             <button
               onClick={() => onToggleInspecting(room.MaPhong, false)}
               disabled={!room.isInspecting}
-              className="flex-1 rounded-lg py-2.5 text-xs font-bold bg-green-100 text-green-700 disabled:opacity-40"
+              className="flex items-center justify-center gap-1.5 rounded-2xl py-3 text-[13px] font-bold bg-emerald-100/70 text-emerald-800 hover:bg-emerald-100 active:scale-[0.98] transition disabled:opacity-40 disabled:active:scale-100"
             >
-              ✓ NHẢ PHÒNG
+              <Check className="w-4 h-4" strokeWidth={2.75} /> NHẢ PHÒNG
             </button>
           </div>
 
-          {/* Ghi chú GỐC do AI tự đồng bộ từ dữ liệu đặt phòng (room.GhiChu) — TRƯỚC ĐÂY trường này
-              không hiện ở đâu trong popup, khiến các mã EB/BBC/HON/LSG tự nhận diện từ đây (xem
-              NoteIcons/LsgBadge) bị "ẩn nguồn gốc", giám sát không biết vì sao icon hiện ra. Nay hiện
-              CÔNG KHAI, chỉ đọc, để đối chiếu khi thấy badge lạ. */}
+          {/* Ghi chú GỐC do AI (room.GhiChu) — chỉ đọc, để đối chiếu khi thấy badge EB/BBC/HON/LSG lạ */}
           {room.GhiChu && (
-            <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 mb-2.5">
+            <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 mb-3">
               <span className="text-[10px] font-bold text-slate-500 uppercase flex-shrink-0 mt-0.5">Dữ liệu gốc (AI):</span>
               <span className="text-[13px] font-semibold text-slate-700">{room.GhiChu}</span>
             </div>
           )}
 
-          {/* Ghi chú nhân viên tự gõ (VD khách yêu cầu riêng) — chỉ đọc, giám sát cần thấy được */}
+          {/* Ghi chú nhân viên tự gõ — chỉ đọc, giám sát cần thấy được */}
           {room.GhiChuNV && (
-            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-2 mb-2.5">
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 mb-3">
               <span className="text-[10px] font-bold text-blue-500 uppercase flex-shrink-0 mt-0.5">Nhân viên ghi:</span>
               <span className="text-[13px] font-semibold text-blue-900">{room.GhiChuNV}</span>
             </div>
           )}
 
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Ghi chú cho nhân viên</div>
-          <div className="relative mb-2.5">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Ghi chú cho nhân viên</div>
+          <div className="relative mb-4">
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Ví dụ: Khách hàng cần thêm gối..."
-              className="w-full min-h-[70px] border border-slate-200 rounded-lg p-2.5 text-sm resize-y"
+              className="w-full min-h-[88px] bg-white border border-slate-200 rounded-2xl p-3 pr-9 text-sm resize-none shadow-[0_2px_6px_rgba(15,23,42,0.06)] outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition"
             />
+            <Pencil className="pointer-events-none absolute right-3 bottom-3.5 w-4 h-4 text-slate-400" />
           </div>
         </div>
 
-        <div className="border-t border-slate-200 p-5 pt-3 flex-shrink-0">
+        <div className="border-t border-slate-100 px-5 pt-3 pb-5 flex-shrink-0">
           <button
             onClick={handleClose}
-            className="w-full bg-navy text-white rounded-xl py-3.5 text-[13px] font-bold tracking-wide"
+            className="w-full bg-[#0F172A] hover:bg-slate-800 active:scale-[0.99] text-white rounded-2xl py-4 text-[15px] font-bold tracking-wider transition"
           >
             ĐÓNG
           </button>
@@ -274,3 +303,20 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     </div>
   );
 }
+
+/** Màu ô "Tình trạng phòng" theo HkStatus — khớp đúng bảng màu viền thẻ phòng (viết đủ tên class cho Tailwind) */
+const HK_TONE: Record<string, { box: string; dot: string }> = {
+  'Phòng dơ': { box: 'bg-red-50/60 border-red-300', dot: 'bg-red-500' },
+  'Phòng đang dọn': { box: 'bg-blue-50/60 border-blue-300', dot: 'bg-blue-500' },
+  'Phòng sạch': { box: 'bg-amber-50/60 border-amber-300', dot: 'bg-amber-400' },
+  'Đã kiểm tra': { box: 'bg-emerald-50/60 border-emerald-300', dot: 'bg-emerald-500' },
+  'Phòng sửa chữa (OOO)': { box: 'bg-slate-50 border-slate-300', dot: 'bg-slate-400' },
+};
+
+/** Màu từng ô Điều phối: idle = trạng thái chưa bật, active = đang bật (kèm dấu ✓ góc phải) */
+const FLAG_TONE: Record<string, { idle: string; active: string; dot: string }> = {
+  CayBac: { idle: 'bg-rose-50 text-red-600 border border-rose-100', active: 'bg-rose-100 text-red-700 ring-2 ring-rose-400', dot: 'bg-rose-500' },
+  TrangDiem: { idle: 'bg-white text-slate-700 border border-slate-100', active: 'bg-blue-50 text-blue-700 ring-2 ring-blue-400', dot: 'bg-blue-500' },
+  DaOut: { idle: 'bg-white text-slate-700 border border-slate-100', active: 'bg-sky-50 text-sky-700 ring-2 ring-sky-400', dot: 'bg-sky-500' },
+  SuaChua: { idle: 'bg-white text-slate-700 border border-slate-100', active: 'bg-orange-50 text-orange-700 ring-2 ring-orange-400', dot: 'bg-orange-500' },
+};
