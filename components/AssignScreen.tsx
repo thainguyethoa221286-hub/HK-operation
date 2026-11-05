@@ -303,10 +303,14 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           Riêng OD mà HÔM NAY đến lịch thay ga giường (checkLinenChange) -> thêm icon sao vàng nhỏ
           ngay sát chữ OD, để nhân viên biết cần mang ga/gối mới khi vào dọn phòng này. */}
       {fo && (
-        <span className={`flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-auto whitespace-nowrap ${fo.cls}`}>
+        <span className={`relative flex items-center justify-center min-w-[26px] text-[8px] leading-[12px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-auto whitespace-nowrap ${fo.cls}`}>
           {fo.text}
+          {/* OD đến lịch thay ga: ngôi sao NHỎ đính ở góc trên-phải ô (không làm ô to ra),
+              để ô OD cao/rộng bằng các ô ký hiệu khác */}
           {room.FoStatus === 'Occupied' && checkLinenChange(room) && (
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span className="absolute -top-[7px] -right-[7px] w-[13px] h-[13px] rounded-full bg-white border border-amber-300 shadow-sm flex items-center justify-center" title="Hôm nay thay ga giường">
+              <Star className="w-[9px] h-[9px] text-amber-400 fill-amber-400" />
+            </span>
           )}
         </span>
       )}
