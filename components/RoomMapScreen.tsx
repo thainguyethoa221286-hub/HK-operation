@@ -45,6 +45,8 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
     const fieldMap: Record<string, string> = {
       HkStatus: 'HkStatus', FoStatus: 'FoStatus',
       NhanVienPhuTrach: 'NhanVienPhuTrach', GhiChu: 'GhiChu', GhiChuNV: 'GhiChuNV', GhiChuAdmin: 'GhiChuAdmin', GhiChuSuaChua: 'GhiChuSuaChua', Flags: 'Flags',
+      // Bật MKR cho phòng đang DND/RF sẽ trả nhiệm vụ về "Chưa dọn" (xem RoomModal)
+      TaskStatus: 'TaskStatus', StartTime: 'StartTime',
     };
     // Ghi SONG SONG toàn bộ field thay đổi (thay vì tuần tự từng cái) — giảm mạnh tổng thời gian
     // lưu, tránh vượt quá cửa sổ bảo vệ chống chớp tắt (EDIT_PROTECT_MS) khi Modal đổi nhiều field cùng lúc.
