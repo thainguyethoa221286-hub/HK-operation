@@ -8,7 +8,7 @@ import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
 import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs, getBroadcastTask, completeBroadcastTask } from '@/lib/api';
 import type { InspectionLogRow, BroadcastTaskData } from '@/lib/types';
-import { TASK_STATUS_STYLE, formatTimeOnly } from '@/lib/roomStyles';
+import { TASK_STATUS_STYLE, formatTimeOnly, removeNoteCode } from '@/lib/roomStyles';
 import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
 const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
@@ -104,6 +104,26 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
   };
 
   const refreshKeyLogs = () => { getKeyLogs().then(setKeyLogs); };
+  // Tự sửa dữ liệu lệch: phòng ĐANG CÓ cờ MKR mà vẫn ở DND / Từ chối (RF). Khi nhân viên bấm DND/RF,
+  // app luôn gỡ cờ MKR — nên nếu 2 thứ cùng tồn tại thì chắc chắn Giám sát bật MKR SAU đó (khách đã
+  // treo bảng MKR). Khi đó trả phòng về "Chưa dọn" + xoá mã DND/RF trong ghi chú, để thẻ nhiệm vụ
+  // của nhân viên về lại thẻ trắng có treo bảng MKR.
+  useEffect(() => {
+    rooms.forEach((r) => {
+      const hasMkr = (r.Flags || '').split(',').map((f) => f.trim()).includes('TrangDiem');
+      if (!hasMkr || (r.TaskStatus !== 'DND' && r.TaskStatus !== 'Refused')) return;
+      const strip = (s: string) => removeNoteCode(removeNoteCode(s || '', 'DND'), 'RF');
+      handleUpdate(r.MaPhong, {
+        TaskStatus: 'Chưa dọn',
+        StartTime: '',
+        GhiChu: strip(r.GhiChu),
+        GhiChuNV: strip(r.GhiChuNV),
+        GhiChuAdmin: strip(r.GhiChuAdmin),
+      }).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms]);
+
   useEffect(() => {
     refreshKeyLogs();
     const timer = setInterval(refreshKeyLogs, 15000); // đồng bộ khi người khác mượn/trả chìa
