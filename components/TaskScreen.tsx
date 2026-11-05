@@ -8,6 +8,7 @@ import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
 import ExtraTaskCard from './ExtraTaskCard';
 import { getAssignGroups } from '@/lib/api';
+import { labelNames, displayLabel, isPmLabel } from '@/lib/assignHelpers';
 import type { Group, HistoryEntry } from '@/lib/types';
 import { buildExtraTasks, getExtraTaskHistory, logExtraTask, EXTRA_ACT, type ExtraTaskItem } from '@/lib/extraTasks';
 import { nowTimeStr, diffMinutes } from '@/lib/roomStyles';
@@ -249,7 +250,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
      (kể cả khi phòng được tag cho 2 người, VD "Tâm+Nghị") ===== */
   if (isStaff) {
     const myRoomsRaw = rooms.filter((r) =>
-      (r.NhanVienPhuTrach || '').split('+').map((s) => s.trim()).includes(account.hoTen)
+      labelNames(r.NhanVienPhuTrach).includes(account.hoTen)
     );
     const myRooms = sortTaskRooms(myRoomsRaw);
     // Nhiệm vụ phụ của các nhóm có tên mình — mỗi nhiệm vụ tính như 01 phòng
@@ -468,7 +469,13 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
             {/* Phòng xếp trước theo thứ tự ưu tiên; NHIỆM VỤ PHỤ luôn nằm CUỐI danh sách
                 (chưa xong trước, đã xong sau) */}
             {myRooms.map((room) => (
-              <RoomCard key={room.MaPhong} room={room} onClick={() => setSelectedRoom(room)} dimSettled />
+              <div key={room.MaPhong} className="relative">
+                {/* Phòng ca chiều (PM Shift) — gắn nhãn nhỏ để nhân viên biết phòng được chuyển từ ca sáng */}
+                {isPmLabel(room.NhanVienPhuTrach) && (
+                  <span className="absolute -top-2 left-2 z-20 rounded-full bg-indigo-600 text-white text-[9px] font-extrabold tracking-wide px-2 py-[2px] shadow">PM SHIFT</span>
+                )}
+                <RoomCard room={room} onClick={() => setSelectedRoom(room)} dimSettled />
+              </div>
             ))}
             {extraOpen.map(renderExtraCard)}
             {extraDone.map(renderExtraCard)}
@@ -516,7 +523,7 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-[14px] text-slate-800 truncate flex items-center gap-1.5">
-                        {staff}
+                        {displayLabel(staff)}
                         {broadcastTask?.active && broadcastTask.completions.includes(staff) && (
                           <span className="bg-red-100 text-red-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ Đã xong Task chỉ đạo</span>
                         )}
