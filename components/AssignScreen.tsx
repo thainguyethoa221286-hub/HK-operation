@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star, Moon, ArrowRight, Check } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
-import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel } from '@/lib/assignHelpers';
-import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange } from '@/lib/roomStyles';
-import { updateRoomField, getAssignGroups, saveAssignGroups, fetchRooms } from '@/lib/api';
+import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel } from '@/lib/assignHelpers';
+import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly } from '@/lib/roomStyles';
+import { updateRoomField, updateRoomFields, getAssignGroups, saveAssignGroups, fetchRooms, getTodayHistory, logTaskAction } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
   'Phòng dơ': 'bg-red-500',
@@ -90,9 +90,26 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   // khi lượt Đồng bộ AI được bấm từ MỘT THIẾT BỊ KHÁC (đây chính là lỗi cũ: trước đây chỉ máy nào
   // tự bấm Đồng bộ AI mới thấy Nhóm trống, các máy/trình duyệt khác vẫn còn tên nhân viên).
   const isMountedRef = useRef(true);
+  // PM SHIFT — lịch sử "Chuyển PM Shift" trong ngày: mã phòng -> "DND · Tâm" + giờ chuyển
+  const [pmMoves, setPmMoves] = useState<Record<string, { info: string; time: string }>>({});
+  const [pmSelected, setPmSelected] = useState<Set<string>>(new Set());
+  const [pmPushing, setPmPushing] = useState(false);
+  const loadPmMoves = () => {
+    getTodayHistory()
+      .then((hs) => {
+        if (!isMountedRef.current) return;
+        const m: Record<string, { info: string; time: string }> = {};
+        hs.forEach((h) => { if (h.hanhDong === PM_MOVE_ACTION) m[h.maPhong] = { info: h.chiTiet, time: formatTimeOnly(h.gio) }; });
+        setPmMoves(m);
+      })
+      .catch(() => {});
+  };
   useEffect(() => {
     isMountedRef.current = true;
-    const refreshGroups = () => { getAssignGroups().then((g) => { if (isMountedRef.current) setGroups(g); }).catch(() => {}); };
+    const refreshGroups = () => {
+      getAssignGroups().then((g) => { if (isMountedRef.current) setGroups(g); }).catch(() => {});
+      loadPmMoves();
+    };
     refreshGroups();
     const timer = setInterval(refreshGroups, 20000);
     return () => { isMountedRef.current = false; clearInterval(timer); };
@@ -102,7 +119,11 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   // Fix: phòng chỉ tính là "đã gán" khi nhãn của nó khớp với 1 nhóm ĐANG TỒN TẠI.
   // Nếu nhóm bị xoá hoặc đổi thành phần (khiến nhãn cũ không còn khớp nhóm nào),
   // phòng đó tự động coi là chưa gán và quay lại kho chờ — không bị "biến mất".
-  const activeGroupLabels = new Set(groups.map((g) => groupCurrentLabel(g)));
+  // Thẻ PM Shift luôn có (kể cả khi Đồng bộ AI / Xoá dữ liệu đã reset bảng Nhóm về mặc định)
+  const pmGroup = groups.find((g) => g.id === PM_GROUP_ID) || emptyPmGroup();
+  const normalGroups = groups.filter((g) => g.id !== PM_GROUP_ID);
+  const groupsWithPm = groups.some((g) => g.id === PM_GROUP_ID) ? groups : [...groups, pmGroup];
+  const activeGroupLabels = new Set(groupsWithPm.map((g) => groupCurrentLabel(g)));
   const isUnassigned = (r: Room) => !r.NhanVienPhuTrach || !activeGroupLabels.has(r.NhanVienPhuTrach);
   const dirtyRooms = rooms.filter((r) => r.HkStatus === 'Phòng dơ' && isUnassigned(r));
   const cleanRooms = rooms.filter((r) => r.HkStatus !== 'Phòng dơ' && isUnassigned(r));
@@ -205,6 +226,60 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
   const handlePrintAll = () => window.print();
 
+  /* ===== PM SHIFT — đẩy phòng DND / RF còn lại của ca sáng sang ca chiều =====
+     Phòng chuyển sang tên nhân viên ca chiều ("PM:Hoà"), trở về "Chưa dọn" để mở thẻ phòng làm bình thường.
+     Ghi 1 dòng lịch sử "Chuyển PM Shift" (VD "DND · Tâm") -> Daily Report ghi lại được. */
+  const pmLabel = groupCurrentLabel(pmGroup);
+  const pmRooms = roomsForGroup(rooms, pmGroup).sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
+  const pmCandidates = rooms
+    .filter((r) => (r.TaskStatus === 'DND' || r.TaskStatus === 'Refused') && !isPmLabel(r.NhanVienPhuTrach))
+    .sort((a, b) => Number(a.MaPhong) - Number(b.MaPhong));
+  const pmSelectedValid = pmCandidates.filter((r) => pmSelected.has(r.MaPhong));
+  const togglePmSelect = (maPhong: string) => {
+    setPmSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(maPhong)) next.delete(maPhong); else next.add(maPhong);
+      return next;
+    });
+  };
+  const pushToPmShift = async () => {
+    if (pmGroup.staffs.length === 0 || pmPushing) return;
+    const list = pmSelectedValid.length > 0 ? pmSelectedValid : pmCandidates;
+    if (list.length === 0) return;
+    setPmPushing(true);
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const changes = list.map((r) => ({
+      id: r.MaPhong,
+      was: `${r.TaskStatus === 'DND' ? 'DND' : 'RF'} · ${r.NhanVienPhuTrach ? displayLabel(r.NhanVienPhuTrach) : 'chưa gán'}`,
+      fields: {
+        NhanVienPhuTrach: pmLabel,
+        TrolleyCode: PM_GROUP_ID,
+        TaskStatus: 'Chưa dọn',
+        StartTime: '',
+        GhiChuNV: removeNoteCode(removeNoteCode(r.GhiChuNV, 'DND'), 'RF'),
+      },
+    }));
+    setRooms((prev) => prev.map((r) => {
+      const c = changes.find((x) => x.id === r.MaPhong);
+      return c ? { ...r, ...c.fields, TaskStatus: 'Chưa dọn' as Room['TaskStatus'] } : r;
+    }));
+    setPmMoves((prev) => {
+      const next = { ...prev };
+      changes.forEach((c) => { next[c.id] = { info: c.was, time: hhmm }; });
+      return next;
+    });
+    setPmSelected(new Set());
+    try {
+      await Promise.all(changes.map((c) => Promise.all([
+        updateRoomFields(c.id, c.fields),
+        logTaskAction(c.id, 'Giám sát', PM_MOVE_ACTION, c.was),
+      ])));
+    } finally {
+      setPmPushing(false);
+    }
+  };
+
   // Mọi thay đổi Nhóm đều cập nhật state cục bộ NGAY (phản hồi tức thì) + lưu lên Supabase ngay sau
   // đó (dùng chung mọi thiết bị, không còn localStorage riêng từng máy).
   //
@@ -236,23 +311,23 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const removeGroup = (id: string) => updateGroups(groups.filter((g) => g.id !== id));
 
   const addStaffToGroup = (groupId: string, staff: string) => {
-    const group = groups.find((g) => g.id === groupId);
+    const group = groupsWithPm.find((g) => g.id === groupId);
     if (!group || group.staffs.includes(staff)) { setAddStaffOpenFor(null); return; }
     const oldLabel = groupCurrentLabel(group);
     const updatedGroup = { ...group, staffs: [...group.staffs, staff] };
     const newLabel = groupCurrentLabel(updatedGroup);
-    updateGroups(groups.map((g) => (g.id === groupId ? updatedGroup : g)));
+    updateGroups(groupsWithPm.map((g) => (g.id === groupId ? updatedGroup : g)));
     setAddStaffOpenFor(null);
     migrateAssignedRooms(oldLabel, newLabel);
   };
 
   const removeStaffFromGroup = (groupId: string, staff: string) => {
-    const group = groups.find((g) => g.id === groupId);
+    const group = groupsWithPm.find((g) => g.id === groupId);
     if (!group) return;
     const oldLabel = groupCurrentLabel(group);
     const updatedGroup = { ...group, staffs: group.staffs.filter((s) => s !== staff) };
     const newLabel = groupCurrentLabel(updatedGroup);
-    updateGroups(groups.map((g) => (g.id === groupId ? updatedGroup : g)));
+    updateGroups(groupsWithPm.map((g) => (g.id === groupId ? updatedGroup : g)));
     migrateAssignedRooms(oldLabel, newLabel);
   };
 
@@ -406,7 +481,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         <button onClick={addGroup} className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center">
           <Plus className="w-3.5 h-3.5" />
         </button>
-        {groups.map((g) => (
+        {normalGroups.map((g) => (
           <div key={g.id} className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
             <span className="text-xs font-bold text-blue-700">{g.id}</span>
             {g.staffs.map((s) => (
@@ -439,9 +514,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
       <div
         className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:[grid-template-columns:repeat(var(--ncols),minmax(220px,1fr))]"
-        style={{ ['--ncols' as any]: Math.max(groups.length, 1) }}
+        style={{ ['--ncols' as any]: Math.max(normalGroups.length, 1) }}
       >
-        {groups.map((g, idx) => {
+        {normalGroups.map((g, idx) => {
           const myRooms = roomsForGroup(rooms, g);
           // Mỗi nhiệm vụ phụ được tính như 01 phòng
           const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong)) + (g.extraTasks?.length || 0);
@@ -499,6 +574,130 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         })}
       </div>
 
+      {/* ================= THẺ PM SHIFT — nhiệm vụ cố định ca chiều ================= */}
+      <div className="mt-5 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-3.5 sm:p-4 shadow-[0_12px_30px_-20px_rgba(79,70,229,.6)] print:hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0">
+              <Moon className="w-[18px] h-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[15px] font-extrabold text-indigo-900 tracking-tight">PM Shift</div>
+              <div className="text-[11px] text-indigo-700/70">Nhiệm vụ cố định ca chiều</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap sm:ml-2">
+            {pmGroup.staffs.length === 0 && <span className="text-[11px] text-indigo-400 italic">Chưa chọn nhân viên ca chiều</span>}
+            {pmGroup.staffs.map((st) => (
+              <span key={st} className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white pl-2.5 pr-1 py-1 text-[11px] font-bold">
+                {st}
+                <button type="button" onClick={() => removeStaffFromGroup(PM_GROUP_ID, st)} className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center" aria-label={`Bỏ ${st}`}>
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="relative sm:ml-auto">
+            <button
+              type="button"
+              onClick={() => setAddStaffOpenFor(addStaffOpenFor === PM_GROUP_ID ? null : PM_GROUP_ID)}
+              className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-white text-xs font-bold text-indigo-700 px-3 py-1.5"
+            >
+              + Chọn nhân viên <ChevronDown className="w-3 h-3" />
+            </button>
+            {addStaffOpenFor === PM_GROUP_ID && (
+              <div className="absolute z-30 top-full mt-1 right-0 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-36 max-h-56 overflow-y-auto">
+                {staffList.filter((st) => !pmGroup.staffs.includes(st)).map((st) => (
+                  <div key={st} onClick={() => addStaffToGroup(PM_GROUP_ID, st)} className="px-3 py-1.5 text-xs hover:bg-indigo-50 cursor-pointer">{st}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3.5 rounded-xl bg-white border border-indigo-100 p-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-[12px] font-bold text-slate-600">
+              Phòng DND / RF còn lại của ca sáng: <span className="text-indigo-700">{pmCandidates.length}</span>
+            </div>
+            <button
+              type="button"
+              onClick={pushToPmShift}
+              disabled={pmCandidates.length === 0 || pmGroup.staffs.length === 0 || pmPushing}
+              className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-indigo-600 to-violet-500 shadow-[0_6px_14px_-6px_rgba(79,70,229,.8)] active:scale-[.98] disabled:opacity-40 disabled:shadow-none"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              {pmGroup.staffs.length === 0
+                ? 'Chọn nhân viên ca chiều trước'
+                : pmPushing
+                ? 'Đang chuyển...'
+                : pmSelectedValid.length > 0
+                ? `Đẩy ${pmSelectedValid.length} phòng đã chọn`
+                : `Đẩy tất cả ${pmCandidates.length} phòng sang PM Shift`}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {pmCandidates.length === 0 ? (
+              <span className="text-xs text-emerald-600 font-bold">✓ Không còn phòng DND/RF nào cần chuyển</span>
+            ) : (
+              pmCandidates.map((r) => {
+                const on = pmSelected.has(r.MaPhong);
+                const isDnd = r.TaskStatus === 'DND';
+                return (
+                  <button
+                    key={r.MaPhong}
+                    type="button"
+                    onClick={() => togglePmSelect(r.MaPhong)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border-2 px-2.5 py-1.5 text-xs font-extrabold tabular-nums transition ${on ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white text-slate-700'}`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${on ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'}`}>
+                      {on && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                    </span>
+                    {r.MaPhong}
+                    <span className={`text-[9px] text-white rounded px-1 ${isDnd ? 'bg-red-600' : 'bg-purple-600'}`}>{isDnd ? 'DND' : 'RF'}</span>
+                    {r.NhanVienPhuTrach && <span className="text-[10px] font-semibold text-slate-400">{displayLabel(r.NhanVienPhuTrach)}</span>}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {pmCandidates.length > 0 && (
+            <div className="text-[11px] text-slate-400 mt-2">Bấm chọn từng phòng, hoặc không chọn để đẩy tất cả. Phòng khách đã gỡ DND/RF trong ca sáng sẽ tự biến khỏi danh sách.</div>
+          )}
+        </div>
+
+        <div className="mt-3">
+          <div className="text-[11px] font-extrabold tracking-[0.1em] text-indigo-800/70 uppercase mb-1.5">
+            Đã giao cho ca chiều ({pmRooms.length})
+          </div>
+          {pmRooms.length === 0 ? (
+            <span className="text-[11px] text-slate-400">Chưa có phòng nào.</span>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {pmRooms.map((room) => {
+                const mv = pmMoves[room.MaPhong];
+                const state = room.TaskStatus === 'Hoàn thành'
+                  ? { t: `Xong ${formatTimeOnly(room.EndTime)}`, c: 'bg-emerald-100 text-emerald-700' }
+                  : room.TaskStatus === 'Đang dọn'
+                  ? { t: `Đang dọn ${formatTimeOnly(room.StartTime)}`, c: 'bg-blue-100 text-blue-700' }
+                  : room.TaskStatus === 'DND' || room.TaskStatus === 'Refused'
+                  ? { t: room.TaskStatus === 'DND' ? 'DND lại' : 'RF lại', c: 'bg-red-100 text-red-700' }
+                  : { t: 'Chờ làm', c: 'bg-indigo-100 text-indigo-700' };
+                return (
+                  <div key={room.MaPhong} className="w-[170px]">
+                    <RoomChip room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
+                    <div className="flex items-center justify-between gap-1 mt-1 px-0.5">
+                      <span className="text-[9.5px] font-semibold text-slate-400 truncate" title={mv ? `Chuyển lúc ${mv.time}` : ''}>{mv ? `trước: ${mv.info}` : ''}</span>
+                      <span className={`text-[9.5px] font-bold rounded px-1.5 py-[1px] whitespace-nowrap ${state.c}`}>{state.t}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {taskModalGroupId && (
         <div className="fixed inset-0 bg-black/45 flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-[380px] rounded-2xl p-5">
@@ -540,7 +739,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
               </button>
             </div>
             <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-              {groups.map((g) => (
+              {normalGroups.map((g) => (
                 <button
                   key={g.id}
                   type="button"
