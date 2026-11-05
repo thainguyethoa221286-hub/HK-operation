@@ -81,17 +81,20 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     return () => { clearInterval(timer); window.removeEventListener('beforeprint', onBeforePrint); };
   }, []);
 
-  // Mỗi lần bấm BẬT DND / Từ chối (RF) trong ngày -> gom đủ mốc giờ HH:mm theo từng phòng
-  const { dndTimesByRoom, rfTimesByRoom } = useMemo(() => {
+  // MỖI LẦN treo bảng DND / RF / MKR trong ngày (theo giờ bấm) -> gom đủ mốc giờ HH:mm theo từng phòng.
+  // Luôn liệt kê đủ số lần, KỂ CẢ khi phòng đã bỏ DND/RF/MKR — để đối soát khi có sự cố.
+  const { dndTimesByRoom, rfTimesByRoom, mkrTimesByRoom } = useMemo(() => {
     const dnd: Record<string, string[]> = {};
     const rf: Record<string, string[]> = {};
+    const mkr: Record<string, string[]> = {};
     for (const h of history) {
       const t = formatTimeOnly(h.gio);
       if (!t) continue;
       if (h.hanhDong === 'DND Bật') (dnd[h.maPhong] ||= []).push(t);
       if (h.hanhDong === 'Từ chối (RF)') (rf[h.maPhong] ||= []).push(t);
+      if (h.hanhDong === 'MKR Bật') (mkr[h.maPhong] ||= []).push(t);
     }
-    return { dndTimesByRoom: dnd, rfTimesByRoom: rf };
+    return { dndTimesByRoom: dnd, rfTimesByRoom: rf, mkrTimesByRoom: mkr };
   }, [history]);
 
   // Ghi chú nhân viên / giám sát — Báo cáo kết hợp ghi chú hiện tại + "hôm qua" (giữ đủ 1 ngày)
@@ -330,6 +333,15 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                   const codes = extractNoteCodes(combineNotes(r.GhiChu, r.GhiChuNV, r.GhiChuAdmin));
                   const dndTimes = dndTimesByRoom[r.MaPhong] || [];
                   const rfTimes = rfTimesByRoom[r.MaPhong] || [];
+                  const mkrTimes = mkrTimesByRoom[r.MaPhong] || [];
+                  const hasMkrFlag = (r.Flags || '').split(',').map((f) => f.trim()).includes('TrangDiem');
+                  // Bảng treo cửa: hiện nếu đã từng bấm trong ngày (kèm số lần + giờ) HOẶC đang có mã/cờ (chưa có giờ)
+                  const hangers = [
+                    { key: 'DND', times: dndTimes, on: codes.includes('DND'), cls: 'bg-red-50 text-red-700 border-red-200' },
+                    { key: 'RF', times: rfTimes, on: codes.includes('RF'), cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+                    { key: 'MKR', times: mkrTimes, on: hasMkrFlag, cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+                  ].filter((h) => h.times.length > 0 || h.on);
+                  const otherCodes = codes.filter((c) => c !== 'DND' && c !== 'RF');
                   const staffNote = stripCodesFromNote(r.GhiChuNV);
                   const vci = vciByRoom[r.MaPhong];
                   return (
@@ -350,14 +362,17 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                         {r.SafeStatus === 'Đóng' ? <StatusBadge label="LOCKED" cls="bg-sky-50 text-sky-700 border-sky-200" /> : '—'}
                       </td>
                       <td className="px-2 py-1.5 text-slate-700 min-w-[160px] w-[30%]">
-                        {codes.length === 0 && !r.GhiChuAdmin && !staffNote && '—'}
-                        {codes.length > 0 && (
+                        {hangers.length === 0 && otherCodes.length === 0 && !r.GhiChuAdmin && !staffNote && '—'}
+                        {(hangers.length > 0 || otherCodes.length > 0) && (
                           <div className="flex flex-wrap gap-1">
-                            {codes.map((code, j) => {
-                              if (code === 'DND') return <StatusBadge key={j} label={`DND${dndTimes.length ? ` ${dndTimes.join(', ')}` : ''}`} cls="bg-red-50 text-red-700 border-red-200" />;
-                              if (code === 'RF') return <StatusBadge key={j} label={`RF${rfTimes.length ? ` ${rfTimes.join(', ')}` : ''}`} cls="bg-purple-50 text-purple-700 border-purple-200" />;
-                              return <StatusBadge key={j} label={code} cls="bg-slate-50 text-slate-600 border-slate-200" />;
-                            })}
+                            {hangers.map((h) => (
+                              <StatusBadge
+                                key={h.key}
+                                label={h.times.length > 0 ? `${h.key} ×${h.times.length}: ${h.times.join(', ')}` : h.key}
+                                cls={h.cls}
+                              />
+                            ))}
+                            {otherCodes.map((code, j) => <StatusBadge key={j} label={code} cls="bg-slate-50 text-slate-600 border-slate-200" />)}
                           </div>
                         )}
                         {r.GhiChuAdmin && <div className="text-[10.5px] mt-0.5">QL: {r.GhiChuAdmin}</div>}
