@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Room, KeyLog, HistoryEntry, InspectionLogRow, Account, Group } from '@/lib/types';
 import { getKeyLogs, getTodayHistory, getInspectionLogs, getAssignGroups } from '@/lib/api';
-import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes, diffMinutes } from '@/lib/roomStyles';
+import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extractNoteCodes } from '@/lib/roomStyles';
 import { buildExtraTasks } from '@/lib/extraTasks';
 
 /* =========================================================================
@@ -142,17 +142,11 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     .map((l) => ({ ...l, ...splitKeyLabel(l.keyLabel) }))
     .sort((a, b) => (a.set + a.floors).localeCompare(b.set + b.floors) || (a.gioMuon || '').localeCompare(b.gioMuon || ''));
 
-  // Lịch sử giám sát kiểm phòng — theo thứ tự thời gian
-  const inspectionRows = [...inspections].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-  const inspectionResult = (l: InspectionLogRow) => {
-    if (!l.endTime) return { label: 'ĐANG KIỂM', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
-    if (l.status === 'Đã kiểm tra') return { label: 'ĐẠT', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-    return { label: 'KHÔNG ĐẠT', cls: 'bg-red-50 text-red-700 border-red-200' };
-  };
+  // Lịch sử giám sát kiểm phòng — giống màn Nhiệm vụ (dữ liệu trả về mới nhất trước -> đảo lại cũ trước)
+  const inspectionRows = [...inspections].reverse();
   // Cột "Giám sát VCI": CHỈ tên giám sát của lượt kiểm ĐẠT gần nhất (chi tiết giờ xem ở Lịch sử bên dưới)
   const vciByRoom: Record<string, InspectionLogRow> = {};
   inspectionRows.forEach((l) => { if (l.endTime && l.status === 'Đã kiểm tra') vciByRoom[l.roomNo] = l; });
-  const passCount = inspectionRows.filter((l) => l.endTime && l.status === 'Đã kiểm tra').length;
 
   const kpis = [
     { k: 'Tổng số phòng', v: String(total), s: 'Đang quản lý', c: 'text-slate-900' },
@@ -165,12 +159,13 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
     <div className="hk-report hidden print:block">
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm 9mm 12mm; @bottom-right { content: 'Trang ' counter(page) ' / ' counter(pages); font: 8px sans-serif; color: #94a3b8; } }
+          @page { size: A4 landscape; margin: 9mm 10mm 11mm; @bottom-right { content: 'Trang ' counter(page) ' / ' counter(pages); font: 8px sans-serif; color: #94a3b8; } }
           html, body { background: #fff !important; }
           .hk-report-sheet { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important; }
           .hk-report table { font-size: 9.5px; }
           .hk-report tr { break-inside: avoid; }
           .hk-report thead { display: table-header-group; }
+          .hk-report section { margin-top: 14px !important; }
           .hk-report .overflow-x-auto { overflow: visible !important; margin: 0 !important; padding: 0 !important; }
           .hk-report th, .hk-report td { padding-left: 4px !important; padding-right: 4px !important; }
           .hk-report .min-w-\\[160px\\] { min-width: 0 !important; }
@@ -319,7 +314,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                   <th className="px-2 py-2 text-center">TT hiện tại</th>
                   <th className="px-2 py-2 text-center">Giờ làm việc</th>
                   <th className="px-2 py-2 text-center">Két sắt</th>
-                  <th className="px-2 py-2 text-left">Ghi chú</th>
+                  <th className="px-2 py-2 text-left w-[30%]">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -349,7 +344,7 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
                       <td className="px-2 py-1.5 text-center">
                         {r.SafeStatus === 'Đóng' ? <StatusBadge label="LOCKED" cls="bg-sky-50 text-sky-700 border-sky-200" /> : '—'}
                       </td>
-                      <td className="px-2 py-1.5 text-slate-700 min-w-[160px]">
+                      <td className="px-2 py-1.5 text-slate-700 min-w-[160px] w-[30%]">
                         {codes.length === 0 && !r.GhiChuAdmin && !staffNote && '—'}
                         {codes.length > 0 && (
                           <div className="flex flex-wrap gap-1">
@@ -371,65 +366,55 @@ export default function DailyReportPrint({ rooms, account }: DailyReportPrintPro
           </div>
         </Section>
 
-        {/* Lịch sử giám sát kiểm phòng */}
-        <Section title="Lịch sử giám sát kiểm phòng" aside={`${inspectionRows.length} lượt · ${passCount} đạt`}>
+        {/* Lịch sử giám sát kiểm phòng — cùng dữ liệu & cột với bảng "Lịch sử kiểm phòng" ở màn Nhiệm vụ */}
+        <Section title="Lịch sử giám sát kiểm phòng" aside={`${inspectionRows.length} lượt`}>
           {inspectionRows.length === 0 ? (
-            <div className="text-[11.5px] text-slate-400">Chưa có lượt kiểm phòng nào được ghi nhận hôm nay.</div>
+            <div className="text-[11.5px] text-slate-400">Chưa có lượt kiểm phòng nào được ghi nhận.</div>
           ) : (
-            <div className="overflow-x-auto -mx-1 px-1">
-              <table className="w-full min-w-[640px] text-[11px] border border-slate-300">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 text-[9.5px] font-bold uppercase tracking-wide border-b border-slate-300">
-                    <th className="px-2 py-1.5 text-left w-8">#</th>
-                    <th className="px-2 py-1.5 text-left">Phòng</th>
-                    <th className="px-2 py-1.5 text-left">Giám sát viên</th>
-                    <th className="px-2 py-1.5 text-left">Bắt đầu kiểm</th>
-                    <th className="px-2 py-1.5 text-left">Kiểm xong</th>
-                    <th className="px-2 py-1.5 text-left">Thời gian</th>
-                    <th className="px-2 py-1.5 text-center">Kết quả</th>
-                    <th className="px-2 py-1.5 text-left">Ghi chú</th>
+            <table className="w-full text-[11px] border border-slate-300">
+              <thead>
+                <tr className="bg-slate-100 text-slate-700 text-[9.5px] font-bold uppercase tracking-wide border-b border-slate-300">
+                  <th className="px-2 py-1.5 text-left">Số phòng</th>
+                  <th className="px-2 py-1.5 text-left">Bắt đầu kiểm</th>
+                  <th className="px-2 py-1.5 text-left">Kiểm xong</th>
+                  <th className="px-2 py-1.5 text-left">Tình trạng sau nhả</th>
+                  <th className="px-2 py-1.5 text-left">Giám sát</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inspectionRows.map((l) => (
+                  <tr key={l.id} className="border-t border-slate-200">
+                    <td className="px-2 py-1.5 font-extrabold">{l.roomNo}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{l.startTime || '-'}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{l.endTime || 'Đang kiểm...'}</td>
+                    <td className="px-2 py-1.5">{l.status || '-'}</td>
+                    <td className="px-2 py-1.5">{l.giamSat}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {inspectionRows.map((l, i) => {
-                    const res = inspectionResult(l);
-                    const mins = l.startTime && l.endTime ? diffMinutes(l.startTime, l.endTime) : null;
-                    return (
-                      <tr key={l.id} className={`border-t border-slate-200 ${i % 2 ? 'bg-slate-50/70' : ''}`}>
-                        <td className="px-2 py-1.5 text-slate-400 tabular-nums">{i + 1}</td>
-                        <td className="px-2 py-1.5 font-extrabold">{l.roomNo}</td>
-                        <td className="px-2 py-1.5 font-semibold">{l.giamSat || '—'}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{formatTimeOnly(l.startTime) || '—'}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{l.endTime ? formatTimeOnly(l.endTime) : '—'}</td>
-                        <td className="px-2 py-1.5 tabular-nums">{mins !== null ? `${mins} phút` : '—'}</td>
-                        <td className="px-2 py-1.5 text-center"><StatusBadge {...res} /></td>
-                        <td className="px-2 py-1.5 text-slate-600">{l.endTime ? `Sau kiểm: ${l.status || '—'}` : 'Đang kiểm tra'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
         </Section>
 
         {/* Ký xác nhận + chân trang */}
-        <div className="mt-8 grid grid-cols-2 gap-6 text-center text-[11px] break-inside-avoid">
+        <div className="break-inside-avoid">
+        <div className="mt-6 grid grid-cols-2 gap-6 text-center text-[11px]">
           <div>
             <div className="font-bold uppercase tracking-wide text-slate-600">Người lập báo cáo</div>
-            <div className="h-14" />
+            <div className="h-10" />
             <div className="font-semibold">{account?.hoTen || ''}</div>
           </div>
           <div>
             <div className="font-bold uppercase tracking-wide text-slate-600">Quản lý buồng phòng</div>
-            <div className="h-14" />
+            <div className="h-10" />
             <div className="text-slate-400">(Ký, ghi rõ họ tên)</div>
           </div>
         </div>
-        <footer className="mt-6 pt-2 border-t border-slate-200 flex justify-between gap-2 text-[9.5px] text-slate-400">
+        <footer className="mt-4 pt-2 border-t border-slate-200 flex justify-between gap-2 text-[9.5px] text-slate-400">
           <span>HK Operation — Daily Housekeeping Report</span>
           <span className="tabular-nums">Xuất lúc {exportTime} — {todayStr}</span>
         </footer>
+        </div>
       </div>
     </div>
   );
