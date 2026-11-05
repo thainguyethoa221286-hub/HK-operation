@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { isPmLabel, labelNames } from '@/lib/assignHelpers';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
@@ -119,8 +120,14 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
               <span className="truncate">{FO_STATUS_LABEL[room.FoStatus]}</span>
             </span>
             {room.NhanVienPhuTrach && (
-              <span className={`bg-slate-100 border border-slate-200 text-slate-700 font-bold uppercase rounded-md px-1.5 py-0.5 whitespace-nowrap truncate max-w-[55%] ${special ? 'text-[11px]' : 'text-[9px]'}`}>
-                {room.NhanVienPhuTrach}
+              // Phòng ca chiều (PM Shift) -> nền VÀNG + chỉ tên nhân viên ca chiều (gọn, dễ nhận ra)
+              <span
+                title={isPmLabel(room.NhanVienPhuTrach) ? 'Ca chiều (PM Shift)' : undefined}
+                className={`font-bold uppercase rounded-md px-1.5 py-0.5 whitespace-nowrap truncate max-w-[55%] border ${
+                  isPmLabel(room.NhanVienPhuTrach) ? 'bg-amber-300 border-amber-400 text-amber-950' : 'bg-slate-100 border-slate-200 text-slate-700'
+                } ${special ? 'text-[11px]' : 'text-[9px]'}`}
+              >
+                {isPmLabel(room.NhanVienPhuTrach) ? labelNames(room.NhanVienPhuTrach).join('+') || 'PM' : room.NhanVienPhuTrach}
               </span>
             )}
           </div>
