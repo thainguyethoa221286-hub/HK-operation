@@ -128,6 +128,20 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
     const { error: linErr } = await supabase.from('hkpro_linen_change_history').insert(linenRows);
     if (linErr) console.warn('[HK PRO] Snapshot Báo cáo thay ga (Đồng bộ AI) lỗi:', linErr.message);
   }
+  // Đồng bộ AI = BẮT ĐẦU CA MỚI -> xoá sạch Lịch sử giao/nhận chìa khoá của HÔM NAY (báo cáo chìa khoá về trống).
+  // (Các ngày trước vốn đã tự ẩn vì báo cáo chỉ lấy chìa khoá theo đúng ngày hôm nay.)
+  try {
+    await supabase.from('hkpro_key_logs').delete().eq('ngay', fmtDdMm(new Date()));
+  } catch (err: any) {
+    console.warn('[HK PRO] Xoá Lịch sử chìa khoá (Đồng bộ AI) lỗi:', err?.message);
+  }
+  // ...và xoá luôn Lịch sử thao tác phòng của HÔM NAY (giờ DND/RF, giờ dọn, nhiệm vụ phụ, chuyển PM Shift...)
+  // để Daily Report của ca mới bắt đầu trống. (Bản cũ đã được lưu vào Kho báo cáo trước khi đồng bộ.)
+  try {
+    await supabase.from('hkpro_lich_su_don').delete().eq('ngay', fmtDdMm(new Date()));
+  } catch (err: any) {
+    console.warn('[HK PRO] Xoá Lịch sử phòng hôm nay (Đồng bộ AI) lỗi:', err?.message);
+  }
   try {
     await supabase.from('hkpro_inspection_logs').delete().gte('id', 0);
   } catch (err: any) {
