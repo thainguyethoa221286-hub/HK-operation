@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Star, Moon, ArrowRight, Check } from 'lucide-react';
+import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Leaf, Moon, ArrowRight, Check } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel, labelNames } from '@/lib/assignHelpers';
-import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly } from '@/lib/roomStyles';
+import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly, RoomGroupBadge } from '@/lib/roomStyles';
 import { updateRoomField, updateRoomFields, getAssignGroups, saveAssignGroups, fetchRooms, getTodayHistory, logTaskAction } from '@/lib/api';
 
 const HK_DOT: Record<string, string> = {
@@ -405,6 +405,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       <span className="flex items-center gap-1.5 font-semibold min-w-0">
         <StatusSign note={combinedNote} hkStatus={room.HkStatus} />
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
+        <RoomGroupBadge flags={room.Flags} />
         <NoteIcons note={combinedNote} ngayO={room.NgayO} />
       </span>
 
@@ -414,11 +415,11 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       {fo && (
         <span className={`relative flex items-center justify-center min-w-[26px] text-[8px] leading-[12px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-auto whitespace-nowrap ${fo.cls}`}>
           {fo.text}
-          {/* OD đến lịch thay ga: ngôi sao NHỎ đính ở góc trên-phải ô (không làm ô to ra),
+          {/* OD đến lịch thay ga: chiếc lá NHỎ đính ở góc trên-phải ô (không làm ô to ra),
               để ô OD cao/rộng bằng các ô ký hiệu khác */}
           {room.FoStatus === 'Occupied' && checkLinenChange(room) && (
-            <span className="absolute -top-[7px] -right-[7px] w-[13px] h-[13px] rounded-full bg-white border border-amber-300 shadow-sm flex items-center justify-center" title="Hôm nay thay ga giường">
-              <Star className="w-[9px] h-[9px] text-amber-400 fill-amber-400" />
+            <span className="absolute -top-[7px] -right-[7px] w-[13px] h-[13px] rounded-full bg-white border border-emerald-300 shadow-sm flex items-center justify-center" title="Hôm nay thay ga giường">
+              <Leaf className="w-[9px] h-[9px] text-emerald-600 fill-emerald-400" />
             </span>
           )}
         </span>
