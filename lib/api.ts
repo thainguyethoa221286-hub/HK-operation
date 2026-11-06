@@ -11,7 +11,7 @@ import {
   sbGetTaskCharts, sbCreateTaskChart, sbDeleteTaskChart, sbUpdateTaskChartMeta, sbUpdateTaskCell,
   sbGetMaintenanceIssues, sbCreateMaintenanceIssue, sbUpdateMaintenanceIssue, sbDeleteMaintenanceIssue,
   sbGetLostFoundItems, sbCreateLostFoundItem, sbUpdateLostFoundItem, sbDeleteLostFoundItem,
-  sbGetOverdueHistory, sbDeleteOverdueHistoryRow, sbClearOverdueHistory, sbGetLinenChangeHistory,
+  sbGetOverdueHistory, sbDeleteOverdueHistoryRow, sbDeleteOverdueRoom, sbClearOverdueHistory, sbGetLinenChangeHistory,
   sbGetSuppliesBoard, sbUpdateSupplyItem,
   sbStartInspectionLog, sbEndInspectionLog, sbGetInspectionLogs,
   sbSetBroadcastTask, sbClearBroadcastTask, sbGetBroadcastTask, sbCompleteBroadcastTask,
@@ -294,6 +294,9 @@ export async function getOverdueHistory(): Promise<OverdueHistoryRow[]> {
 }
 export async function deleteOverdueHistoryRow(id: number): Promise<{ success: boolean }> {
   return sbDeleteOverdueHistoryRow(id);
+}
+export async function deleteOverdueRoom(roomNo: string, category: 'DND' | 'RF'): Promise<{ success: boolean }> {
+  return sbDeleteOverdueRoom(roomNo, category);
 }
 export async function clearOverdueHistory(): Promise<{ success: boolean }> {
   return sbClearOverdueHistory();
