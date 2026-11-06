@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import RoomCard from '@/components/RoomCard';
 import RoomModal from '@/components/RoomModal';
-import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms, startInspectionLog, endInspectionLog } from '@/lib/api';
+import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms, startInspectionLog, endInspectionLog, logTaskAction } from '@/lib/api';
 
 const LEGEND = [
   { label: 'Phòng dơ', dot: 'bg-red-500' },
@@ -51,12 +51,21 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
       changes.TaskStatus = 'Chưa dọn';
       changes.StartTime = '';
     }
+    // Giám sát CỐ Ý chuyển 1 phòng nhân viên đã dọn xong về "Phòng dơ" (kiểm không đạt / cần dọn lại)
+    // -> trả nhiệm vụ về "Chưa dọn" để thẻ ở màn Nhiệm vụ trắng lại, nhân viên dọn lại; Sơ đồ & thẻ khớp nhau.
+    if (changes.HkStatus === 'Phòng dơ' && latest?.TaskStatus === 'Hoàn thành') {
+      changes.TaskStatus = 'Chưa dọn';
+      changes.StartTime = '';
+      changes.EndTime = '';
+      changes.Duration = '';
+      logTaskAction(maPhong, account?.hoTen || 'Giám sát', 'Giám sát trả phòng dơ').catch(() => {});
+    }
     setRooms((prev) => prev.map((r) => (r.MaPhong === maPhong ? { ...r, ...changes } : r)));
     const fieldMap: Record<string, string> = {
       HkStatus: 'HkStatus', FoStatus: 'FoStatus',
       NhanVienPhuTrach: 'NhanVienPhuTrach', GhiChu: 'GhiChu', GhiChuNV: 'GhiChuNV', GhiChuAdmin: 'GhiChuAdmin', GhiChuSuaChua: 'GhiChuSuaChua', Flags: 'Flags',
       // Bật MKR cho phòng đang DND/RF sẽ trả nhiệm vụ về "Chưa dọn" (xem RoomModal)
-      TaskStatus: 'TaskStatus', StartTime: 'StartTime',
+      TaskStatus: 'TaskStatus', StartTime: 'StartTime', EndTime: 'EndTime', Duration: 'Duration',
     };
     // Ghi SONG SONG toàn bộ field thay đổi (thay vì tuần tự từng cái) — giảm mạnh tổng thời gian
     // lưu, tránh vượt quá cửa sổ bảo vệ chống chớp tắt (EDIT_PROTECT_MS) khi Modal đổi nhiều field cùng lúc.
