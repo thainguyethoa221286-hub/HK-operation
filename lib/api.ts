@@ -131,13 +131,15 @@ export async function updateAccountModules(id: string, modules: string[]): Promi
  *  + snapshot DND/RF và Báo cáo thay ga sang lịch sử "hôm qua" + xoá sạch Lịch sử kiểm phòng trong
  *  ngày (TOÀN BỘ đã chuyển sang Supabase từ Giai đoạn 4 — xem sbBulkUpdateRoomsFromAI). KHÔNG còn
  *  gọi Apps Script phụ nữa. */
-export async function bulkUpdateFromAI(chunk: any[]): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
+export async function bulkUpdateFromAI(chunk: any[], resetFirst = true): Promise<{ success: boolean; updated?: number; notFound?: string[]; error?: string } | null> {
   try {
-    const { updated, notFound } = await sbBulkUpdateRoomsFromAI(chunk);
-    try {
-      await sbCloseAllOpenKeys();
-    } catch (err) {
-      console.warn('[HK PRO] Đóng lượt chìa cũ (Đồng bộ AI) lỗi:', err);
+    const { updated, notFound } = await sbBulkUpdateRoomsFromAI(chunk, resetFirst);
+    if (resetFirst) {
+      try {
+        await sbCloseAllOpenKeys();
+      } catch (err) {
+        console.warn('[HK PRO] Đóng lượt chìa cũ (Đồng bộ AI) lỗi:', err);
+      }
     }
     return { success: true, updated, notFound };
   } catch (err: any) {
