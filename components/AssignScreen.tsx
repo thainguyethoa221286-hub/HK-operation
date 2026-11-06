@@ -394,7 +394,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       className={`group relative flex items-center bg-white border shadow-sm transition-all ${
         selectable
           // Danh sách phòng chưa chọn: dạng VIÊN KẸO bo tròn, nhỏ gọn, rộng theo nội dung
-          ? 'cursor-pointer gap-1.5 rounded-full pl-2.5 pr-1 py-[3px] text-[11.5px]'
+          ? 'cursor-pointer justify-between gap-1.5 rounded-full pl-3 pr-1 py-[3px] text-[11.5px]'
           : 'justify-between gap-2 rounded-lg pl-2.5 pr-2 py-2 text-[12px]'
       } ${selected ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-300' : 'border-slate-200 hover:border-slate-300'}`}
     >
@@ -552,7 +552,8 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           {sec.list.length === 0 ? (
             <div className="text-center text-[12px] text-slate-400 py-3">{sec.empty}</div>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            // Viên kẹo CÙNG ĐỘ RỘNG, xếp thẳng hàng thẳng cột (nhãn OD/ARR luôn sát mép phải) -> gọn, dễ dò
+            <div className="grid gap-1.5 [grid-template-columns:repeat(auto-fill,minmax(132px,1fr))]">
               {sec.list.map((room) => (
                 <RoomChip key={room.MaPhong} room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
               ))}
