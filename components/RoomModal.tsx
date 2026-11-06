@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Users, CalendarDays, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
-import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge } from '@/lib/roomStyles';
+import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge, ROOM_GROUP_CODES, ROOM_GROUP_TONE, getRoomGroup, withRoomGroup } from '@/lib/roomStyles';
 import { createMaintenanceIssue, logTaskAction } from '@/lib/api';
 
 interface RoomModalProps {
@@ -237,6 +237,38 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                   )}
                   <span className="block text-[22px] leading-none mb-1.5">{f.icon}</span>
                   {f.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* NHÓM ĐI CÙNG — đánh dấu các phòng của cùng 1 đoàn / gia đình (cùng màu + cùng chữ cái trên thẻ phòng).
+              Giữ qua Đồng bộ AI mỗi sáng, tự bỏ khi phòng thành Vacant. */}
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Nhóm đi cùng</div>
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <button
+              type="button"
+              onClick={() => setFlags((prev) => withRoomGroup(prev, ''))}
+              className={`rounded-full px-3 py-1.5 text-[11px] font-bold border transition ${
+                !getRoomGroup(flags) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              Không
+            </button>
+            {ROOM_GROUP_CODES.map((c) => {
+              const tone = ROOM_GROUP_TONE[c];
+              const active = getRoomGroup(flags) === c;
+              return (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() => setFlags((prev) => withRoomGroup(prev, c))}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-extrabold border transition active:scale-95 ${
+                    active ? `${tone.solid} border-transparent ring-2 ring-offset-1 ${tone.ring} shadow-md` : `${tone.soft} hover:-translate-y-0.5`
+                  }`}
+                  aria-pressed={active}
+                >
+                  <Users className="w-3 h-3" strokeWidth={2.75} /> {c}
                 </button>
               );
             })}
