@@ -391,8 +391,11 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     return (
     <div
       onClick={selectable ? onToggleSelect : undefined}
-      className={`group relative flex items-center justify-between gap-2 bg-white border rounded-lg pl-2.5 pr-2 py-2 text-[12px] shadow-sm transition-all ${
-        selectable ? 'cursor-pointer' : ''
+      className={`group relative flex items-center bg-white border shadow-sm transition-all ${
+        selectable
+          // Danh sách phòng chưa chọn: dạng VIÊN KẸO bo tròn, nhỏ gọn, rộng theo nội dung
+          ? 'cursor-pointer gap-1.5 rounded-full pl-2.5 pr-1 py-[3px] text-[11.5px]'
+          : 'justify-between gap-2 rounded-lg pl-2.5 pr-2 py-2 text-[12px]'
       } ${selected ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-300' : 'border-slate-200 hover:border-slate-300'}`}
     >
       {/* Nút xoá — góc trên-phải thẻ, tinh tế (chỉ hiện rõ khi hover), không đè lên tên phòng/badge */}
@@ -407,9 +410,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       )}
 
       {/* Trái: chấm status (DND/RF = biển cấm tròn) + số phòng + icon EB/BBC/HON (CHỈ 3 mã này, ẩn mọi ghi chú khác) */}
-      <span className="flex items-center gap-1.5 font-semibold min-w-0">
+      <span className={`flex items-center font-semibold min-w-0 ${selectable ? 'gap-1' : 'gap-1.5'}`}>
         <StatusSign note={combinedNote} hkStatus={room.HkStatus} noDot={selectable} />
-        <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
+        <span className="truncate tabular-nums">{room.MaPhong}{selectable ? <span className="text-slate-400 font-medium"> · {room.LoaiPhong}</span> : <> - {room.LoaiPhong}</>}</span>
         <RoomGroupBadge flags={room.Flags} />
         <NoteIcons note={combinedNote} ngayO={room.NgayO} />
       </span>
@@ -418,7 +421,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           Riêng OD mà HÔM NAY đến lịch thay ga giường (checkLinenChange) -> thêm icon sao vàng nhỏ
           ngay sát chữ OD, để nhân viên biết cần mang ga/gối mới khi vào dọn phòng này. */}
       {fo && (
-        <span className={`relative flex items-center justify-center min-w-[26px] text-[8px] leading-[12px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-auto whitespace-nowrap ${fo.cls}`}>
+        <span className={`relative flex items-center justify-center min-w-[26px] text-[8px] leading-[12px] font-bold px-1.5 py-0.5 flex-shrink-0 ml-auto whitespace-nowrap ${selectable ? 'rounded-full' : 'rounded'} ${fo.cls}`}>
           {fo.text}
           {/* OD đến lịch thay ga: chiếc lá NHỎ đính ở góc trên-phải ô (không làm ô to ra),
               để ô OD cao/rộng bằng các ô ký hiệu khác */}
@@ -549,7 +552,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           {sec.list.length === 0 ? (
             <div className="text-center text-[12px] text-slate-400 py-3">{sec.empty}</div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {sec.list.map((room) => (
                 <RoomChip key={room.MaPhong} room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
               ))}
