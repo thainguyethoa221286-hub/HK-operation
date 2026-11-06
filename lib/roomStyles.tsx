@@ -269,6 +269,20 @@ function parseDepartureDate(ngayO?: string | null): Date | null {
   return date;
 }
 
+/** Ngày Check-out dạng "DD/MM" (vế sau NgayO) — '' nếu chưa biết. Dùng hiện "OUT 08/11" ở Lịch DND/RF. */
+export function departureLabel(ngayO?: string | null): string {
+  const parts = String(ngayO || '').trim().split('-').map((p) => p.trim());
+  return parts.length === 2 && /^\d{2}\/\d{2}$/.test(parts[1]) ? parts[1] : '';
+}
+
+/** Khách đã qua ngày Check-out (ngày out < hôm nay) -> true */
+export function isPastDeparture(ngayO?: string | null): boolean {
+  const d = parseDepartureDate(ngayO);
+  if (!d) return false;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return d.getTime() < t.getTime();
+}
+
 /** Số ngày khách ĐÃ Ở tính tới hôm nay (không tính theo giờ, chỉ tính theo ngày lịch) — dùng hiện
  *  trong Tooltip badge LSG. Trả về null nếu không đọc được ngày Check-in từ NgayO. */
 export function calcDaysStayed(ngayO?: string | null): number | null {
