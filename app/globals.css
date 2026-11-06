@@ -49,3 +49,18 @@ body {
 .scrollbar-none::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Edge mới */
 }
+
+
+/* =========================================================
+   GIAO DIỆN NỀN TỐI (Xám Than / Xanh Đêm / Đen Vũ Trụ) — Cài đặt > Màu nền giao diện.
+   Thẻ / bảng vẫn nền trắng; CHỈ chữ nằm TRỰC TIẾP trên nền (tiêu đề trang, nhãn TẦNG, chú thích màu...)
+   chuyển sang màu sáng cho dễ đọc.
+   ========================================================= */
+[data-bg="dark"] main h1 { color: #f1f5f9 !important; }
+[data-bg="dark"] .hk-on-bg-strong { color: #e2e8f0 !important; }
+[data-bg="dark"] .hk-on-bg { color: rgba(226, 232, 240, 0.72) !important; }
+[data-bg="dark"] .hk-on-bg-link { color: #93c5fd !important; }
+@media print {
+  [data-bg="dark"] { background: #fff !important; }
+  [data-bg="dark"] main h1 { color: #0f172a !important; }
+}
