@@ -83,6 +83,8 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   const [taskDraft, setTaskDraft] = useState('');
   // Mục 1 — danh sách phòng đang được chọn (multi-select) trong kho chờ
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [groupCountOpen, setGroupCountOpen] = useState(false);
+  const [groupCountPick, setGroupCountPick] = useState(0);
 
   // Nhóm phân công (N1-N5 + tên nhân viên) nay lưu trên Supabase — DÙNG CHUNG mọi thiết bị, không
   // còn riêng từng trình duyệt như localStorage trước đây. Đồng bộ AI tự reset bảng này NGAY TRÊN
@@ -428,31 +430,39 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
     );
   };
 
+  // Ô "SỐ NHÓM ĐANG CHIA" (giống ezFolio): chọn 1–20 nhóm. Tăng -> thêm nhóm trống; giảm -> CHỈ bỏ nhóm
+  // trống (không có phòng / nhân viên / nhiệm vụ phụ) để không bao giờ mất dữ liệu đã phân công.
+  const applyGroupCount = (n: number) => {
+    let next = [...groups];
+    let curNormal = next.filter((g) => g.id !== PM_GROUP_ID).length;
+    while (curNormal < n) {
+      const nums = next.map((g) => Number(g.id.replace('N', '')) || 0);
+      next.push({ id: 'N' + (Math.max(0, ...nums) + 1), staffs: [], extraTasks: [] });
+      curNormal++;
+    }
+    for (let i = next.length - 1; i >= 0 && curNormal > n; i--) {
+      const g = next[i];
+      if (g.id === PM_GROUP_ID) continue;
+      const empty = g.staffs.length === 0 && (g.extraTasks?.length || 0) === 0 && roomsForGroup(rooms, g).length === 0;
+      if (empty) { next.splice(i, 1); curNormal--; }
+    }
+    updateGroups(next);
+    setGroupCountOpen(false);
+  };
+  const unassignedRooms = [...dirtyRooms, ...cleanRooms];
+  const assignedCount = rooms.length - unassignedRooms.length;
+  // Nút ✕ ẩn (góc trên-phải, chỉ hiện khi rê chuột trên máy tính; mờ sẵn trên điện thoại) — giống thẻ phòng
+  const HIDDEN_X = 'absolute -top-1.5 -right-1.5 z-10 w-4 h-4 rounded-full bg-white border border-slate-300 text-slate-400 shadow-sm flex items-center justify-center opacity-70 md:opacity-0 md:group-hover:opacity-100 hover:text-red-600 hover:border-red-300 transition-opacity';
+
   return (
     <div className={selectedIds.size > 0 ? 'pb-36 md:pb-24' : ''}>
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-        <h1 className="text-[19px] font-bold">Phân công dọn phòng</h1>
+      {/* ===== Tiêu đề + nút thao tác ===== */}
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <h1 className="text-[19px] font-extrabold uppercase tracking-tight text-[#1f6fb8]">Phân công dọn phòng</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Mục 5 — thanh tổng hợp trạng thái phòng, đặt cạnh nút IN TỔNG HỢP.
-              Nền SÁNG + mỗi chỉ số có màu riêng nổi bật. Theo yêu cầu mới: chỉ 4 chỉ số chuẩn
-              thuật ngữ buồng phòng — OD / VD-DO (gộp) / OOO / VC — xếp 1 dòng duy nhất. */}
-          <div className="flex items-center gap-3 bg-white/95 text-slate-800 border border-slate-200 shadow-md rounded-2xl p-3 text-[11px] font-semibold leading-none backdrop-blur-sm">
-            <span className="flex items-center gap-1 whitespace-nowrap text-red-600">
-              <User className="w-3 h-3" />{statOD} OD
-            </span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-orange-500">
-              <AlertCircle className="w-3 h-3" />{statVD_DO} VD/DO
-            </span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-slate-500">
-              <Wrench className="w-3 h-3" />{statOOO} OOO
-            </span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-emerald-600">
-              <CheckCircle2 className="w-3 h-3" />{statVC} VC
-            </span>
-          </div>
           <button
             onClick={handlePrintAll}
-            className="flex items-center gap-1.5 text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-2"
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#1f6fb8] rounded-md px-3 py-2"
           >
             <Printer className="w-3.5 h-3.5" /> IN TỔNG HỢP
           </button>
@@ -460,150 +470,212 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           <button
             onClick={refreshData}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-md px-3 py-2 disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} /> LÀM MỚI
           </button>
           {/* XÓA DỮ LIỆU — thao tác phá huỷ, tách riêng khỏi Làm mới, luôn có xác nhận trước khi xoá */}
           <button
             onClick={clearAllAssignments}
-            className="flex items-center gap-1.5 text-xs font-bold text-red-600 border border-red-200 bg-red-50 rounded-lg px-3 py-2"
+            className="flex items-center gap-1.5 text-xs font-bold text-red-600 border border-red-200 bg-white rounded-md px-3 py-2"
           >
             <Trash2 className="w-3.5 h-3.5" /> XÓA DỮ LIỆU
           </button>
         </div>
       </div>
 
-      <div className="mb-2 text-[13px] font-bold text-red-600 flex items-center justify-between">
-        Phòng cần dọn (Dirty) <span className="text-slate-400 font-normal text-xs">{dirtyRooms.length} phòng</span>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-5">
-        {dirtyRooms.map((room) => (
-          <div key={room.MaPhong} className="w-[150px]">
-            <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
-          </div>
-        ))}
-      </div>
-
-      <div className="mb-2 text-[13px] font-bold text-slate-600 flex items-center justify-between">
-        Phòng đã sạch <span className="text-slate-400 font-normal text-xs">{cleanRooms.length} phòng</span>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-6">
-        {cleanRooms.map((room) => (
-          <div key={room.MaPhong} className="w-[150px]">
-            <RoomChip room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
-          </div>
-        ))}
-      </div>
-
-
-      <div className="flex items-center gap-2 flex-wrap mb-4 pb-3 border-b border-slate-200">
-        <span className="text-xs font-bold text-slate-500">NHÓM:</span>
-        <button onClick={addGroup} className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center">
-          <Plus className="w-3.5 h-3.5" />
+      {/* ===== Số nhóm + tổng hợp trạng thái + tổng số phòng ===== */}
+      <div className="flex items-center flex-wrap gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => { setGroupCountPick(normalGroups.length); setGroupCountOpen(true); }}
+          className="flex items-center gap-1.5 rounded-md bg-sky-100 text-sky-800 px-3 py-1.5 text-[12px] font-extrabold uppercase"
+        >
+          Số nhóm đang chia <span className="text-blue-800 tabular-nums">{normalGroups.length}</span> <ChevronDown className="w-3.5 h-3.5" />
         </button>
-        {normalGroups.map((g) => (
-          <div key={g.id} className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-            <span className="text-xs font-bold text-blue-700">{g.id}</span>
-            {g.staffs.map((s) => (
-              <span key={s} className="flex items-center gap-0.5 bg-blue-600 text-white text-[11px] font-semibold rounded px-1.5 py-0.5">
-                {s}
-                <X className="w-2.5 h-2.5 cursor-pointer" onClick={() => removeStaffFromGroup(g.id, s)} />
-              </span>
-            ))}
-            <div className="relative">
-              <button
-                onClick={() => setAddStaffOpenFor(addStaffOpenFor === g.id ? null : g.id)}
-                className="flex items-center gap-0.5 text-[11px] text-slate-500 border border-slate-300 rounded px-1.5 py-0.5"
-              >
-                + Thêm <ChevronDown className="w-2.5 h-2.5" />
-              </button>
-              {addStaffOpenFor === g.id && (
-                <div className="absolute z-20 top-full mt-1 left-0 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-28 max-h-48 overflow-y-auto">
-                  {staffList.filter((s) => !g.staffs.includes(s)).map((s) => (
-                    <div key={s} onClick={() => addStaffToGroup(g.id, s)} className="px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">
-                      {s}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <X className="w-3 h-3 text-slate-300 cursor-pointer ml-1" onClick={() => removeGroup(g.id)} />
-          </div>
-        ))}
+        {/* Thanh tổng hợp trạng thái phòng — 4 chỉ số OD / VD-DO / OOO / VC (giữ nguyên cách tính) */}
+        <div className="flex items-center gap-3 rounded-md bg-white border border-slate-200 px-3 py-1.5 text-[11px] font-semibold leading-none">
+          <span className="flex items-center gap-1 whitespace-nowrap text-red-600"><User className="w-3 h-3" />{statOD} OD</span>
+          <span className="flex items-center gap-1 whitespace-nowrap text-orange-500"><AlertCircle className="w-3 h-3" />{statVD_DO} VD/DO</span>
+          <span className="flex items-center gap-1 whitespace-nowrap text-slate-500"><Wrench className="w-3 h-3" />{statOOO} OOO</span>
+          <span className="flex items-center gap-1 whitespace-nowrap text-emerald-600"><CheckCircle2 className="w-3 h-3" />{statVC} VC</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
+          <span className="rounded-md bg-sky-100 text-sky-800 px-3 py-1.5 text-[12px] font-extrabold uppercase whitespace-nowrap">
+            Tổng số phòng <span className="text-blue-800 tabular-nums ml-0.5">{rooms.length}</span>
+          </span>
+          <span className="rounded-md bg-emerald-50 text-emerald-800 px-3 py-1.5 text-[12px] font-extrabold uppercase whitespace-nowrap">
+            Số phòng đã phân công <span className="tabular-nums ml-0.5">{assignedCount}</span>
+          </span>
+        </div>
       </div>
 
+      {/* ===== DANH SÁCH PHÒNG CHƯA CHỌN (kho chờ) — lưới như ezFolio; phòng dơ trước, phòng sạch sau ===== */}
+      <div className="flex items-center justify-between mb-1.5">
+        <h2 className="text-[13px] font-extrabold uppercase text-[#1f6fb8]">
+          Danh sách phòng chưa chọn <span className="text-slate-400 font-semibold normal-case text-xs ml-1">{dirtyRooms.length} cần dọn · {cleanRooms.length} đã sạch</span>
+        </h2>
+        {unassignedRooms.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set(unassignedRooms.map((r) => r.MaPhong)))}
+            className="text-[12px] font-bold text-blue-700 whitespace-nowrap flex-shrink-0"
+          >
+            Chọn tất cả
+          </button>
+        )}
+      </div>
+      <div className="rounded-lg bg-white border border-slate-200 p-2.5 mb-4">
+        {unassignedRooms.length === 0 ? (
+          <div className="text-center text-[13px] text-slate-500 py-8">Không có dữ liệu!</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+            {unassignedRooms.map((room) => (
+              <RoomChip key={room.MaPhong} room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ===== CÁC NHÓM — mỗi nhóm 1 cột như ezFolio ===== */}
       <div
-        className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:[grid-template-columns:repeat(var(--ncols),minmax(220px,1fr))]"
-        style={{ ['--ncols' as any]: Math.max(normalGroups.length, 1) }}
+        className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:[grid-template-columns:repeat(var(--ncols),minmax(0,1fr))]"
+        style={{ ['--ncols' as any]: Math.min(Math.max(normalGroups.length, 1), 5) }}
       >
-        {normalGroups.map((g, idx) => {
+        {normalGroups.map((g) => {
           const myRooms = roomsForGroup(rooms, g);
           // Mỗi nhiệm vụ phụ được tính như 01 phòng
           const weighted = calculateWeightedCount(myRooms.map((r) => r.MaPhong)) + (g.extraTasks?.length || 0);
-          const theme = COLUMN_THEMES[idx % COLUMN_THEMES.length];
           return (
-            <div key={g.id} className={`border rounded-xl flex flex-col overflow-hidden ${theme.bg} ${theme.border}`}>
+            <div key={g.id} className={`group/col rounded-lg bg-white border flex flex-col ${selectedIds.size > 0 ? 'border-blue-300' : 'border-slate-200'}`}>
               <div
                 onClick={selectedIds.size > 0 ? () => assignSelectedTo(g) : undefined}
-                className={`flex items-center justify-between px-3 py-2.5 border-b ${theme.border} ${theme.header} ${selectedIds.size > 0 ? 'cursor-pointer ring-2 ring-inset ring-blue-400' : ''}`}
+                className={`px-3 pt-2.5 pb-2 border-b border-slate-100 ${selectedIds.size > 0 ? 'cursor-pointer bg-blue-50/50' : ''}`}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Users className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-                  <span className="font-bold text-sm truncate">{groupLabel(g) || g.id}</span>
-                  {/* Mục 4 — số phòng đỏ nổi bật, đậm */}
-                  <span className="text-red-600 font-extrabold text-sm whitespace-nowrap">({weighted} phòng)</span>
+                <div className="flex items-center gap-1.5">
+                  {/* Số phòng (điểm khối lượng) đỏ nổi bật */}
+                  <span className="text-red-600 font-extrabold text-[15px] tabular-nums">{weighted}</span>
+                  <span className="text-[12.5px] text-[#1f6fb8] font-semibold">phòng</span>
+                  <span className="text-[10.5px] font-bold text-slate-400 ml-1">{g.id}</span>
+                  <div className="ml-auto flex items-center gap-2 text-slate-500">
+                    <button type="button" title="Thêm nhiệm vụ khác" onClick={(e) => { e.stopPropagation(); openTaskModal(g.id); }} className="hover:text-blue-700">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button type="button" title="In" onClick={(e) => { e.stopPropagation(); window.print(); }} className="hover:text-blue-700">
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Xoá nhóm"
+                      onClick={(e) => { e.stopPropagation(); removeGroup(g.id); }}
+                      className="hover:text-red-600 opacity-60 md:opacity-0 md:group-hover/col:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Printer className="w-3.5 h-3.5 text-slate-500 cursor-pointer" onClick={(e) => { e.stopPropagation(); window.print(); }} />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); openTaskModal(g.id); }}
-                    className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"
-                    title="Thêm nhiệm vụ khác"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                {/* Tên nhân viên của nhóm + thêm nhân viên */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                  {g.staffs.map((st) => (
+                    <span key={st} className="group relative inline-flex items-center rounded bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5">
+                      {st}
+                      <button type="button" onClick={() => removeStaffFromGroup(g.id, st)} className={`${HIDDEN_X} !w-3.5 !h-3.5`} aria-label={`Bỏ ${st}`}>
+                        <X className="w-2 h-2" />
+                      </button>
+                    </span>
+                  ))}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAddStaffOpenFor(addStaffOpenFor === g.id ? null : g.id)}
+                      className="flex items-center gap-0.5 rounded border border-dashed border-slate-300 text-slate-500 text-[11px] font-semibold px-2 py-0.5"
+                    >
+                      + Thêm NV <ChevronDown className="w-2.5 h-2.5" />
+                    </button>
+                    {addStaffOpenFor === g.id && (
+                      <div className="absolute z-20 top-full mt-1 left-0 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-32 max-h-48 overflow-y-auto">
+                        {staffList.filter((st) => !g.staffs.includes(st)).map((st) => (
+                          <div key={st} onClick={() => addStaffToGroup(g.id, st)} className="px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">{st}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex-1 p-2 space-y-1.5 min-h-[80px]">
-                    {/* Đang chọn phòng -> nút gán nhanh ngay đầu cột */}
-                    {selectedIds.size > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => assignSelectedTo(g)}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-blue-400 bg-white/80 py-2 text-[12px] font-bold text-blue-700 hover:bg-blue-50 active:scale-[0.98] transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Gán {selectedIds.size} phòng vào {g.id}
-                      </button>
-                    )}
-                    {myRooms.map((room) => (
-                      <div key={room.MaPhong}>
-                        <RoomChip room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
-                      </div>
-                    ))}
+              <div className="max-h-[340px] overflow-y-auto px-2.5 pt-3 pb-2.5 flex flex-col gap-2 min-h-[70px]">
+                {/* Đang chọn phòng -> nút gán nhanh ngay đầu cột */}
+                {selectedIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => assignSelectedTo(g)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-blue-400 bg-blue-50/60 py-2 text-[12px] font-bold text-blue-700 hover:bg-blue-50 active:scale-[0.98] transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Gán {selectedIds.size} phòng vào {g.id}
+                  </button>
+                )}
+                {myRooms.map((room) => (
+                  <RoomChip key={room.MaPhong} room={room} removable onRemove={() => unassignRoom(room.MaPhong)} />
+                ))}
 
-                    {/* Phòng của nhóm này đã đẩy sang ca chiều — vẫn hiện mờ để giám sát theo dõi */}
-                    {rooms
-                      .filter((r) => isPmLabel(r.NhanVienPhuTrach) && pmMoves[r.MaPhong]?.info.split(' · ')[1] === displayLabel(groupCurrentLabel(g)))
-                      .map((r) => (
-                        <div key={'pm-' + r.MaPhong} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/60 px-2.5 py-1.5 text-[12px]">
-                          <span className="font-bold text-slate-400 line-through tabular-nums">{r.MaPhong} - {r.LoaiPhong}</span>
-                          <span className="text-[10px] font-extrabold text-indigo-600 whitespace-nowrap">→ PM · {pmMoves[r.MaPhong].info.split(' · ')[0]}</span>
-                        </div>
-                      ))}
+                {/* Phòng của nhóm này đã đẩy sang ca chiều — vẫn hiện mờ để giám sát theo dõi */}
+                {rooms
+                  .filter((r) => isPmLabel(r.NhanVienPhuTrach) && pmMoves[r.MaPhong]?.info.split(' · ')[1] === displayLabel(groupCurrentLabel(g)))
+                  .map((r) => (
+                    <div key={'pm-' + r.MaPhong} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/60 px-2.5 py-1.5 text-[12px]">
+                      <span className="font-bold text-slate-400 line-through tabular-nums">{r.MaPhong} - {r.LoaiPhong}</span>
+                      <span className="text-[10px] font-extrabold text-indigo-600 whitespace-nowrap">→ PM · {pmMoves[r.MaPhong].info.split(' · ')[0]}</span>
+                    </div>
+                  ))}
 
-                    {g.extraTasks.map((task, idx2) => (
-                      <div key={idx2} className="flex items-start justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11px] text-yellow-800">
-                        <span>📋 {task}</span>
-                        <X className="w-3 h-3 cursor-pointer flex-shrink-0 mt-0.5" onClick={() => removeTask(g.id, idx2)} />
-                      </div>
-                    ))}
+                {g.extraTasks.map((task, idx2) => (
+                  <div key={idx2} className="group relative bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-2 text-[11.5px] text-yellow-800">
+                    📋 {task}
+                    <button type="button" onClick={() => removeTask(g.id, idx2)} className={HIDDEN_X} aria-label="Xoá nhiệm vụ">
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {myRooms.length === 0 && g.extraTasks.length === 0 && selectedIds.size === 0 && (
+                  <div className="text-[12px] text-slate-400 text-center py-3">Chưa có phòng</div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* ===== Hộp chọn SỐ NHÓM (1–20) ===== */}
+      {groupCountOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setGroupCountOpen(false)}>
+          <div className="w-full max-w-[520px] rounded-lg bg-white shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-extrabold uppercase text-[#1f6fb8]">Số nhóm</h3>
+              <button type="button" onClick={() => setGroupCountOpen(false)} className="text-slate-400" aria-label="Đóng"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+              {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setGroupCountPick(n)}
+                  className={`h-10 rounded border text-[14px] tabular-nums ${groupCountPick === n ? 'border-blue-600 text-blue-700 font-bold shadow' : 'border-slate-200 text-slate-700 hover:border-slate-300'}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11.5px] text-slate-500 mt-3">
+              Tăng số nhóm sẽ thêm nhóm trống mới. Giảm số nhóm chỉ bỏ các nhóm trống (chưa có phòng, nhân viên, nhiệm vụ) — nhóm đang có dữ liệu được giữ lại.
+            </p>
+            <div className="flex justify-end gap-2 mt-4">
+              <button type="button" onClick={() => applyGroupCount(groupCountPick)} className="px-4 py-1.5 rounded-md text-white text-[12.5px] font-bold bg-[#1f6fb8]">Đồng ý</button>
+              <button type="button" onClick={() => setGroupCountOpen(false)} className="px-4 py-1.5 rounded-md bg-slate-100 text-[12.5px] font-bold">Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= THẺ PM SHIFT — nhiệm vụ cố định ca chiều ================= */}
       <div className="mt-5 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-3.5 sm:p-4 shadow-[0_12px_30px_-20px_rgba(79,70,229,.6)] print:hidden">
