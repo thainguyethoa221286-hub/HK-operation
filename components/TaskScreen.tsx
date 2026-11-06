@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Room, Account, KeyLog } from '@/lib/types';
 import { VACUUM_FLOORS } from '@/lib/types';
+import TrolleyBadge from './TrolleyBadge';
 import RoomCard from './RoomCard';
 import RoomTaskModal from './RoomTaskModal';
 import KeyBoard from './KeyBoard';
@@ -322,8 +323,8 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
               <span className="text-[13px] font-extrabold text-slate-700">BÀN GIAO THIẾT BỊ</span>
             </div>
             {trolleyCode ? (
-              <span className="flex items-center gap-1 bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
-                <ShoppingCart className="w-3 h-3" /> Xe số: {trolleyCode}
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                Xe số <TrolleyBadge code={trolleyCode} size="md" />
               </span>
             ) : (
               <span className="text-[11px] text-slate-400 font-semibold">Chưa có mã xe đẩy (chờ giám sát phân công)</span>
@@ -534,6 +535,8 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-[14px] text-slate-800 truncate flex items-center gap-1.5">
                         {displayLabel(staff)}
+                        {/* Xe đẩy nhân viên đang dùng (theo nhóm được gán ở Phân công) */}
+                        <TrolleyBadge code={staffRooms.find((r) => r.TrolleyCode)?.TrolleyCode || ''} />
                         {broadcastTask?.active && broadcastTask.completions.includes(staff) && (
                           <span className="bg-red-100 text-red-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ Đã xong Task chỉ đạo</span>
                         )}
