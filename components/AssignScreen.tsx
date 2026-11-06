@@ -629,7 +629,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                 </div>
               </div>
 
-              <div className="max-h-[340px] overflow-y-auto px-2 pt-3 pb-2 flex flex-col gap-1.5 min-h-[70px]">
+              <div className="px-2 pt-3 pb-2 flex flex-col gap-1.5 min-h-[70px]">{/* KHÔNG thanh cuộn: cột dài theo số phòng để giám sát thấy hết mọi phòng khi chia việc */}
                 {/* Đang chọn phòng -> nút gán nhanh ngay đầu cột */}
                 {selectedIds.size > 0 && (
                   <button
