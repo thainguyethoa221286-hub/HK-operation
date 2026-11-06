@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  X, Moon, AlertTriangle, Play, Square, RotateCcw, DoorOpen, Sparkles, Zap, Leaf, Users,
+  X, Moon, AlertTriangle, Play, Square, RotateCcw, DoorOpen, Sparkles, Zap, Leaf,
   Lock, Unlock, CheckCircle2, Undo2, BellRing, Send, MessageSquareWarning,
 } from 'lucide-react';
 import type { Room } from '@/lib/types';
@@ -195,6 +195,16 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               "radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.26), rgba(255,255,255,0) 60%), linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0) 30%, rgba(0,0,0,0) 75%, rgba(0,0,0,0.12)), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.10 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         >
+          {/* NHÓM ĐI CÙNG — dải CHÉO GÓC (giống sơ đồ phòng); góc trên-TRÁI vì góc phải là nút đóng */}
+          {groupCode && (
+            <div
+              className={`pointer-events-none absolute top-0 left-0 z-20 w-[62px] h-[62px] ${(ROOM_GROUP_TONE[groupCode] || ROOM_GROUP_TONE.A).solid}`}
+              style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}
+              title={`Nhóm đi cùng ${groupCode}`}
+            >
+              <span className="absolute top-[7px] left-[10px] text-[19px] font-extrabold leading-none">{groupCode}</span>
+            </div>
+          )}
           {/* Đường ghép ván cửa */}
           <span className="absolute inset-y-0 right-[22%] w-[2px] bg-black/10 shadow-[1px_0_0_rgba(255,255,255,0.18)]" />
           {/* Biển số phòng kim loại */}
@@ -292,12 +302,7 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
                 <Leaf className="w-3.5 h-3.5 text-emerald-600 fill-emerald-400" /> Thay ga hôm nay
               </span>
             )}
-            {groupCode && (
-              <span className={`flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-lg shadow-sm ${(ROOM_GROUP_TONE[groupCode] || ROOM_GROUP_TONE.A).solid}`}>
-                <Users className="w-3.5 h-3.5" strokeWidth={2.75} /> Nhóm đi cùng {groupCode}
-              </span>
-            )}
-            {!hasRush && !hasMkr && !showDndTag && !showRfTag && !showLsg && !showLinen && !groupCode && (
+            {!hasRush && !hasMkr && !showDndTag && !showRfTag && !showLsg && !showLinen && (
               <span className="text-[12px] font-semibold text-slate-400 italic">Không có yêu cầu đặc biệt</span>
             )}
           </div>
