@@ -48,8 +48,10 @@ const COLUMN_THEMES = [
  *  - DND: tròn ĐỎ, gạch ngang trắng (biển "cấm vào")
  *  - RF : tròn TÍM, dấu ✕ trắng
  *  Phòng bình thường giữ chấm màu theo Tình trạng phòng như cũ. */
-function StatusSign({ note, hkStatus }: { note: string; hkStatus: string }) {
+function StatusSign({ note, hkStatus, noDot }: { note: string; hkStatus: string; noDot?: boolean }) {
   const { dnd, rf } = hasDndOrRf(note);
+  // Danh sách phòng chưa chọn: bỏ chấm tròn trạng thái (đã tách ô Dơ / Sạch) — CHỈ giữ biển DND/RF
+  if (noDot && !dnd && !rf) return null;
   // Ô CỐ ĐỊNH 12px cho MỌI thẻ -> số phòng luôn bắt đầu cùng 1 vị trí, các thẻ thẳng hàng
   return (
     <span className="w-3 h-3 flex items-center justify-center flex-shrink-0">
@@ -406,7 +408,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
       {/* Trái: chấm status (DND/RF = biển cấm tròn) + số phòng + icon EB/BBC/HON (CHỈ 3 mã này, ẩn mọi ghi chú khác) */}
       <span className="flex items-center gap-1.5 font-semibold min-w-0">
-        <StatusSign note={combinedNote} hkStatus={room.HkStatus} />
+        <StatusSign note={combinedNote} hkStatus={room.HkStatus} noDot={selectable} />
         <span className="truncate">{room.MaPhong} - {room.LoaiPhong}</span>
         <RoomGroupBadge flags={room.Flags} />
         <NoteIcons note={combinedNote} ngayO={room.NgayO} />
@@ -511,11 +513,10 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
         </div>
       </div>
 
-      {/* ===== DANH SÁCH PHÒNG CHƯA CHỌN (kho chờ) — lưới như ezFolio; phòng dơ trước, phòng sạch sau ===== */}
+      {/* ===== DANH SÁCH PHÒNG CHƯA CHỌN (kho chờ) — TÁCH 2 Ô như bảng cũ:
+          ô 1 = phòng DƠ chưa dọn; ô 2 = phòng SẠCH + VCI (đã kiểm tra) ===== */}
       <div className="flex items-center justify-between mb-1.5">
-        <h2 className="text-[13px] font-extrabold uppercase text-[#1f6fb8]">
-          Danh sách phòng chưa chọn <span className="text-slate-400 font-semibold normal-case text-xs ml-1">{dirtyRooms.length} cần dọn · {cleanRooms.length} đã sạch</span>
-        </h2>
+        <h2 className="text-[13px] font-extrabold uppercase text-[#1f6fb8]">Danh sách phòng chưa chọn</h2>
         {unassignedRooms.length > 0 && (
           <button
             type="button"
@@ -526,17 +527,37 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           </button>
         )}
       </div>
-      <div className="rounded-lg bg-white border border-slate-200 p-2.5 mb-4">
-        {unassignedRooms.length === 0 ? (
-          <div className="text-center text-[13px] text-slate-500 py-8">Không có dữ liệu!</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-            {unassignedRooms.map((room) => (
-              <RoomChip key={room.MaPhong} room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
-            ))}
+      {[
+        { key: 'dirty', title: 'Phòng cần dọn (Dirty)', list: dirtyRooms, head: 'text-red-600', box: 'border-red-200 bg-red-50/30', empty: 'Không còn phòng dơ chưa phân công' },
+        { key: 'clean', title: 'Phòng đã sạch · VCI', list: cleanRooms, head: 'text-emerald-700', box: 'border-emerald-200 bg-emerald-50/30', empty: 'Không có phòng sạch chưa phân công' },
+      ].map((sec) => (
+        <div key={sec.key} className={`rounded-lg border p-2.5 mb-3 ${sec.box}`}>
+          <div className="flex items-center justify-between mb-2 px-0.5">
+            <span className={`text-[12.5px] font-extrabold ${sec.head}`}>
+              {sec.title} <span className="text-slate-400 font-semibold text-[11.5px] ml-1">{sec.list.length} phòng</span>
+            </span>
+            {sec.list.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds((prev) => new Set([...Array.from(prev), ...sec.list.map((r) => r.MaPhong)]))}
+                className="text-[11.5px] font-bold text-blue-700 whitespace-nowrap"
+              >
+                Chọn cả ô
+              </button>
+            )}
           </div>
-        )}
-      </div>
+          {sec.list.length === 0 ? (
+            <div className="text-center text-[12px] text-slate-400 py-3">{sec.empty}</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              {sec.list.map((room) => (
+                <RoomChip key={room.MaPhong} room={room} selectable selected={selectedIds.has(room.MaPhong)} onToggleSelect={() => toggleSelect(room.MaPhong)} />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="mb-1" />
 
       {/* ===== CÁC NHÓM — mỗi nhóm 1 cột như ezFolio ===== */}
       <div
