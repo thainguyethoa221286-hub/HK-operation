@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart, Leaf, Users } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart, Leaf } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -576,7 +576,7 @@ export function withRoomGroup(list: string[], code: string): string[] {
   return code ? [...rest, GROUP_FLAG_PREFIX + code] : rest;
 }
 
-/** Biểu tượng NHÓM ĐI CÙNG trên thẻ phòng: icon 2 người + chữ cái nhóm, nền màu của nhóm */
+/** Huy hiệu NHÓM ĐI CÙNG (ô Phân công): chỉ chữ cái nhóm trên nền màu của nhóm */
 export function RoomGroupBadge({ flags, big }: { flags: string; big?: boolean }) {
   const code = getRoomGroup(flags);
   if (!code) return null;
@@ -585,9 +585,8 @@ export function RoomGroupBadge({ flags, big }: { flags: string; big?: boolean })
     <span
       title={`Nhóm đi cùng ${code}`}
       aria-label={`Nhóm đi cùng ${code}`}
-      className={`inline-flex items-center gap-[2px] rounded-full font-extrabold leading-none shadow-sm flex-shrink-0 ${tone.solid} ${big ? 'text-[11px] px-1.5 py-[3px]' : 'text-[9px] px-1 py-[2px]'}`}
+      className={`inline-flex items-center justify-center rounded-[4px] font-extrabold leading-none shadow-sm flex-shrink-0 ${tone.solid} ${big ? 'text-[11px] min-w-[18px] px-1 py-[3px]' : 'text-[9px] min-w-[14px] px-[3px] py-[2px]'}`}
     >
-      <Users className={big ? 'w-3 h-3' : 'w-2.5 h-2.5'} strokeWidth={2.75} />
       {code}
     </span>
   );
