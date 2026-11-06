@@ -317,7 +317,7 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
               }`}
             >
               <span className={`text-[12px] font-extrabold ${isRefused ? 'text-purple-700' : 'text-amber-700'}`}>
-                {isRefused ? `PHÒNG KHÔNG LÀM — ${formatTimeOnly(room.StartTime)}: Refused` : 'DND — KHÔNG LÀM PHIỀN'}
+                {isRefused ? `REFUSED — ${formatTimeOnly(room.StartTime)}` : 'DND — KHÔNG LÀM PHIỀN'}
               </span>
               <span className="flex items-center gap-2.5 flex-shrink-0 ml-2">
                 {isRefused && (
