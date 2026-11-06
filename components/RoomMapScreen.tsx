@@ -191,7 +191,7 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
             <RefreshCw className="w-3.5 h-3.5" /> ĐỒNG BỘ AI
           </button>
           <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} />
-          <div className="flex gap-3.5 flex-wrap text-xs text-slate-500">
+          <div className="flex gap-3.5 flex-wrap text-xs text-slate-500 hk-on-bg">
             {LEGEND.map((l) => (
               <span key={l.label} className="flex items-center gap-1.5">
                 <i className={`w-2 h-2 rounded-full inline-block ${l.dot}`} />
@@ -204,7 +204,7 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
 
       {floors.map((floor) => (
         <div key={floor}>
-          <div className="text-xs font-bold tracking-wide text-slate-500 my-4">TẦNG {floor}</div>
+          <div className="text-xs font-bold tracking-wide text-slate-500 my-4 hk-on-bg">TẦNG {floor}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-3">
             {byFloor[floor].map((room) => {
               const isSpecial = SPECIAL_ROOMS.includes(room.MaPhong);
