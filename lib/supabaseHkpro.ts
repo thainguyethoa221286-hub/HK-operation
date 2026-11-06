@@ -149,6 +149,9 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
     nhan_vien_phu_trach: '',
     // Giữ lại NHÓM ĐI CÙNG (GRP:A...) qua đêm — khách đoàn ở nhiều ngày; các cờ khác xoá như cũ
     flags: String(r.flags || '').split(',').map((f: string) => f.trim()).filter((f: string) => f.startsWith('GRP:')).join(','),
+    // Ghi chú AI (EB/BBC/HON/DND/RF đọc từ WS) cũng XOÁ SẠCH mỗi lần đồng bộ -> chỉ còn đúng mã của WS
+    // hôm nay. Trước đây không xoá: phòng hôm qua có EB mà WS hôm nay không có thì EB cũ vẫn treo lại.
+    ghi_chu: '',
     ghi_chu_nv: '',
     ghi_chu_admin: '',
     ghi_chu_sua_chua: '',
@@ -185,7 +188,7 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
       updated_at: new Date().toISOString(),
     };
     if (item.date !== undefined) row.ngay_o = item.date || '';
-    if (item.note) row.ghi_chu = item.note;
+    row.ghi_chu = item.note || '';
     // Phòng đã thành Vacant (khách đoàn đã đi) -> tự bỏ nhóm đi cùng
     if (item.foStatus === 'Vacant') row.flags = '';
     applies.push(row);
