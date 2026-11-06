@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import type { Room, Account } from '@/lib/types';
 import RoomCard from '@/components/RoomCard';
 import RoomModal from '@/components/RoomModal';
+import { saveTodayReport } from '@/lib/dailyArchive';
 import { updateRoomField, bulkUpdateFromAI, readPdfWithAI, fetchRooms, startInspectionLog, endInspectionLog, logTaskAction } from '@/lib/api';
 
 const LEGEND = [
@@ -139,6 +140,14 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
       // BƯỚC 2 — Ghi đè lên Google Sheet theo từng lô, BẮT BUỘC xác nhận success:true
       // trước khi coi là hoàn tất. Nếu bất kỳ lô nào lỗi, dừng lại và báo rõ cho người dùng
       // thay vì âm thầm coi như thành công.
+      // BƯỚC 1.5 — Lưu 1 bản báo cáo ca cũ vào Kho báo cáo TRƯỚC khi xoá (lỡ đồng bộ giữa ngày vẫn xem lại được)
+      setAiMessage('Đang lưu báo cáo ca cũ vào Kho báo cáo...');
+      try {
+        await saveTodayReport(account?.hoTen ? 'Trước Đồng bộ AI · ' + account.hoTen : 'Trước Đồng bộ AI', false);
+      } catch (err) {
+        console.warn('[HK PRO] Lưu báo cáo trước Đồng bộ AI lỗi:', err);
+      }
+
       setAiMessage('Đang ghi ' + aiRooms.length + ' phòng lên Google Sheet...');
       const chunkSize = 15;
       let totalUpdated = 0;
