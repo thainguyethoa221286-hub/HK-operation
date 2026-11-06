@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Users, CalendarDays, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
+import { X, Users, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
 import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge, ROOM_GROUP_CODES, ROOM_GROUP_TONE, getRoomGroup, withRoomGroup } from '@/lib/roomStyles';
@@ -21,6 +21,7 @@ interface RoomModalProps {
 export default function RoomModal({ room, onClose, onSave, onToggleInspecting, staffList, account }: RoomModalProps) {
   const [hk, setHk] = useState<HkStatus>('Phòng dơ');
   const [fo, setFo] = useState<FoStatus>('Vacant');
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const [staff, setStaff] = useState('');
   const [note, setNote] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
@@ -145,7 +146,65 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
               </div>
               <div className="flex items-center gap-1.5 text-[13px] text-slate-500 mt-0.5">
                 <span>{room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}</span>
-                <CalendarDays className="w-4 h-4 text-slate-400" />
+                {/* NHÓM ĐI CÙNG — nút nhỏ thay chỗ icon lịch (dưới số phòng); bấm mới xổ ra A–F để chọn (gọn bảng giám sát).
+                    Giữ qua Đồng bộ AI mỗi sáng, tự bỏ khi phòng thành Vacant. */}
+                <div className="relative">
+                  {(() => {
+                    const cur = getRoomGroup(flags);
+                    const tone = cur ? ROOM_GROUP_TONE[cur] : null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setGroupMenuOpen((v) => !v)}
+                        aria-expanded={groupMenuOpen}
+                        title="Nhóm đi cùng"
+                        className={`flex items-center gap-1 rounded-full text-[11px] font-extrabold px-2 py-1 border transition ${
+                          tone ? `${tone.solid} border-transparent shadow-sm` : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        {cur || 'Nhóm'}
+                        <ChevronDown className={`w-3 h-3 transition-transform ${groupMenuOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    );
+                  })()}
+                  {groupMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setGroupMenuOpen(false)} />
+                      <div className="absolute left-0 top-full mt-1.5 z-30 w-[236px] rounded-xl bg-white border border-slate-200 shadow-xl p-2.5">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Nhóm đi cùng</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setFlags((prev) => withRoomGroup(prev, '')); setGroupMenuOpen(false); }}
+                            className={`rounded-full px-2.5 py-1.5 text-[11px] font-bold border ${
+                              !getRoomGroup(flags) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200'
+                            }`}
+                          >
+                            Không
+                          </button>
+                          {ROOM_GROUP_CODES.map((c) => {
+                            const t = ROOM_GROUP_TONE[c];
+                            const active = getRoomGroup(flags) === c;
+                            return (
+                              <button
+                                type="button"
+                                key={c}
+                                onClick={() => { setFlags((prev) => withRoomGroup(prev, c)); setGroupMenuOpen(false); }}
+                                aria-pressed={active}
+                                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-extrabold border active:scale-95 transition ${
+                                  active ? `${t.solid} border-transparent ring-2 ring-offset-1 ${t.ring}` : t.soft
+                                }`}
+                              >
+                                <Users className="w-3 h-3" strokeWidth={2.75} /> {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -237,38 +296,6 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                   )}
                   <span className="block text-[22px] leading-none mb-1.5">{f.icon}</span>
                   {f.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* NHÓM ĐI CÙNG — đánh dấu các phòng của cùng 1 đoàn / gia đình (cùng màu + cùng chữ cái trên thẻ phòng).
-              Giữ qua Đồng bộ AI mỗi sáng, tự bỏ khi phòng thành Vacant. */}
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Nhóm đi cùng</div>
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-            <button
-              type="button"
-              onClick={() => setFlags((prev) => withRoomGroup(prev, ''))}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-bold border transition ${
-                !getRoomGroup(flags) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              Không
-            </button>
-            {ROOM_GROUP_CODES.map((c) => {
-              const tone = ROOM_GROUP_TONE[c];
-              const active = getRoomGroup(flags) === c;
-              return (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setFlags((prev) => withRoomGroup(prev, c))}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-extrabold border transition active:scale-95 ${
-                    active ? `${tone.solid} border-transparent ring-2 ring-offset-1 ${tone.ring} shadow-md` : `${tone.soft} hover:-translate-y-0.5`
-                  }`}
-                  aria-pressed={active}
-                >
-                  <Users className="w-3 h-3" strokeWidth={2.75} /> {c}
                 </button>
               );
             })}
