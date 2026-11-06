@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  X, Moon, AlertTriangle, Play, Square, RotateCcw, DoorOpen, Sparkles, Zap, Star,
+  X, Moon, AlertTriangle, Play, Square, RotateCcw, DoorOpen, Sparkles, Zap, Leaf, Users,
   Lock, Unlock, CheckCircle2, Undo2, BellRing, Send, MessageSquareWarning,
 } from 'lucide-react';
 import type { Room } from '@/lib/types';
 import {
   formatDateShort, formatTimeOnly, nowTimeStr, diffMinutes, elapsedSecondsSince, formatElapsed,
   addNoteCode, removeNoteCode, stripCodesFromNote, extractNoteCodes, FO_STATUS_LABEL, checkLinenChange,
-  combineNotes, isLongStay, hasDndOrRf,
+  combineNotes, isLongStay, hasDndOrRf, getRoomGroup, ROOM_GROUP_TONE,
 } from '@/lib/roomStyles';
 import { logTaskAction } from '@/lib/api';
 
@@ -175,6 +175,7 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
   const showDndTag = room.TaskStatus === 'DND' || noteCodes.dnd;
   const showRfTag = isRefused || noteCodes.rf;
   const showLinen = checkLinenChange(room);
+  const groupCode = getRoomGroup(room.Flags);
   void tick;
 
   return (
@@ -287,11 +288,16 @@ export default function RoomTaskModal({ room, onUpdate, onClose }: RoomTaskModal
             {/* Thay ga hôm nay — hiện CHỮ RÕ ngay trong thẻ, KHÔNG dùng tooltip nổi nữa (tooltip cũ bị
                 tràn ra ngoài, đè mất dòng Vacant/Occupied bên dưới trên điện thoại). */}
             {showLinen && (
-              <span className="flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[12px] font-bold px-2.5 py-1 rounded-lg shadow-sm">
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Thay ga hôm nay
+              <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[12px] font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                <Leaf className="w-3.5 h-3.5 text-emerald-600 fill-emerald-400" /> Thay ga hôm nay
               </span>
             )}
-            {!hasRush && !hasMkr && !showDndTag && !showRfTag && !showLsg && !showLinen && (
+            {groupCode && (
+              <span className={`flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-lg shadow-sm ${(ROOM_GROUP_TONE[groupCode] || ROOM_GROUP_TONE.A).solid}`}>
+                <Users className="w-3.5 h-3.5" strokeWidth={2.75} /> Nhóm đi cùng {groupCode}
+              </span>
+            )}
+            {!hasRush && !hasMkr && !showDndTag && !showRfTag && !showLsg && !showLinen && !groupCode && (
               <span className="text-[12px] font-semibold text-slate-400 italic">Không có yêu cầu đặc biệt</span>
             )}
           </div>
