@@ -22,6 +22,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   const [hk, setHk] = useState<HkStatus>('Phòng dơ');
   const [fo, setFo] = useState<FoStatus>('Vacant');
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  const [clearAsk, setClearAsk] = useState(false);
   const [staff, setStaff] = useState('');
   const [note, setNote] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
@@ -38,6 +39,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   const initRef = useRef({ hk: '', fo: '', staff: '', note: '', repairNote: '', flags: '' });
 
   useEffect(() => {
+    setClearAsk(false);
     if (!room) return;
     setHk(room.HkStatus);
     setFo(room.FoStatus);
@@ -60,6 +62,12 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   // được tính là khách lưu trú dài hạn (tự động >6 đêm, hoặc nhân viên đã gõ tay mã "LSG").
   const showLsg = isLongStay(combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin), room.NgayO);
 
+  // GỠ DND / RF — giám sát thấy khách đã gỡ bảng (không treo MKR) -> trả thẻ nhân viên về thẻ trắng (lưu khi bấm ĐÓNG)
+  const signNow = hasDndOrRf(combineNotes(room.GhiChu, room.GhiChuNV, room.GhiChuAdmin));
+  const signKind: 'DND' | 'RF' | null =
+    room.TaskStatus === 'DND' || (room.TaskStatus !== 'Refused' && signNow.dnd) ? 'DND'
+    : room.TaskStatus === 'Refused' || signNow.rf ? 'RF' : null;
+
   const toggleFlag = (key: string) => {
     setFlags((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
   };
@@ -77,7 +85,8 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
 
   const isRepairActive = flags.includes('SuaChua');
 
-  const handleClose = async () => {
+  /** clearSign = true khi giám sát xác nhận GỠ DND/RF (bấm thẻ DND/RF cạnh số phòng) */
+  const handleClose = async (clearSign = false) => {
     // Mục 1 — Liên kết Pop-up Sơ đồ phòng -> Module Maintenance: CHỈ CẦN bấm BẬT tag "Sửa chữa"
     // (TẮT -> BẬT trong phiên này) là tự tạo 1 ticket mới sang Maintenance, CÓ GÕ GHI CHÚ HAY KHÔNG
     // cũng được — nếu không gõ gì thì dùng mô tả mặc định, giám sát vào Module Bảo trì sửa trực
@@ -131,7 +140,15 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     // đổi trạng thái DND / Từ chối (thẻ nhân viên chuyển cửa xám), gỡ RUSH/MKR, ghi giờ vào Daily Report.
     // Giám sát XOÁ mã DND/RF khỏi ghi chú -> trả phòng về "Chưa dọn". (Vừa bật MKR thì MKR được ưu tiên.)
     const mkrJustOn = flags.includes('TrangDiem') && !initialFlags.includes('TrangDiem');
-    if (!mkrJustOn && note !== init.note) {
+    if (clearSign && signKind && !mkrJustOn) {
+      const strip = (x: string) => removeNoteCode(removeNoteCode(x || '', 'DND'), 'RF');
+      changes.TaskStatus = 'Chưa dọn';
+      changes.StartTime = '';
+      changes.GhiChu = strip(room.GhiChu);
+      changes.GhiChuNV = strip(room.GhiChuNV);
+      changes.GhiChuAdmin = strip(note);
+      logTaskAction(room.MaPhong, account?.hoTen || 'Giám sát', signKind === 'DND' ? 'DND Tắt' : 'RF Tắt').catch(() => {});
+    } else if (!mkrJustOn && note !== init.note) {
       const who = account?.hoTen || 'Giám sát';
       const before = hasDndOrRf(combineNotes(room.GhiChu, room.GhiChuNV, init.note));
       const after = hasDndOrRf(combineNotes(room.GhiChu, room.GhiChuNV, note));
@@ -184,6 +201,32 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
                   </span>
                 )}
                 <LinenChangeBadge room={room} />
+                {/* Thẻ DND / RF cạnh số phòng — khách đã gỡ bảng thì giám sát bấm vào để GỠ */}
+                {signKind && (
+                  <button
+                    type="button"
+                    onClick={() => setClearAsk((v) => !v)}
+                    title={`Bấm để gỡ ${signKind} (khách đã gỡ bảng)`}
+                    className={`group/sign relative inline-flex items-center gap-1 pl-2.5 pr-1.5 py-[3px] rounded-md text-[12px] font-extrabold text-white shadow-sm transition hover:brightness-110 active:scale-95 bg-gradient-to-b ${
+                      signKind === 'DND' ? 'from-red-500 to-red-700' : 'from-purple-500 to-purple-800'
+                    }`}
+                  >
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/80" />
+                    <span className="ml-1">{signKind}</span>
+                    <X className="w-3 h-3 opacity-80" strokeWidth={3} />
+                  </button>
+                )}
+                {signKind && clearAsk && (
+                  <button
+                    type="button"
+                    onClick={() => { setClearAsk(false); handleClose(true); }}
+                    className="rounded-md px-2 py-[3px] text-[12px] font-extrabold bg-white text-slate-800 border border-slate-300 shadow-sm hover:bg-slate-50 active:scale-95 transition"
+                    style={{ animation: 'hkSignIn .15s ease-out' }}
+                  >
+                    <style>{`@keyframes hkSignIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}`}</style>
+                    Gỡ {signKind}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-[13px] text-slate-500 mt-0.5">
                 <span>{room.LoaiPhong} • {formatDateShort(room.NgayO) || '—'}</span>
@@ -249,7 +292,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
               </div>
             </div>
             <button
-              onClick={handleClose}
+              onClick={() => handleClose()}
               aria-label="Đóng"
               className="w-9 h-9 -mr-1.5 -mt-1 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 transition"
             >
@@ -406,13 +449,14 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
 
         <div className="border-t border-slate-100 px-5 pt-3 pb-5 flex-shrink-0">
           <button
-            onClick={handleClose}
+            onClick={() => handleClose()}
             className="w-full bg-[#0F172A] hover:bg-slate-800 active:scale-[0.99] text-white rounded-2xl py-4 text-[15px] font-bold tracking-wider transition"
           >
             ĐÓNG
           </button>
         </div>
       </div>
+
     </div>
   );
 }
