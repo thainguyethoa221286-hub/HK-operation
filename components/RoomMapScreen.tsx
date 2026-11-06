@@ -145,7 +145,8 @@ export default function RoomMapScreen({ rooms, setRooms, staffList, account }: R
       const allNotFound: string[] = [];
       for (let i = 0; i < aiRooms.length; i += chunkSize) {
         const chunk = aiRooms.slice(i, i + chunkSize);
-        const result = await bulkUpdateFromAI(chunk);
+        // CHỈ lô đầu tiên chạy bước reset (xoá ca cũ); các lô sau chỉ ghi thêm dữ liệu WS mới
+        const result = await bulkUpdateFromAI(chunk, i === 0);
         if (!result || !result.success) {
           throw new Error(
             'Ghi lên Google Sheet thất bại ở lô phòng ' + (i + 1) + '-' + Math.min(i + chunkSize, aiRooms.length) +
