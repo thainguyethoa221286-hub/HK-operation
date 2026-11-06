@@ -129,7 +129,7 @@ export default function RoomTaskCard({ room, onUpdate }: RoomTaskCardProps) {
       {(isRefused || isDnd) && (
         <div className="px-3.5 pt-2.5 flex items-center justify-between">
           <span className="bg-red-100 text-red-700 text-[11px] font-extrabold px-2 py-1 rounded-md">
-            {isRefused ? `PHÒNG KHÔNG LÀM — ${room.StartTime}: Refused` : 'DND — KHÔNG LÀM PHIỀN'}
+            {isRefused ? `REFUSED — ${room.StartTime}` : 'DND — KHÔNG LÀM PHIỀN'}
           </span>
           <button
             onClick={isRefused ? redoRoom : toggleDnd}
