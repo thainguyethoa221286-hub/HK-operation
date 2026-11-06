@@ -472,7 +472,7 @@ export const TASK_STATUS_STYLE: Record<string, { label: string; cls: string }> =
   'Chưa dọn': { label: 'Chưa dọn', cls: 'bg-slate-100 text-slate-600' },
   'Đang dọn': { label: 'Đang dọn', cls: 'bg-blue-100 text-blue-700' },
   'Hoàn thành': { label: 'Hoàn thành', cls: 'bg-green-100 text-green-700' },
-  'Refused': { label: 'PHÒNG KHÔNG LÀM', cls: 'bg-red-100 text-red-700' },
+  'Refused': { label: 'REFUSED', cls: 'bg-purple-100 text-purple-700' },
   'DND': { label: 'DND', cls: 'bg-red-100 text-red-700' },
 };
 
