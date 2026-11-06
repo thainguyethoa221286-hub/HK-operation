@@ -7,6 +7,7 @@ import { stripCodesFromNote, formatDateShort, formatTimeOnly, combineNotes, extr
 import { buildExtraTasks } from '@/lib/extraTasks';
 import { keyToDMY, type DailySnapshot } from '@/lib/dailyArchive';
 import { labelNames, displayLabel, PM_MOVE_ACTION } from '@/lib/assignHelpers';
+import { trolleyNo } from './TrolleyBadge';
 
 /* =========================================================================
    TỜ BÁO CÁO DAILY REPORT — DÙNG CHUNG cho màn Daily Report trên app VÀ bản in / tải PDF.
@@ -245,7 +246,7 @@ export default function DailyReportPrint({ rooms: liveRooms, account, snapshot }
                 <div key={s.staff} className="border border-slate-300 rounded-md px-3 py-2 break-inside-avoid">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-bold text-[12.5px] truncate">
-                      {displayLabel(s.staff)}{s.trolley && s.trolley !== 'PM' ? <span className="text-slate-500 font-semibold"> (Xe {s.trolley})</span> : null}
+                      {displayLabel(s.staff)}{s.trolley && s.trolley !== 'PM' ? <span className="text-slate-500 font-semibold"> · Xe {trolleyNo(s.trolley)}</span> : null}
                     </span>
                     <span className="font-extrabold text-[12.5px] tabular-nums">{s.pct}%</span>
                   </div>
@@ -257,38 +258,16 @@ export default function DailyReportPrint({ rooms: liveRooms, account, snapshot }
                     {s.extraCount > 0 && <> · gồm {s.extraCount} NV phụ</>}
                     {s.vacuum && <> · Hút bụi: {s.vacuum}</>}
                   </div>
-                  {/* Lịch sử bộ chìa khóa của nhân viên */}
-                  <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-200 space-y-0.5">
-                    {keysForLabel(s.staff).length === 0 ? (
-                      <div className="text-[10px] text-slate-400">Chưa nhận chìa khóa</div>
-                    ) : keysForLabel(s.staff).map((k) => (
-                      <div key={k.rowIndex} className="flex items-center justify-between gap-1.5 text-[10.5px] tabular-nums">
-                        <span className="min-w-0 truncate">
-                          <b>{k.set || '—'}</b> <span className="text-slate-500">· {k.floors}</span>
-                          {s.staff.includes('+') && <span className="text-slate-400"> ({k.nhanVien})</span>}
-                        </span>
-                        <span className="flex-shrink-0 whitespace-nowrap">
-                          <span className="text-slate-500">Nhận</span> {formatTimeOnly(k.gioMuon) || '—'}
-                          <span className="text-slate-300"> · </span>
-                          {k.trangThai === 'Đã trả' && k.gioTra
-                            ? <><span className="text-slate-500">Trả</span> {formatTimeOnly(k.gioTra)}</>
-                            : <span className="font-bold text-red-600">Chưa trả</span>}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Lịch sử bộ chìa khóa của nhân viên — dạng Ô BẢNG: Bộ · Tầng · Nhận · Trả */}
+                  <KeyTable rows={keysForLabel(s.staff)} showName={s.staff.includes('+')} />
                 </div>
               ))}
             </div>
           )}
           {unmatchedKeys.length > 0 && (
-            <div className="mt-2 text-[10.5px] text-slate-600">
-              <b>Chìa khóa khác:</b>{' '}
-              {unmatchedKeys.map((k, i) => (
-                <span key={k.rowIndex} className="tabular-nums">
-                  {i > 0 && ' · '}{k.set} {k.floors} — {k.nhanVien}, nhận {formatTimeOnly(k.gioMuon) || '—'}, {k.trangThai === 'Đã trả' && k.gioTra ? `trả ${formatTimeOnly(k.gioTra)}` : 'chưa trả'}
-                </span>
-              ))}
+            <div className="mt-2 max-w-[520px]">
+              <div className="text-[10.5px] font-bold text-slate-600 mb-1">Chìa khóa khác (nhân viên ngoài nhóm phân công)</div>
+              <KeyTable rows={unmatchedKeys} showName />
             </div>
           )}
         </Section>
@@ -459,5 +438,42 @@ export default function DailyReportPrint({ rooms: liveRooms, account, snapshot }
         </div>
       </div>
     </div>
+  );
+}
+
+
+/** Ô BẢNG lịch sử nhận / trả chìa khóa — mỗi lượt 1 dòng, cột thẳng hàng */
+function KeyTable({ rows, showName }: { rows: { rowIndex: number; set: string; floors: string; nhanVien: string; gioMuon: string; gioTra: string; trangThai: string }[]; showName?: boolean }) {
+  if (rows.length === 0) {
+    return <div className="mt-2 rounded border border-dashed border-slate-300 px-2 py-1.5 text-center text-[10px] text-slate-400">Chưa nhận chìa khóa</div>;
+  }
+  return (
+    <table className="hk-keys mt-2 w-full border-collapse text-[10px] tabular-nums">
+      <thead>
+        <tr className="bg-slate-100 text-slate-500">
+          <th className="border border-slate-300 px-1.5 py-[3px] text-left font-bold">Bộ</th>
+          <th className="border border-slate-300 px-1.5 py-[3px] text-left font-bold">Tầng</th>
+          {showName && <th className="border border-slate-300 px-1.5 py-[3px] text-left font-bold">NV</th>}
+          <th className="border border-slate-300 px-1.5 py-[3px] text-center font-bold">Nhận</th>
+          <th className="border border-slate-300 px-1.5 py-[3px] text-center font-bold">Trả</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((k) => {
+          const returned = k.trangThai === 'Đã trả' && k.gioTra;
+          return (
+            <tr key={k.rowIndex}>
+              <td className="border border-slate-300 px-1.5 py-[3px] font-bold whitespace-nowrap">{k.set || '—'}</td>
+              <td className="border border-slate-300 px-1.5 py-[3px] text-slate-600">{k.floors || '—'}</td>
+              {showName && <td className="border border-slate-300 px-1.5 py-[3px] text-slate-600 whitespace-nowrap">{k.nhanVien}</td>}
+              <td className="border border-slate-300 px-1.5 py-[3px] text-center whitespace-nowrap">{formatTimeOnly(k.gioMuon) || '—'}</td>
+              <td className="border border-slate-300 px-1.5 py-[3px] text-center whitespace-nowrap">
+                {returned ? formatTimeOnly(k.gioTra) : <span className="font-bold text-red-600">Chưa trả</span>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
