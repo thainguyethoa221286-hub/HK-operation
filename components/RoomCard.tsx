@@ -5,7 +5,7 @@ import { isPmLabel, labelNames } from '@/lib/assignHelpers';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
-  FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon, formatTimeOnly, RoomGroupBadge,
+  FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon, formatTimeOnly, getRoomGroup, ROOM_GROUP_TONE,
 } from '@/lib/roomStyles';
 import { Zap, Check, ClipboardList } from 'lucide-react';
 
@@ -65,6 +65,7 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
   const accent = ACCENT[border] ?? ACCENT['border-red-500'];
   // Ô ván cửa: phòng nền trắng dùng gradient nhẹ cho có khối; phòng có nền trạng thái (đang dọn, đang kiểm,
   // Đã out, Hoàn thành/DND/Refused ở màn Nhiệm vụ) giữ nguyên đúng màu nền đó.
+  const groupCode = getRoomGroup(room.Flags);
   const panelBg = bg === 'bg-white' ? 'bg-gradient-to-br from-slate-50 via-white to-slate-100' : bg;
 
   return (
@@ -77,17 +78,28 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
         {/* Mép cửa — vạch màu theo tình trạng phòng */}
         <div className={`absolute inset-y-0 left-0 ${special ? 'w-2' : 'w-1.5'} ${accent.bar}`} />
 
+        {/* NHÓM ĐI CÙNG — dải CHÉO GÓC trên-phải, chỉ chữ cái nhóm (A, B, C...) theo màu nhóm */}
+        {groupCode && (
+          <div
+            className={`pointer-events-none absolute top-0 right-0 z-10 ${(ROOM_GROUP_TONE[groupCode] || ROOM_GROUP_TONE.A).solid} ${special ? 'w-[38px] h-[38px]' : 'w-[28px] h-[28px]'}`}
+            style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}
+            title={`Nhóm đi cùng ${groupCode}`}
+          >
+            <span className={`absolute font-extrabold leading-none ${special ? 'top-[4px] right-[6px] text-[13px]' : 'top-[3px] right-[4px] text-[10px]'}`}>{groupCode}</span>
+          </div>
+        )}
+
         {/* Ô ván cửa lõm (Recessed Door Panel) */}
         <div className={`relative h-full flex flex-col rounded-xl border border-slate-200/80 shadow-[inset_0_2px_5px_rgba(15,23,42,0.10),inset_0_-2px_0_rgba(255,255,255,0.9)] ${panelBg} ${special ? 'p-3.5 pr-12' : 'p-2.5 pr-9'}`}>
           {/* Hàng trên: trái = biển tên loại phòng (kim loại); phải = icon thông tin (ghim, Rush/MKR, sửa chữa, EB/BBC/HON/LSG) */}
-          <div className="flex items-start justify-between gap-1.5">
+          <div className={`flex items-center justify-between gap-1 ${special ? 'h-[22px]' : 'h-[17px]'}`}>
             <span className={`relative inline-flex items-center rounded-[5px] border border-slate-300 bg-gradient-to-b from-white via-slate-100 to-slate-300 font-extrabold tracking-wider text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.25),inset_0_1px_0_rgba(255,255,255,0.95)] whitespace-nowrap flex-shrink-0 ${special ? 'text-[12px] px-2.5 py-0.5' : 'text-[9px] px-2 py-[1px]'}`}>
               <span className="absolute left-[3px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] rounded-full bg-slate-400" />
               {room.LoaiPhong}
               <span className="absolute right-[3px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] rounded-full bg-slate-400" />
             </span>
-            <div className="flex flex-wrap items-center justify-end gap-1 min-w-0 pt-[1px]">
-              <RoomGroupBadge flags={room.Flags} big={special} />
+            {/* 1 dòng cố định (không rớt xuống dòng 2) -> số phòng luôn thẳng hàng giữa các thẻ */}
+            <div className="flex flex-nowrap items-center justify-end gap-[3px] min-w-0 overflow-hidden">
               {/* Ghi chú đặc biệt của giám sát -> KẸP BẢNG GHI CHÚ màu tím */}
               {specialNoteText && <ClipboardList className={`${special ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-violet-600 fill-violet-100 flex-shrink-0`} aria-label="Ghi chú đặc biệt" />}
               {/* RUSH — chip TRÒN NHỎ chỉ có icon (không chữ) để không đè lên biển tên loại phòng.
