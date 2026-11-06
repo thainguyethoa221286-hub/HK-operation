@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Users, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
-import { formatDateShort, removeNoteCode, combineNotes, isLongStay, LinenChangeBadge, ROOM_GROUP_CODES, ROOM_GROUP_TONE, getRoomGroup, withRoomGroup } from '@/lib/roomStyles';
+import { formatDateShort, removeNoteCode, combineNotes, hasDndOrRf, nowTimeStr, isLongStay, LinenChangeBadge, ROOM_GROUP_CODES, ROOM_GROUP_TONE, getRoomGroup, withRoomGroup } from '@/lib/roomStyles';
 import { createMaintenanceIssue, logTaskAction } from '@/lib/api';
 
 interface RoomModalProps {
@@ -124,6 +124,38 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
       if (room.TaskStatus === 'DND' || room.TaskStatus === 'Refused') {
         changes.TaskStatus = 'Chưa dọn';
         changes.StartTime = '';
+      }
+    }
+
+    // ĐỒNG BỘ VỚI NHÂN VIÊN: giám sát ghi DND / RF vào ghi chú -> làm y hệt lúc nhân viên bấm nút ở thẻ Nhiệm vụ:
+    // đổi trạng thái DND / Từ chối (thẻ nhân viên chuyển cửa xám), gỡ RUSH/MKR, ghi giờ vào Daily Report.
+    // Giám sát XOÁ mã DND/RF khỏi ghi chú -> trả phòng về "Chưa dọn". (Vừa bật MKR thì MKR được ưu tiên.)
+    const mkrJustOn = flags.includes('TrangDiem') && !initialFlags.includes('TrangDiem');
+    if (!mkrJustOn && note !== init.note) {
+      const who = account?.hoTen || 'Giám sát';
+      const before = hasDndOrRf(combineNotes(room.GhiChu, room.GhiChuNV, init.note));
+      const after = hasDndOrRf(combineNotes(room.GhiChu, room.GhiChuNV, note));
+      const noRushMkr = () => flags.filter((f) => f !== 'CayBac' && f !== 'TrangDiem').join(',');
+      if (after.dnd && !before.dnd && room.TaskStatus !== 'DND') {
+        changes.TaskStatus = 'DND';
+        changes.GhiChuAdmin = removeNoteCode(note, 'RF');
+        changes.GhiChuNV = removeNoteCode(room.GhiChuNV || '', 'RF');
+        changes.Flags = noRushMkr();
+        logTaskAction(room.MaPhong, who, 'DND Bật').catch(() => {});
+      } else if (after.rf && !before.rf && room.TaskStatus !== 'Refused') {
+        changes.TaskStatus = 'Refused';
+        changes.StartTime = nowTimeStr();
+        changes.GhiChuAdmin = removeNoteCode(note, 'DND');
+        changes.GhiChuNV = removeNoteCode(room.GhiChuNV || '', 'DND');
+        changes.Flags = noRushMkr();
+        logTaskAction(room.MaPhong, who, 'Từ chối (RF)').catch(() => {});
+      } else if (before.dnd && !after.dnd && room.TaskStatus === 'DND') {
+        changes.TaskStatus = 'Chưa dọn';
+        logTaskAction(room.MaPhong, who, 'DND Tắt').catch(() => {});
+      } else if (before.rf && !after.rf && room.TaskStatus === 'Refused') {
+        changes.TaskStatus = 'Chưa dọn';
+        changes.StartTime = '';
+        logTaskAction(room.MaPhong, who, 'Làm lại phòng').catch(() => {});
       }
     }
 
