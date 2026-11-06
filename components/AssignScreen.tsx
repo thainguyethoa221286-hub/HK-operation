@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Leaf, Moon, ArrowRight, Check } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
+import TrolleyBadge from './TrolleyBadge';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel, labelNames } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly, RoomGroupBadge } from '@/lib/roomStyles';
@@ -539,8 +540,9 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
 
       {/* ===== CÁC NHÓM — mỗi nhóm 1 cột như ezFolio ===== */}
       <div
-        className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:[grid-template-columns:repeat(var(--ncols),minmax(0,1fr))]"
-        style={{ ['--ncols' as any]: Math.min(Math.max(normalGroups.length, 1), 5) }}
+        // 4 xe trolley -> 4 cột nhóm vừa 1 hàng trên laptop (nhóm thứ 5 trở đi xuống hàng dưới)
+        className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--ncols),minmax(0,1fr))]"
+        style={{ ['--ncols' as any]: Math.min(Math.max(normalGroups.length, 1), 4) }}
       >
         {normalGroups.map((g) => {
           const myRooms = roomsForGroup(rooms, g);
@@ -561,9 +563,8 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                     <button type="button" title="Thêm nhiệm vụ khác" onClick={(e) => { e.stopPropagation(); openTaskModal(g.id); }} className="hover:text-blue-700">
                       <Plus className="w-4 h-4" />
                     </button>
-                    <button type="button" title="In" onClick={(e) => { e.stopPropagation(); window.print(); }} className="hover:text-blue-700">
-                      <Printer className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Xe đẩy của nhóm (N1 -> xe 01...) — thay cho nút in */}
+                    <TrolleyBadge code={g.id} />
                     <button
                       type="button"
                       title="Xoá nhóm"
@@ -603,7 +604,7 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
                 </div>
               </div>
 
-              <div className="max-h-[340px] overflow-y-auto px-2.5 pt-3 pb-2.5 flex flex-col gap-2 min-h-[70px]">
+              <div className="max-h-[340px] overflow-y-auto px-2 pt-3 pb-2 flex flex-col gap-1.5 min-h-[70px]">
                 {/* Đang chọn phòng -> nút gán nhanh ngay đầu cột */}
                 {selectedIds.size > 0 && (
                   <button
