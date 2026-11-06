@@ -271,6 +271,7 @@ function SettledDoor({ room, onClick, special }: { room: Room; onClick: () => vo
     ? `RF lúc ${formatTimeOnly(room.StartTime)}`
     : formatDateShort(room.NgayO);
   const digits = String(room.MaPhong).split('');
+  const groupCode = getRoomGroup(room.Flags);
 
   return (
     <div onClick={onClick} className="group relative h-full min-h-[178px] cursor-pointer transition-transform duration-200 hover:-translate-y-0.5">
@@ -284,6 +285,16 @@ function SettledDoor({ room, onClick, special }: { room: Room; onClick: () => vo
           backgroundSize: '100% 46%, 52% 100%, 100% 100%',
         }}
       >
+        {/* NHÓM ĐI CÙNG — dải CHÉO GÓC trên-phải, giống sơ đồ phòng */}
+        {groupCode && (
+          <div
+            className={`pointer-events-none absolute top-0 right-0 z-20 ${(ROOM_GROUP_TONE[groupCode] || ROOM_GROUP_TONE.A).solid} ${special ? 'w-[38px] h-[38px]' : 'w-[28px] h-[28px]'}`}
+            style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%)' }}
+            title={`Nhóm đi cùng ${groupCode}`}
+          >
+            <span className={`absolute font-extrabold leading-none ${special ? 'top-[4px] right-[6px] text-[13px]' : 'top-[3px] right-[4px] text-[10px]'}`}>{groupCode}</span>
+          </div>
+        )}
         {/* Khung cửa xám than (lõm vào tường) */}
         <div className="relative h-full rounded-t-[4px] bg-[#6a6e74] p-[5px] pb-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.05)]">
           {/* Cánh cửa xám ghi, mặt da nhám, ánh sáng loang từ trên */}
