@@ -96,7 +96,7 @@ export async function sbUpdateRoomFields(maPhong: string, fields: Record<string,
 export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: number; notFound: string[] }> {
   const { data: existing, error: selErr } = await supabase
     .from('hkpro_rooms')
-    .select('ma_phong, ghi_chu_nv, ghi_chu_admin, loai_phong, nhan_vien_phu_trach, task_status, linen_change');
+    .select('ma_phong, ghi_chu_nv, ghi_chu_admin, loai_phong, nhan_vien_phu_trach, task_status, linen_change, flags');
   if (selErr) throw new Error('Supabase bulkUpdateFromAI (đọc) lỗi: ' + selErr.message);
   const knownRooms = new Set((existing || []).map((r: any) => r.ma_phong));
 
@@ -147,7 +147,8 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
   const resets = (existing || []).map((r: any) => ({
     ma_phong: r.ma_phong,
     nhan_vien_phu_trach: '',
-    flags: '',
+    // Giữ lại NHÓM ĐI CÙNG (GRP:A...) qua đêm — khách đoàn ở nhiều ngày; các cờ khác xoá như cũ
+    flags: String(r.flags || '').split(',').map((f: string) => f.trim()).filter((f: string) => f.startsWith('GRP:')).join(','),
     ghi_chu_nv: '',
     ghi_chu_admin: '',
     ghi_chu_sua_chua: '',
@@ -185,6 +186,8 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
     };
     if (item.date !== undefined) row.ngay_o = item.date || '';
     if (item.note) row.ghi_chu = item.note;
+    // Phòng đã thành Vacant (khách đoàn đã đi) -> tự bỏ nhóm đi cùng
+    if (item.foStatus === 'Vacant') row.flags = '';
     applies.push(row);
     updated++;
   });
