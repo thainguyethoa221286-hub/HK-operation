@@ -120,9 +120,28 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
       });
     }
   });
-  if (overdueRows.length > 0) {
-    const { error: ovErr } = await supabase.from('hkpro_overdue_history').insert(overdueRows);
-    if (ovErr) console.warn('[HK PRO] Snapshot Lịch DND/RF (Đồng bộ AI) lỗi:', ovErr.message);
+  // LỊCH DND & RF (ngày ghi = HÔM QUA, vì Đồng bộ AI buổi sáng chụp lại tình trạng của ca hôm qua)
+  //  • RF : chỉ giữ đúng 1 ngày hôm qua (giống Báo cáo thay giường).
+  //  • DND: GIỮ NHIỀU NGÀY để đếm số ngày DND liên tiếp (>= 3 ngày -> cảnh báo trên Noted Board);
+  //         tự xoá khi khách trả phòng (WS báo Vacant — xem bước 2 bên dưới).
+  //  Đồng bộ lần 2 trong cùng ngày: không ghi trùng ngày hôm qua.
+  try {
+    const yOv = new Date(); yOv.setDate(yOv.getDate() - 1);
+    const yOvDMY = fmtDdMmYyyy(yOv);
+    await supabase.from('hkpro_overdue_history').delete().eq('category', 'RF').neq('date_noted', yOvDMY);
+    const { data: already } = await supabase.from('hkpro_overdue_history').select('category, room_no').eq('date_noted', yOvDMY);
+    const has = new Set((already || []).map((a: any) => a.category + '|' + a.room_no));
+    const rfDone = (already || []).some((a: any) => a.category === 'RF');
+    const toInsert = overdueRows
+      .map((r) => ({ ...r, date_noted: yOvDMY }))
+      .filter((r) => !has.has(r.category + '|' + r.room_no))
+      .filter((r) => !(r.category === 'RF' && rfDone));
+    if (toInsert.length > 0) {
+      const { error: ovErr } = await supabase.from('hkpro_overdue_history').insert(toInsert);
+      if (ovErr) console.warn('[HK PRO] Lưu Lịch DND/RF (Đồng bộ AI) lỗi:', ovErr.message);
+    }
+  } catch (err: any) {
+    console.warn('[HK PRO] Lịch DND/RF (Đồng bộ AI) lỗi:', err?.message);
   }
   // Báo cáo THAY GIƯỜNG / KHÔNG THAY GIƯỜNG: chỉ GIỮ ĐÚNG 1 NGÀY HÔM QUA.
   // VD hôm nay ngày 6 -> giữ thông tin của ngày 5, xoá mọi ngày cũ hơn (ngày 4, 3...).
@@ -227,6 +246,15 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
     applies.push(row);
     updated++;
   });
+  // Khách đã trả phòng (WS báo Vacant) -> tự xoá lịch DND/RF của phòng đó
+  const vacantIds = items.filter((it) => it.foStatus === 'Vacant').map((it) => String(it.id));
+  if (vacantIds.length > 0) {
+    try {
+      await supabase.from('hkpro_overdue_history').delete().in('room_no', vacantIds);
+    } catch (err: any) {
+      console.warn('[HK PRO] Xoá Lịch DND/RF phòng đã trả (Đồng bộ AI) lỗi:', err?.message);
+    }
+  }
   if (applies.length > 0) {
     const { error: applyErr } = await supabase.from('hkpro_rooms').upsert(applies, { onConflict: 'ma_phong' });
     if (applyErr) throw new Error('Supabase bulkUpdateFromAI (áp dữ liệu) lỗi: ' + applyErr.message);
@@ -546,6 +574,11 @@ export async function sbGetOverdueHistory(): Promise<OverdueHistoryRow[]> {
 }
 export async function sbDeleteOverdueHistoryRow(id: number): Promise<{ success: boolean }> {
   const { error } = await supabase.from('hkpro_overdue_history').delete().eq('id', id);
+  if (error) return { success: false };
+  return { success: true };
+}
+export async function sbDeleteOverdueRoom(roomNo: string, category: 'DND' | 'RF'): Promise<{ success: boolean }> {
+  const { error } = await supabase.from('hkpro_overdue_history').delete().eq('room_no', roomNo).eq('category', category);
   if (error) return { success: false };
   return { success: true };
 }
