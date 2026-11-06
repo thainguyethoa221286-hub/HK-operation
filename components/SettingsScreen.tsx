@@ -11,12 +11,21 @@ interface SettingsScreenProps {
 }
 
 export const THEME_KEY = 'hk_pro_theme';
-export const THEMES: { key: string; label: string; background: string }[] = [
+/** Lớp sao lấp lánh nhẹ cho các nền tối tông Galaxy */
+const STARS = 'radial-gradient(1px 1px at 12% 22%, rgba(255,255,255,.75), transparent 60%), radial-gradient(1px 1px at 34% 78%, rgba(255,255,255,.55), transparent 60%), radial-gradient(1.5px 1.5px at 58% 34%, rgba(255,255,255,.7), transparent 60%), radial-gradient(1px 1px at 76% 66%, rgba(255,255,255,.5), transparent 60%), radial-gradient(1.5px 1.5px at 90% 14%, rgba(255,255,255,.65), transparent 60%), radial-gradient(1px 1px at 22% 58%, rgba(255,255,255,.45), transparent 60%)';
+
+/** dark = nền tối -> chữ tiêu đề / nhãn nằm trực tiếp trên nền tự chuyển sang màu sáng (xem globals.css) */
+export const THEMES: { key: string; label: string; background: string; dark?: boolean; isNew?: boolean }[] = [
   { key: 'violet', label: 'Thiên Hà Tím', background: 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 45%, #c7d2fe 100%)' },
   { key: 'nebula', label: 'Tinh Vân Xanh', background: 'linear-gradient(135deg, #dbeafe 0%, #c7d2fe 45%, #ddd6fe 100%)' },
   { key: 'aurora', label: 'Cực Quang', background: 'linear-gradient(135deg, #ccfbf1 0%, #a7f3d0 45%, #bae6fd 100%)' },
   { key: 'sunset', label: 'Hoàng Hôn Vũ Trụ', background: 'linear-gradient(135deg, #fee2e2 0%, #fecdd3 45%, #fed7aa 100%)' },
   { key: 'slate', label: 'Đêm Sao (Mặc định)', background: 'linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)' },
+  // ---- Tông dịu mắt, làm thẻ phòng trắng nổi bật ----
+  { key: 'mist', label: 'Xám Sương', background: 'linear-gradient(135deg, #d5dae2 0%, #c3cad5 50%, #cfd2e0 100%)', isNew: true },
+  { key: 'graphite', label: 'Xám Than Thiên Hà', background: `${STARS}, linear-gradient(135deg, #2a2f38 0%, #353b46 50%, #2d2f3d 100%)`, dark: true, isNew: true },
+  { key: 'navy', label: 'Xanh Đêm Ngân Hà', background: `${STARS}, radial-gradient(ellipse at 80% 10%, rgba(99,102,241,.35), transparent 55%), linear-gradient(135deg, #0f1d3a 0%, #172a52 55%, #1b2350 100%)`, dark: true, isNew: true },
+  { key: 'void', label: 'Đen Vũ Trụ', background: `${STARS}, radial-gradient(ellipse at 15% 85%, rgba(139,92,246,.22), transparent 55%), linear-gradient(135deg, #0b0d13 0%, #141824 55%, #11131c 100%)`, dark: true, isNew: true },
 ];
 
 export default function SettingsScreen({ account }: SettingsScreenProps) {
@@ -293,7 +302,11 @@ export default function SettingsScreen({ account }: SettingsScreenProps) {
                 onClick={() => applyTheme(t.key)}
                 className={`rounded-xl border-2 p-3 text-left ${theme === t.key ? 'border-emerald-500' : 'border-slate-200'}`}
               >
-                <div className="w-full h-10 rounded-lg mb-2 border border-slate-200" style={{ background: t.background }} />
+                <div className="relative w-full h-10 rounded-lg mb-2 border border-slate-200" style={{ background: t.background }}>
+                  {t.isNew && <span className="absolute top-1 right-1 text-[8.5px] font-extrabold bg-rose-500 text-white rounded px-1.5 py-[1px]">MỚI</span>}
+                  <span className="absolute left-1.5 bottom-1.5 w-5 h-3.5 rounded-sm bg-white shadow" />
+                  <span className="absolute left-8 bottom-1.5 w-5 h-3.5 rounded-sm bg-white shadow" />
+                </div>
                 <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                   {theme === t.key && <Check className="w-3 h-3 text-emerald-600" />} {t.label}
                 </div>
