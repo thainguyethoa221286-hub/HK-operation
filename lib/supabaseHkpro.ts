@@ -93,13 +93,16 @@ export async function sbUpdateRoomFields(maPhong: string, fields: Record<string,
  *  Giai đoạn 4 (snapshot DND/RF + Báo cáo thay ga sang lịch sử "hôm qua" + xoá sạch Lịch sử
  *  kiểm phòng trong ngày) — TRƯỚC KHI xoá các field đó cho ngày mới, y hệt hành vi cũ của
  *  Code.gs (Apps Script) trên Google Sheet. */
-export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: number; notFound: string[] }> {
+/** resetFirst = true CHỈ cho LÔ ĐẦU TIÊN của 1 lần Đồng bộ AI. App gửi 55 phòng thành nhiều lô (15 phòng/lô);
+ *  nếu lô nào cũng chạy bước reset thì lô sau sẽ XOÁ MẤT dữ liệu (ghi chú EB/BBC...) vừa ghi của lô trước. */
+export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): Promise<{ updated: number; notFound: string[] }> {
   const { data: existing, error: selErr } = await supabase
     .from('hkpro_rooms')
     .select('ma_phong, ghi_chu_nv, ghi_chu_admin, loai_phong, nhan_vien_phu_trach, task_status, linen_change, flags');
   if (selErr) throw new Error('Supabase bulkUpdateFromAI (đọc) lỗi: ' + selErr.message);
   const knownRooms = new Set((existing || []).map((r: any) => r.ma_phong));
 
+  if (resetFirst) {
   // Bước 0 (Giai đoạn 4) — snapshot DND/RF đang bật (TaskStatus = 'DND'/'Refused') VÀ LinenChange
   // đã chọn sang 2 bảng lịch sử "hôm qua", TRƯỚC KHI bước 1 xoá sạch các field này cho ngày mới.
   // Đồng thời xoá sạch Lịch sử kiểm phòng (chỉ có giá trị trong ngày, y hệt Code.gs cũ xoá tab
@@ -171,6 +174,8 @@ export async function sbBulkUpdateRoomsFromAI(items: any[]): Promise<{ updated: 
   if (resets.length > 0) {
     const { error: resetErr } = await supabase.from('hkpro_rooms').upsert(resets, { onConflict: 'ma_phong' });
     if (resetErr) throw new Error('Supabase bulkUpdateFromAI (reset) lỗi: ' + resetErr.message);
+  }
+
   }
 
   // Bước 2 — áp dữ liệu PDF mới nhất
