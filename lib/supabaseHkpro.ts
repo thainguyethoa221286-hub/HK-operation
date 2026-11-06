@@ -140,6 +140,15 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
       const { error: ovErr } = await supabase.from('hkpro_overdue_history').insert(toInsert);
       if (ovErr) console.warn('[HK PRO] Lưu Lịch DND/RF (Đồng bộ AI) lỗi:', ovErr.message);
     }
+    // CHUỖI DND LIÊN TIẾP: phòng có lịch DND nhưng HÔM QUA KHÔNG còn DND (khách đã cho dọn / treo MKR)
+    // -> chuỗi đã đứt, xoá lịch DND cũ của phòng đó để số ngày luôn là số ngày DND LIÊN TIẾP.
+    // (Chạy lại trong cùng ngày vẫn an toàn: phòng còn DND hôm qua đã có dòng ngày hôm qua nên được giữ.)
+    const { data: allDnd } = await supabase.from('hkpro_overdue_history').select('room_no, date_noted').eq('category', 'DND');
+    const stillDnd = new Set((allDnd || []).filter((d: any) => d.date_noted === yOvDMY).map((d: any) => d.room_no));
+    const broken = Array.from(new Set((allDnd || []).map((d: any) => d.room_no))).filter((no) => !stillDnd.has(no));
+    if (broken.length > 0) {
+      await supabase.from('hkpro_overdue_history').delete().eq('category', 'DND').in('room_no', broken);
+    }
   } catch (err: any) {
     console.warn('[HK PRO] Lịch DND/RF (Đồng bộ AI) lỗi:', err?.message);
   }
