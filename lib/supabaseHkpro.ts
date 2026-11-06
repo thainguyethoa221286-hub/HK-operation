@@ -124,9 +124,23 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
     const { error: ovErr } = await supabase.from('hkpro_overdue_history').insert(overdueRows);
     if (ovErr) console.warn('[HK PRO] Snapshot Lịch DND/RF (Đồng bộ AI) lỗi:', ovErr.message);
   }
-  if (linenRows.length > 0) {
-    const { error: linErr } = await supabase.from('hkpro_linen_change_history').insert(linenRows);
-    if (linErr) console.warn('[HK PRO] Snapshot Báo cáo thay ga (Đồng bộ AI) lỗi:', linErr.message);
+  // Báo cáo THAY GIƯỜNG / KHÔNG THAY GIƯỜNG: chỉ GIỮ ĐÚNG 1 NGÀY HÔM QUA.
+  // VD hôm nay ngày 6 -> giữ thông tin của ngày 5, xoá mọi ngày cũ hơn (ngày 4, 3...).
+  // Đồng bộ lần 2 trong cùng ngày: KHÔNG chụp lại (tránh ghi đè/nhân đôi thông tin ngày hôm qua).
+  try {
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yesterdayDMY = fmtDdMmYyyy(y);
+    await supabase.from('hkpro_linen_change_history').delete().neq('date', yesterdayDMY);
+    const { data: kept } = await supabase.from('hkpro_linen_change_history').select('id').limit(1);
+    if (!kept || kept.length === 0) {
+      const rows = linenRows.map((r) => ({ ...r, date: yesterdayDMY }));
+      if (rows.length > 0) {
+        const { error: linErr } = await supabase.from('hkpro_linen_change_history').insert(rows);
+        if (linErr) console.warn('[HK PRO] Lưu Báo cáo thay giường hôm qua (Đồng bộ AI) lỗi:', linErr.message);
+      }
+    }
+  } catch (err: any) {
+    console.warn('[HK PRO] Báo cáo thay giường (Đồng bộ AI) lỗi:', err?.message);
   }
   // Đồng bộ AI = BẮT ĐẦU CA MỚI -> xoá sạch Lịch sử giao/nhận chìa khoá của HÔM NAY (báo cáo chìa khoá về trống).
   // (Các ngày trước vốn đã tự ẩn vì báo cáo chỉ lấy chìa khoá theo đúng ngày hôm nay.)
@@ -164,7 +178,7 @@ export async function sbBulkUpdateRoomsFromAI(items: any[], resetFirst = true): 
   const resets = (existing || []).map((r: any) => ({
     ma_phong: r.ma_phong,
     nhan_vien_phu_trach: '',
-    // Giữ lại NHÓM ĐI CÙNG (GRP:A...) qua đêm — khách đoàn ở nhiều ngày; các cờ khác xoá như cũ
+    // Giữ lại NHÓM ĐI CÙNG (GRP:A...) cho đến khi phòng thành Vacant (hết stay, ở bước 2 bên dưới); các cờ khác xoá
     flags: String(r.flags || '').split(',').map((f: string) => f.trim()).filter((f: string) => f.startsWith('GRP:')).join(','),
     // Ghi chú AI (EB/BBC/HON/DND/RF đọc từ WS) cũng XOÁ SẠCH mỗi lần đồng bộ -> chỉ còn đúng mã của WS
     // hôm nay. Trước đây không xoá: phòng hôm qua có EB mà WS hôm nay không có thì EB cũ vẫn treo lại.
