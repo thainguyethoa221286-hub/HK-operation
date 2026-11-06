@@ -528,12 +528,12 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
       {/* ===== DANH SÁCH PHÒNG CHƯA CHỌN (kho chờ) — TÁCH 2 Ô như bảng cũ:
           ô 1 = phòng DƠ chưa dọn; ô 2 = phòng SẠCH + VCI (đã kiểm tra) ===== */}
       <div className="flex items-center justify-between mb-1.5">
-        <h2 className="text-[13px] font-extrabold uppercase text-[#1f6fb8]">Danh sách phòng chưa chọn</h2>
+        <h2 className="text-[13px] font-extrabold uppercase text-[#1f6fb8] hk-on-bg-strong">Danh sách phòng chưa chọn</h2>
         {unassignedRooms.length > 0 && (
           <button
             type="button"
             onClick={() => setSelectedIds(new Set(unassignedRooms.map((r) => r.MaPhong)))}
-            className="text-[12px] font-bold text-blue-700 whitespace-nowrap flex-shrink-0"
+            className="text-[12px] font-bold text-blue-700 whitespace-nowrap flex-shrink-0 hk-on-bg-link"
           >
             Chọn tất cả
           </button>
