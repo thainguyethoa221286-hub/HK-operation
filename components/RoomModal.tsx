@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Users, User, ChevronDown, Search, Check, Pencil } from 'lucide-react';
 import type { Room, HkStatus, FoStatus, Account } from '@/lib/types';
 import { HK_STATUSES, FO_STATUSES, FLAGS } from '@/lib/types';
@@ -32,6 +32,10 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
   // BẬT MỚI (TẮT -> BẬT) trong phiên này, tránh tạo ticket trùng mỗi lần đóng modal khi phòng đã
   // đang Sửa chữa từ trước.
   const [initialFlags, setInitialFlags] = useState<string[]>([]);
+  // Giá trị LÚC MỞ bảng — khi đóng chỉ lưu những ô giám sát THẬT SỰ đổi. Trước đây lưu lại TOÀN BỘ
+  // (kể cả Tình trạng phòng) -> nếu bảng mở từ trước khi nhân viên bấm Hoàn thành, lúc đóng sẽ ghi đè
+  // "Phòng sạch" về lại "Phòng dơ" cũ => Sơ đồ báo dơ trong khi thẻ nhân viên báo Đã dọn.
+  const initRef = useRef({ hk: '', fo: '', staff: '', note: '', repairNote: '', flags: '' });
 
   useEffect(() => {
     if (!room) return;
@@ -44,6 +48,10 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
     const f = (room.Flags || '').split(',').map((f) => f.trim()).filter(Boolean);
     setFlags(f);
     setInitialFlags(f);
+    initRef.current = {
+      hk: room.HkStatus, fo: room.FoStatus, staff: room.NhanVienPhuTrach || '', note: room.GhiChuAdmin || '',
+      repairNote: room.GhiChuSuaChua || '', flags: f.join(','),
+    };
   }, [room]);
 
   if (!room) return null;
@@ -96,15 +104,16 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
 
     // Bật cờ MKR — DND/RF đã hết hiệu lực (phòng cần trang điểm/chuẩn bị, không còn từ chối/không làm phiền
     // nữa), tự động gỡ mã DND/RF khỏi CẢ 3 nguồn ghi chú để hết hẳn badge, không chỉ ẩn ở 1 chỗ.
-    const changes: Partial<Room> = {
-      HkStatus: hk,
-      FoStatus: fo,
-      NhanVienPhuTrach: staff,
-      GhiChuAdmin: note,
-      GhiChuSuaChua: repairNote,
-      Flags: flags.join(','),
-    };
-    if (flags.includes('TrangDiem')) {
+    const init = initRef.current;
+    const changes: Partial<Room> = {};
+    if (hk !== init.hk) changes.HkStatus = hk;
+    if (fo !== init.fo) changes.FoStatus = fo;
+    if (staff !== init.staff) changes.NhanVienPhuTrach = staff;
+    if (note !== init.note) changes.GhiChuAdmin = note;
+    if (repairNote !== init.repairNote) changes.GhiChuSuaChua = repairNote;
+    if (flags.join(',') !== init.flags) changes.Flags = flags.join(',');
+    // Chỉ khi VỪA BẬT MKR trong phiên này mới gỡ DND/RF (tránh ghi đè ghi chú cũ mỗi lần đóng bảng)
+    if (flags.includes('TrangDiem') && !initialFlags.includes('TrangDiem')) {
       const strip = (s: string) => removeNoteCode(removeNoteCode(s, 'DND'), 'RF');
       changes.GhiChu = strip(room.GhiChu || '');
       changes.GhiChuNV = strip(room.GhiChuNV || '');
@@ -118,7 +127,7 @@ export default function RoomModal({ room, onClose, onSave, onToggleInspecting, s
       }
     }
 
-    onSave(room.MaPhong, changes);
+    if (Object.keys(changes).length > 0) onSave(room.MaPhong, changes);
     onClose();
   };
 
