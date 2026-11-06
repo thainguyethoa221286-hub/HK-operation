@@ -27,6 +27,8 @@ export default function HomePage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [themeBackground, setThemeBackground] = useState('linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)');
+  // Nền tối (Xám Than / Xanh Đêm / Đen Vũ Trụ) -> chữ nằm trực tiếp trên nền tự sáng lên (globals.css)
+  const [themeDark, setThemeDark] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   // Mục 3 — danh sách nhân viên cho màn Phân công lấy ĐỘNG từ tab TaiKhoan, không hardcode
   const [staffList, setStaffList] = useState<string[]>([]);
@@ -73,6 +75,7 @@ export default function HomePage() {
         const saved = localStorage.getItem(THEME_KEY);
         const found = THEMES.find((t) => t.key === saved);
         setThemeBackground(found ? found.background : 'linear-gradient(135deg, #eef2ff 0%, #e2e8f0 45%, #ede9fe 100%)');
+        setThemeDark(!!found?.dark);
       } catch {}
     };
     applyThemeFromStorage();
@@ -266,7 +269,7 @@ export default function HomePage() {
   );
 
   return (
-    <div className="flex min-h-screen" style={{ background: themeBackground }}>
+    <div className="flex min-h-screen" data-bg={themeDark ? 'dark' : 'light'} style={{ background: themeBackground, backgroundAttachment: 'fixed' }}>
       {/* Desktop — Sidebar cố định, có nút thu gọn/mở rộng ở góc dưới */}
       <aside className={`print:!hidden hidden md:flex ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} bg-white border-r border-slate-200 shadow-[2px_0_12px_rgba(15,23,42,0.06)] text-slate-600 flex-shrink-0 flex-col py-4 relative transition-all duration-200 md:sticky md:top-0 md:h-screen`}>
         {SidebarContent}
@@ -284,7 +287,7 @@ export default function HomePage() {
         {/* Mobile — Header đơn giản (không còn Hamburger/Drawer, xem thanh điều hướng ngang ở cuối màn hình) */}
         <div className="md:hidden print:hidden flex items-center gap-2 mb-3">
           <span className="bg-emerald-500 text-white w-7 h-7 rounded-xl flex items-center justify-center text-xs flex-shrink-0 shadow-sm">🧹</span>
-          <span className="font-bold text-[15px]">HK OPERATION</span>
+          <span className="font-bold text-[15px] hk-on-bg-strong">HK OPERATION</span>
           <LogOut className="w-4 h-4 text-slate-400 ml-auto" onClick={handleLogout} />
         </div>
 
