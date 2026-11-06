@@ -5,9 +5,9 @@ import { isPmLabel, labelNames } from '@/lib/assignHelpers';
 import type { Room } from '@/lib/types';
 import {
   getRoomCardStyle, FoStatusIcon, FlagBadgeIcons, NoteIcons, hasDndOrRf, combineNotes, formatDateShort,
-  FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon, formatTimeOnly,
+  FO_STATUS_LABEL, stripCodesFromNote, LinenChangeIcon, formatTimeOnly, RoomGroupBadge,
 } from '@/lib/roomStyles';
-import { Pin, Zap, Check } from 'lucide-react';
+import { Zap, Check, ClipboardList } from 'lucide-react';
 
 interface RoomCardProps {
   room: Room;
@@ -87,7 +87,9 @@ function RoomCard({ room, onClick, special, dimSettled }: RoomCardProps) {
               <span className="absolute right-[3px] top-1/2 -translate-y-1/2 w-[3px] h-[3px] rounded-full bg-slate-400" />
             </span>
             <div className="flex flex-wrap items-center justify-end gap-1 min-w-0 pt-[1px]">
-              {specialNoteText && <Pin className="w-3.5 h-3.5 text-rose-500 fill-rose-100" aria-label="Ghi chú đặc biệt" />}
+              <RoomGroupBadge flags={room.Flags} big={special} />
+              {/* Ghi chú đặc biệt của giám sát -> KẸP BẢNG GHI CHÚ màu tím */}
+              {specialNoteText && <ClipboardList className={`${special ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-violet-600 fill-violet-100 flex-shrink-0`} aria-label="Ghi chú đặc biệt" />}
               {/* RUSH — chip TRÒN NHỎ chỉ có icon (không chữ) để không đè lên biển tên loại phòng.
                   MKR giờ là THẺ TREO xanh dương móc trên tay nắm cửa (xem bên dưới). */}
               {hasRush && (
