@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, X, Printer, ChevronDown, Users, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Wrench, Leaf, Moon, ArrowRight, Check } from 'lucide-react';
 import type { Room, Group } from '@/lib/types';
 import TrolleyBadge from './TrolleyBadge';
+import ConfirmDialog from './ConfirmDialog';
 import { DEFAULT_ASSIGN_GROUPS } from '@/lib/types';
 import { calculateWeightedCount, groupLabel, roomsForGroup, groupCurrentLabel, PM_GROUP_ID, PM_MOVE_ACTION, emptyPmGroup, isPmLabel, displayLabel, labelNames } from '@/lib/assignHelpers';
 import { NoteIcons, hasDndOrRf, combineNotes, checkLinenChange, removeNoteCode, formatTimeOnly, RoomGroupBadge } from '@/lib/roomStyles';
@@ -225,19 +226,25 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
   // nhân viên đã tạo (quay về danh sách nhóm mặc định). Đây là thao tác PHÁ HUỶ DỮ LIỆU, tách
   // RIÊNG hẳn khỏi nút "Làm mới" — chỉ chạy khi bấm ĐÚNG nút này VÀ xác nhận, không còn tự động
   // xảy ra khi làm mới/tải lại trang nữa (tránh mất sạch phân công ngoài ý muốn).
-  const clearAllAssignments = async () => {
-    const confirmed = window.confirm(
-      'XOÁ DỮ LIỆU: xoá TOÀN BỘ phân công phòng và các nhóm/tên nhân viên đã tạo, quay về mặc định ban đầu?\n\nHành động này KHÔNG THỂ hoàn tác.'
-    );
-    if (!confirmed) return;
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  // Bấm nút XÓA DỮ LIỆU -> mở bảng xác nhận giữa màn hình (thay hộp thông báo mặc định của trình duyệt)
+  const clearAllAssignments = () => setClearConfirmOpen(true);
+  const doClearAll = async () => {
+    setClearing(true);
     const assignedIds = rooms.filter((r) => r.NhanVienPhuTrach).map((r) => r.MaPhong);
     setRooms((prev) => prev.map((r) => (assignedIds.includes(r.MaPhong) ? { ...r, NhanVienPhuTrach: '' } : r)));
     setGroups(DEFAULT_ASSIGN_GROUPS);
     setSelectedIds(new Set());
-    await Promise.all([
-      ...assignedIds.map((id) => updateRoomField(id, 'NhanVienPhuTrach', '')),
-      saveAssignGroups(DEFAULT_ASSIGN_GROUPS),
-    ]);
+    try {
+      await Promise.all([
+        ...assignedIds.map((id) => updateRoomField(id, 'NhanVienPhuTrach', '')),
+        saveAssignGroups(DEFAULT_ASSIGN_GROUPS),
+      ]);
+    } finally {
+      setClearing(false);
+      setClearConfirmOpen(false);
+    }
   };
 
   const handlePrintAll = () => window.print();
@@ -867,6 +874,22 @@ export default function AssignScreen({ rooms, setRooms, staffList }: AssignScree
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        title="Xoá toàn bộ dữ liệu phân công?"
+        points={[
+          `${rooms.filter((r) => r.NhanVienPhuTrach).length} phòng đã phân công sẽ trả về Danh sách phòng chưa chọn.`,
+          'Các nhóm, tên nhân viên và nhiệm vụ phụ quay về mặc định ban đầu.',
+          'Tình trạng phòng, giờ dọn và báo cáo KHÔNG bị ảnh hưởng.',
+        ]}
+        warning="Thao tác này không thể hoàn tác"
+        confirmLabel="Xoá dữ liệu"
+        cancelLabel="Huỷ"
+        busy={clearing}
+        onConfirm={doClearAll}
+        onCancel={() => setClearConfirmOpen(false)}
+      />
 
       {/* Thanh gán nhanh — hiện khi đang chọn phòng: bấm vào nhóm để gán cả loạt phòng đã chọn */}
       {selectedIds.size > 0 && (
