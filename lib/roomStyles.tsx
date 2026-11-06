@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart, Star } from 'lucide-react';
+import { PlaneLanding, PlaneTakeoff, BedDouble, Bell, PenTool, Wrench, BedSingle, Baby, Wine, Home, DoorOpen, Sparkles, CalendarRange, CalendarHeart, Leaf, Users } from 'lucide-react';
 import type { HkStatus, FoStatus } from './types';
 
 /* =========================================================
@@ -381,8 +381,8 @@ export function LsgBadge({ note, ngayO }: { note: string; ngayO?: string | null 
 /* =========================================================
    MỤC MỚI — BÁO LỊCH THAY GA GIƯỜNG (STAR LINEN CHANGE INDICATOR)
    Icon đặt KẾ BÊN SỐ PHÒNG khi hôm nay đúng lịch thay ga, CHỈ áp dụng phòng Occupied (xem
-   checkLinenChange() ở trên). Dùng icon Star (ngôi sao vàng) từ lucide-react, tô màu
-   text-amber-400 fill-amber-400 — thay thế hoàn toàn icon cái gối tự vẽ trước đây.
+   checkLinenChange() ở trên). Dùng icon Leaf (CHIẾC LÁ XANH) từ lucide-react — biểu tượng
+   thay ga quen thuộc ở nhiều khách sạn — thay thế hoàn toàn icon cái gối tự vẽ trước đây.
    ========================================================= */
 
 /** Badge ĐẦY ĐỦ (nền + icon sao vàng + Tooltip) — dùng ở Thẻ công việc nhân viên (RoomTaskCard) và
@@ -392,8 +392,8 @@ export function LinenChangeBadge({ room }: { room: { FoStatus: string; NgayO?: s
   const checkInShort = formatDateShort(room.NgayO);
   return (
     <HoverTip tip={`Hôm nay đến lịch thay ga/gối (Check-in ngày: ${checkInShort || '—'})`}>
-      <span className="bg-indigo-100 text-indigo-700 p-1 rounded-md text-xs inline-flex items-center gap-1 font-semibold border border-indigo-200">
-        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+      <span className="bg-emerald-50 text-emerald-700 p-1 rounded-md text-xs inline-flex items-center gap-1 font-semibold border border-emerald-200">
+        <Leaf className="w-3.5 h-3.5 text-emerald-600 fill-emerald-400" />
       </span>
     </HoverTip>
   );
@@ -405,10 +405,10 @@ export function LinenChangeIcon({ room }: { room: { FoStatus: string; NgayO?: st
   if (!checkLinenChange(room)) return null;
   return (
     <span
-      className="bg-indigo-100 text-indigo-700 p-1 rounded-md inline-flex items-center border border-indigo-200"
+      className="bg-emerald-50 text-emerald-700 p-1 rounded-md inline-flex items-center border border-emerald-200"
       aria-label="Hôm nay đến lịch thay ga giường"
     >
-      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+      <Leaf className="w-3 h-3 text-emerald-600 fill-emerald-400" />
     </span>
   );
 }
@@ -544,4 +544,51 @@ export function formatElapsed(totalSeconds: number): string {
   const mm = Math.floor(totalSeconds / 60);
   const ss = totalSeconds % 60;
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+
+/* =========================================================
+   NHÓM PHÒNG ĐI CÙNG NHAU (khách đoàn / gia đình đặt nhiều phòng)
+   - Lưu trong Flags dạng "GRP:A" (A–F). Giám sát chọn ở bảng chi tiết phòng (Sơ đồ phòng).
+   - Được GIỮ qua Đồng bộ AI mỗi sáng (khách đoàn ở nhiều ngày); tự bỏ khi phòng thành Vacant.
+   - Mỗi nhóm 1 màu: các phòng cùng màu + cùng chữ cái = đi chung với nhau.
+   ========================================================= */
+export const ROOM_GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+export const ROOM_GROUP_TONE: Record<string, { solid: string; soft: string; ring: string }> = {
+  A: { solid: 'bg-teal-500 text-white', soft: 'bg-teal-50 text-teal-700 border-teal-200', ring: 'ring-teal-400' },
+  B: { solid: 'bg-sky-500 text-white', soft: 'bg-sky-50 text-sky-700 border-sky-200', ring: 'ring-sky-400' },
+  C: { solid: 'bg-pink-500 text-white', soft: 'bg-pink-50 text-pink-700 border-pink-200', ring: 'ring-pink-400' },
+  D: { solid: 'bg-indigo-500 text-white', soft: 'bg-indigo-50 text-indigo-700 border-indigo-200', ring: 'ring-indigo-400' },
+  E: { solid: 'bg-lime-600 text-white', soft: 'bg-lime-50 text-lime-700 border-lime-200', ring: 'ring-lime-400' },
+  F: { solid: 'bg-amber-500 text-white', soft: 'bg-amber-50 text-amber-800 border-amber-200', ring: 'ring-amber-400' },
+};
+export const GROUP_FLAG_PREFIX = 'GRP:';
+
+/** Lấy mã nhóm đi cùng ("A".."F") từ Flags — rỗng nếu phòng không thuộc nhóm nào */
+export function getRoomGroup(flags: string | string[] | null | undefined): string {
+  const list = Array.isArray(flags) ? flags : (flags || '').split(',');
+  const f = list.map((x) => x.trim()).find((x) => x.startsWith(GROUP_FLAG_PREFIX));
+  return f ? f.slice(GROUP_FLAG_PREFIX.length) : '';
+}
+/** Đặt / bỏ nhóm đi cùng trong danh sách Flags (giữ nguyên các cờ khác) */
+export function withRoomGroup(list: string[], code: string): string[] {
+  const rest = list.filter((x) => !x.startsWith(GROUP_FLAG_PREFIX));
+  return code ? [...rest, GROUP_FLAG_PREFIX + code] : rest;
+}
+
+/** Biểu tượng NHÓM ĐI CÙNG trên thẻ phòng: icon 2 người + chữ cái nhóm, nền màu của nhóm */
+export function RoomGroupBadge({ flags, big }: { flags: string; big?: boolean }) {
+  const code = getRoomGroup(flags);
+  if (!code) return null;
+  const tone = ROOM_GROUP_TONE[code] || ROOM_GROUP_TONE.A;
+  return (
+    <span
+      title={`Nhóm đi cùng ${code}`}
+      aria-label={`Nhóm đi cùng ${code}`}
+      className={`inline-flex items-center gap-[2px] rounded-full font-extrabold leading-none shadow-sm flex-shrink-0 ${tone.solid} ${big ? 'text-[11px] px-1.5 py-[3px]' : 'text-[9px] px-1 py-[2px]'}`}
+    >
+      <Users className={big ? 'w-3 h-3' : 'w-2.5 h-2.5'} strokeWidth={2.75} />
+      {code}
+    </span>
+  );
 }
