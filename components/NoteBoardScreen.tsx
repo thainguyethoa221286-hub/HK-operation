@@ -1,23 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClipboardList, Trash2 } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import type { Room, OverdueHistoryRow, SupplyBoardItem, LinenChangeHistoryRow } from '@/lib/types';
 import { SUPPLY_LABELS } from '@/lib/types';
 import ProjectorBoard from './ProjectorBoard';
+import OverdueBoard from './OverdueBoard';
+import { isPastDeparture } from '@/lib/roomStyles';
 import {
-  getOverdueHistory, deleteOverdueHistoryRow, clearOverdueHistory,
+  getOverdueHistory, deleteOverdueRoom, clearOverdueHistory,
   getSuppliesBoard, updateSupplyItem, getLinenChangeHistory,
 } from '@/lib/api';
 
 interface NoteBoardScreenProps {
   rooms: Room[];
 }
-
-const CATEGORY_LABEL: Record<string, { label: string; cls: string }> = {
-  DND: { label: 'DND', cls: 'bg-red-100 text-red-700' },
-  RF: { label: 'RF', cls: 'bg-purple-100 text-purple-700' },
-};
 
 export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
   const [overdue, setOverdue] = useState<OverdueHistoryRow[]>([]);
@@ -32,17 +29,32 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
   };
   useEffect(() => { refreshAll(); }, []);
 
-  const handleDeleteOverdue = async (id: number) => {
-    setOverdue((prev) => prev.filter((o) => o.id !== id));
-    await deleteOverdueHistoryRow(id);
+  const handleDeleteOverdueRoom = async (roomNo: string, category: 'DND' | 'RF') => {
+    setOverdue((prev) => prev.filter((o) => !(o.roomNo === roomNo && o.category === category)));
+    await deleteOverdueRoom(roomNo, category);
   };
+
+  // TỰ XOÁ lịch DND/RF của phòng khách ĐÃ TRẢ PHÒNG: phòng đang Vacant, hoặc đã qua ngày Check-out
+  useEffect(() => {
+    if (loading || overdue.length === 0 || rooms.length === 0) return;
+    const roomMap = new Map(rooms.map((r) => [r.MaPhong, r]));
+    const gone = new Set<string>();
+    overdue.forEach((o) => {
+      const r = roomMap.get(o.roomNo);
+      if (r && (r.FoStatus === 'Vacant' || isPastDeparture(r.NgayO))) gone.add(o.category + '|' + o.roomNo);
+    });
+    gone.forEach((k) => {
+      const [cat, roomNo] = k.split('|');
+      handleDeleteOverdueRoom(roomNo, cat as 'DND' | 'RF');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, overdue.length, rooms]);
   const handleClearOverdue = async () => {
     if (!window.confirm('Xoá TOÀN BỘ lịch sử DND/RF? Không thể hoàn tác.')) return;
     setOverdue([]);
     await clearOverdueHistory();
   };
-  const overdueByCategory = (cat: string) => overdue.filter((o) => o.category === cat);
-
+  
   // Báo cáo lịch thay giường — GỘP cả "hôm qua" (snapshot từ Sheet, ghi lúc Đồng bộ AI) VÀ
   // "hôm nay" (đang chọn trực tiếp trên phòng ngay lúc này, tính trực tiếp từ rooms, real-time).
   const todayDMY = () => {
@@ -81,38 +93,7 @@ export default function NoteBoardScreen({ rooms }: NoteBoardScreenProps) {
       </h1>
 
       <div className="space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-800">Lịch DND &amp; RF (hôm qua)</h2>
-            <button onClick={handleClearOverdue} className="flex items-center gap-1.5 text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
-              <Trash2 className="w-3.5 h-3.5" /> Xoá tất cả lịch sử
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(['DND', 'RF'] as const).map((cat) => (
-              <div key={cat} className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className={`px-3 py-2 text-[12px] font-bold ${CATEGORY_LABEL[cat].cls}`}>{CATEGORY_LABEL[cat].label}</div>
-                {overdueByCategory(cat).length === 0 ? (
-                  <div className="text-[12px] text-slate-400 text-center py-4">Trống</div>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {overdueByCategory(cat).map((o) => (
-                      <div key={o.id} className="flex items-center justify-between px-3 py-2">
-                        <div>
-                          <div className="font-bold text-slate-700 text-[13px]">{o.roomNo}</div>
-                          <div className="text-[10px] text-slate-400">{o.dateNoted}</div>
-                        </div>
-                        <button onClick={() => handleDeleteOverdue(o.id)} className="text-red-500 bg-red-50 rounded-lg p-1">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <OverdueBoard rows={overdue} rooms={rooms} onDeleteRoom={handleDeleteOverdueRoom} onClearAll={handleClearOverdue} />
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h2 className="text-lg font-bold text-slate-800 mb-1">Báo cáo lịch thay ga/giường</h2>
