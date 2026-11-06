@@ -71,6 +71,7 @@ Trường "note" CHỈ ĐƯỢC PHÉP chứa duy nhất các mã sau, không đ�
    - "HON" (Honeymoon / trăng mật)
    - "DND" (Do Not Disturb / thẻ treo cửa không làm phiền)
    - "RF" (Refuse Service / thẻ treo cửa từ chối dọn phòng)
+NGUỒN DUY NHẤT của note là ô "Special Service (Inhouse / Arrival)" và "Notices" NẰM TRÊN CÙNG 1 HÀNG (cùng ô kẻ bảng) với số phòng đó. VD ô của phòng 502 ghi "220494 / IH: 1 / BBC" -> note phòng 502 = "BBC". TUYỆT ĐỐI KHÔNG lấy mã của hàng trên/hàng dưới, không suy đoán theo loại phòng, không "mang" mã từ phòng khác sang. Phòng nào ô Special Service TRỐNG thì note = "" (VD phòng 614, 777 có ô Special Service trống -> note = "").
 Ghi các mã tìm được vào trường "note", cách nhau bởi dấu phẩy (VD: "EB, HON" hoặc "DND"). Nếu không có mã nào trong 5 mã trên xuất hiện, để note = "".
 TUYỆT ĐỐI KHÔNG trích tên khách (Guest), số phòng, mã I/O, hay bất kỳ chữ/số nào khác ngoài 5 mã trên vào trường note. KHÔNG ghi ngày tháng vào trường note — ngày tháng chỉ nằm ở trường "date" riêng.
 
