@@ -14,7 +14,7 @@ import { buildExtraTasks, getExtraTaskHistory, logExtraTask, EXTRA_ACT, type Ext
 import { nowTimeStr, diffMinutes } from '@/lib/roomStyles';
 import { updateRoomFields, getKeyLogs, borrowKey, returnKey, getInspectionLogs, getBroadcastTask, completeBroadcastTask } from '@/lib/api';
 import type { InspectionLogRow, BroadcastTaskData } from '@/lib/types';
-import { TASK_STATUS_STYLE, formatTimeOnly, removeNoteCode } from '@/lib/roomStyles';
+import { TASK_STATUS_STYLE, formatTimeOnly, removeNoteCode, elapsedSecondsSince } from '@/lib/roomStyles';
 import { ShoppingCart, AirVent, Lock } from 'lucide-react';
 
 const SETTLED_STATUSES = ['Hoàn thành', 'Refused', 'DND'];
@@ -162,6 +162,18 @@ export default function TaskScreen({ rooms, setRooms, account }: TaskScreenProps
         GhiChuNV: strip(r.GhiChuNV),
         GhiChuAdmin: strip(r.GhiChuAdmin),
       }).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms]);
+
+  // TỰ KHỚP với Sơ đồ phòng: phòng đang "Hoàn thành" nhưng Sơ đồ (giám sát) báo "Phòng dơ" -> Sơ đồ là
+  // chuẩn, trả nhiệm vụ về "Chưa dọn" để thẻ nhân viên trắng lại và dọn lại. (Chỉ áp dụng khi đã xong từ
+  // hơn 2 phút, tránh nhầm lúc dữ liệu đang lưu dở ngay sau khi bấm Hoàn thành.)
+  useEffect(() => {
+    rooms.forEach((r) => {
+      if (r.TaskStatus !== 'Hoàn thành' || r.HkStatus !== 'Phòng dơ') return;
+      if (r.EndTime && elapsedSecondsSince(r.EndTime) < 120) return;
+      handleUpdate(r.MaPhong, { TaskStatus: 'Chưa dọn', StartTime: '', EndTime: '', Duration: '' }).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rooms]);
